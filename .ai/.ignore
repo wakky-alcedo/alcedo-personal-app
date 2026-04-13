@@ -1,0 +1,27 @@
+# ---- バイナリ・メディアファイル（テキストでないので除外） ----
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+*.mp4
+*.mov
+*.zip
+*.tar.gz
+*.7z
+*.exe
+*.dll
+
+# ---- Git・IDE 関連 ----
+**/.git/
+**/.vscode/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+
+# ---- ビルド成果物 ----
+**/build/
+**/dist/
+**/.pio/
+
