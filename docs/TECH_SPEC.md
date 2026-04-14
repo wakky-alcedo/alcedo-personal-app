@@ -91,7 +91,7 @@
 4. obsidian_buffer
 - Shared Intent 受領
 - バッファ編集
-- 送信状態管理（未送信/送信中/送信済/失敗）
+- 送信状態管理（未送信/送信中/送信済/失敗/再試行中）
 
 5. telemetry
 - UsageStats 収集
@@ -165,7 +165,7 @@
 - title: string?
 - body: text
 - tags: string(json)
-- status: enum(pending, syncing, synced, failed)
+- status: enum(pending, syncing, retrying, synced, failed)
 - dedupe_hash: string
 - retry_count: int
 - last_error: string?
@@ -299,7 +299,11 @@
 - SNS使用時間 >= 60分/日 で警告
 
 3. レポート単位
-- 日次/週次/月次
+- 週次/月次（日次と目標達成率は Phase2 で追加）
+
+4. カテゴリ設計
+- 初期テンプレート（学習/SNS/娯楽/移動/その他）を提供
+- 一部カテゴリ名とマッピングをユーザー編集可能
 
 ## 13. セキュリティ仕様
 1. Android
@@ -327,21 +331,27 @@
 
 ## 15. リリース段階
 ### Phase 1 (MVP)
-- 信念/タスク/習慣の基本機能
-- Shared Intent -> バッファ -> PC同期 -> Obsidian追記 -> Git commit
-- 日次ダッシュボード
+- 信念の表示と編集
+- タスクの基本的なCRUD操作
+- 習慣の記録とストリーク表示
+- 信念，タスク，習慣の同期
 
 ### Phase 2
+- 日次ダッシュボード
 - 週次/月次分析強化
+- 日次レポートと目標達成率
+- Shared Intent -> バッファ -> PC同期 -> Obsidian追記 -> Git commit
 - Google カレンダー / Google マップ / HomeAssistant 連携
 
 ### Phase 3
 - X 投稿代行
 
 ## 16. 既知の未確定事項
+0. Obsidian連携の完了定義（PC受信ACKまで / Vault追記完了まで / Git commit完了まで）は後回し
 1. Google マップ履歴連携方式（公式API制約の精査が必要）
 2. HomeAssistant 連携方法（Webhook/API token運用方針）
 3. Web Push 採用有無（PC Webの通知設計）
+4. X投稿代行のMVPでの表示/非表示方針（後回し）
 
 ## 17. 公式リファレンス
 1. Android App Widgets
