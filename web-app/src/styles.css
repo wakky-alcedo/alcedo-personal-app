@@ -34,10 +34,13 @@ main { display: grid; gap: 16px; }
 .belief-form textarea, .belief-editor textarea { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
 .new-task { grid-template-columns: repeat(5, minmax(0, 1fr)) auto; align-items: center; }
 .new-task input, .new-task select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
-.habit-form { grid-template-columns: 2fr 1fr 1fr 1fr auto auto; align-items: center; }
-.habit-form input { width: 100%; }
+.habit-form { grid-template-columns: 2fr 1fr 1fr 1fr auto auto; align-items: end; }
+.habit-form input[type="text"], .habit-form input:not([type]) { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
 .habit-quick-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.habit-quick-card { text-align: left; border: 0; cursor: pointer; padding: 12px; border-radius: 10px; background: linear-gradient(180deg,#fff,#fbfbff); box-shadow: var(--shadow-sm); }
+.habit-quick-card { text-align: left; border: 0; cursor: pointer; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.92); box-shadow: var(--shadow-sm); color: var(--text-primary); }
+.habit-quick-card.done { opacity: 0.6; cursor: default; }
+.habit-quick-name { font-weight: 600; font-size: 14px; }
+.habit-quick-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .task-list, .belief-list, .habit-list { list-style:none; padding:0; margin: 0; display:grid; gap: 10px; }
 .task-list li, .belief-row, .habit-row { padding:12px; border:1px solid #eef3ff; border-radius: var(--radius); background: var(--card-bg); display:grid; gap: 10px; }
 .task-list li.done { opacity:0.7; transform: translateY(0); }
@@ -87,3 +90,15 @@ input, textarea, select { font: inherit; }
 }
 
 .habit-featured { gap: 12px; }
+.habit-check-indicator { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #c7d7f5; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: transparent; flex-shrink: 0; }
+.habit-check-indicator.completed { background: #22c55e; border-color: #22c55e; color: #fff; }
+.habit-streak-badge { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.habit-row-name { flex: 1; font-weight: 600; }
+.habit-name-input { flex: 1; padding: 2px 6px; border-radius: 6px; border: 1px solid #dbe7ff; font: inherit; font-weight: 600; }
+.habit-secondary-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 4px; }
+.habit-field { display: flex; flex-direction: column; gap: 3px; }
+.field-label { font-size: 11px; color: var(--text-muted); }
+.habit-field input[type="time"] { padding: 4px 8px; border-radius: 6px; border: 1px solid #e6edf8; font: inherit; font-size: 13px; }
+.belief-text { flex: 1; white-space: pre-wrap; word-break: break-word; font-weight: 600; }
+.collapse-toggle { background: transparent; border: 0; padding: 2px 0; color: var(--text-muted); font-size: 13px; cursor: pointer; text-align: left; }
+.collapse-toggle:hover { color: var(--text-primary); }

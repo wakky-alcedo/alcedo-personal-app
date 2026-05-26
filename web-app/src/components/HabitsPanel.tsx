@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { checkInHabit, createHabit, deleteHabit, getHabits, updateHabit, type Habit, type HabitInput } from '../api.ts'
 
 type Props = {
@@ -6,16 +6,46 @@ type Props = {
   apiKey: string
 }
 
-function HabitRow({ habit, onSave, onDelete, onCheckIn }: { habit: Habit; onSave: (habit: Habit) => Promise<void>; onDelete: (habit: Habit) => Promise<void>; onCheckIn: (habit: Habit) => Promise<void> }) {
+function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
+  habit: Habit
+  onSave: (habit: Habit) => Promise<void>
+  onDelete: (habit: Habit) => Promise<void>
+  onCheckIn: (habit: Habit) => Promise<void>
+}) {
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [name, setName] = useState(habit.name)
   const [notifyTime, setNotifyTime] = useState(habit.notifyTime ?? '')
   const [priorityStart, setPriorityStart] = useState(habit.widgetPriorityTimeRangeStart ?? '')
   const [priorityEnd, setPriorityEnd] = useState(habit.widgetPriorityTimeRangeEnd ?? '')
   const [isActive, setIsActive] = useState(habit.isActive)
+  const rowRef = useRef<HTMLLIElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const cancelledRef = useRef(false)
 
-  async function save() {
+  useEffect(() => {
+    if (!menuOpen) return
+    function handlePointerDown(e: PointerEvent) {
+      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [menuOpen])
+
+  function cancel() {
+    cancelledRef.current = true
+    setName(habit.name)
+    setNotifyTime(habit.notifyTime ?? '')
+    setPriorityStart(habit.widgetPriorityTimeRangeStart ?? '')
+    setPriorityEnd(habit.widgetPriorityTimeRangeEnd ?? '')
+    setIsActive(habit.isActive)
+    setEditing(false)
+    setTimeout(() => { cancelledRef.current = false }, 0)
+  }
+
+  async function commitSave() {
+    if (!name.trim()) return
     setBusy(true)
     try {
       await onSave({
@@ -32,58 +62,104 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: { habit: Habit; onSave
     }
   }
 
+  function handleBlur() {
+    setTimeout(() => {
+      if (cancelledRef.current) return
+      if (!editorRef.current?.contains(document.activeElement)) void commitSave()
+    }, 0)
+  }
+
   async function remove() {
     if (!window.confirm(`Delete habit: ${habit.name}?`)) return
     setBusy(true)
-    try {
-      await onDelete(habit)
-    } finally {
-      setBusy(false)
-    }
+    try { await onDelete(habit) } finally { setBusy(false) }
   }
 
   async function doneToday() {
     setBusy(true)
-    try {
-      await onCheckIn(habit)
-    } finally {
-      setBusy(false)
-    }
+    try { await onCheckIn(habit) } finally { setBusy(false) }
   }
 
   return (
-    <li className={`habit-row${habit.isActive ? '' : ' inactive'}`}>
+    <li ref={rowRef} className={`habit-row${habit.isActive ? '' : ' inactive'}`}>
       {!editing ? (
-        <>
-          <div>
-            <button type="button" className="link-button task-node-title" onClick={() => setEditing(true)}>{habit.name}</button>
-            <div className="meta">
-              {habit.id} • {habit.isActive ? 'active' : 'inactive'} • notify: {habit.notifyTime || 'none'} • streak: {habit.streakDays} day(s)
-            </div>
-            <div className="description">
-              {habit.completedToday ? 'Done today' : 'Not done today'}
-              {habit.lastDoneDate ? ` • last done: ${habit.lastDoneDate}` : ''}
-            </div>
+        <div className="task-node-body">
+          <div className="task-node-head">
+            <span className={`habit-check-indicator${habit.completedToday ? ' completed' : ''}`}>✓</span>
+            <button
+              type="button"
+              className="link-button task-node-title habit-row-name"
+              onClick={() => setEditing(true)}
+            >
+              {habit.name}
+            </button>
+            {habit.streakDays > 0 && (
+              <span className="habit-streak-badge">🔥 {habit.streakDays}</span>
+            )}
+            <button
+              type="button"
+              className="task-node-menu-button"
+              onClick={() => setMenuOpen(v => !v)}
+              disabled={busy}
+              aria-label={`Actions for ${habit.name}`}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              ⋯
+            </button>
           </div>
-          <div className="actions">
-            <button type="button" onClick={doneToday} disabled={busy || habit.completedToday}>Done today</button>
-            <button type="button" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
-            <button type="button" onClick={remove} disabled={busy}>Delete</button>
-          </div>
-        </>
+          {menuOpen && (
+            <div className="task-node-menu" role="menu">
+              {!habit.completedToday && (
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); void doneToday() }} disabled={busy}>
+                  Done today
+                </button>
+              )}
+              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setEditing(true) }} disabled={busy}>
+                Edit
+              </button>
+              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); void remove() }} disabled={busy}>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
-        <div className="habit-editor">
-          <input value={name} onChange={e => setName(e.target.value)} />
-          <input type="time" value={notifyTime} onChange={e => setNotifyTime(e.target.value)} />
-          <input type="time" value={priorityStart} onChange={e => setPriorityStart(e.target.value)} />
-          <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} />
-          <label className="checkbox-row">
-            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-            active
-          </label>
+        <div ref={editorRef} className="habit-editor">
+          <div className="task-node-head">
+            <span className={`habit-check-indicator${isActive ? '' : ''}`}>✓</span>
+            <input
+              autoFocus
+              className="habit-name-input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); void commitSave() }
+                if (e.key === 'Escape') { e.preventDefault(); cancel() }
+              }}
+              onBlur={handleBlur}
+            />
+          </div>
+          <div className="habit-secondary-fields">
+            <label className="habit-field">
+              <span className="field-label">通知時刻</span>
+              <input type="time" value={notifyTime} onChange={e => setNotifyTime(e.target.value)} onBlur={handleBlur} />
+            </label>
+            <label className="habit-field">
+              <span className="field-label">ウィジェット優先 開始</span>
+              <input type="time" value={priorityStart} onChange={e => setPriorityStart(e.target.value)} onBlur={handleBlur} />
+            </label>
+            <label className="habit-field">
+              <span className="field-label">ウィジェット優先 終了</span>
+              <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} onBlur={handleBlur} />
+            </label>
+            <label className="checkbox-row habit-field">
+              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+              <span className="field-label">active</span>
+            </label>
+          </div>
           <div className="actions">
-            <button type="button" onClick={save} disabled={busy}>Save</button>
-            <button type="button" onClick={() => setEditing(false)} disabled={busy}>Cancel</button>
+            <button type="button" onClick={cancel} disabled={busy}>Cancel</button>
           </div>
         </div>
       )}
@@ -94,6 +170,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: { habit: Habit; onSave
 export default function HabitsPanel({ serverUrl, apiKey }: Props) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [loading, setLoading] = useState(false)
+  const [listOpen, setListOpen] = useState(false)
   const [name, setName] = useState('')
   const [notifyTime, setNotifyTime] = useState('')
   const [priorityStart, setPriorityStart] = useState('')
@@ -113,11 +190,9 @@ export default function HabitsPanel({ serverUrl, apiKey }: Props) {
     }
   }
 
-  useEffect(() => {
-    refresh()
-  }, [serverUrl, apiKey])
+  useEffect(() => { refresh() }, [serverUrl, apiKey])
 
-  const quickHabits = useMemo(() => habits.filter(habit => habit.isActive).slice(0, 3), [habits])
+  const quickHabits = useMemo(() => habits.filter(h => h.isActive).slice(0, 3), [habits])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -138,20 +213,9 @@ export default function HabitsPanel({ serverUrl, apiKey }: Props) {
     await refresh()
   }
 
-  async function handleSave(habit: Habit) {
-    await updateHabit(serverUrl, apiKey, habit)
-    await refresh()
-  }
-
-  async function handleDelete(habit: Habit) {
-    await deleteHabit(serverUrl, apiKey, habit)
-    await refresh()
-  }
-
-  async function handleCheckIn(habit: Habit) {
-    await checkInHabit(serverUrl, apiKey, habit)
-    await refresh()
-  }
+  async function handleSave(habit: Habit) { await updateHabit(serverUrl, apiKey, habit); await refresh() }
+  async function handleDelete(habit: Habit) { await deleteHabit(serverUrl, apiKey, habit); await refresh() }
+  async function handleCheckIn(habit: Habit) { await checkInHabit(serverUrl, apiKey, habit); await refresh() }
 
   return (
     <section className="habits-panel">
@@ -170,36 +234,56 @@ export default function HabitsPanel({ serverUrl, apiKey }: Props) {
               <button
                 key={habit.id}
                 type="button"
-                className="habit-quick-card"
+                className={`habit-quick-card${habit.completedToday ? ' done' : ''}`}
                 onClick={() => handleCheckIn(habit)}
                 disabled={loading || habit.completedToday}
               >
-                <div className="title">{habit.name}</div>
-                <div className="meta">streak: {habit.streakDays} • {habit.completedToday ? 'done today' : 'tap to complete'}</div>
+                <div className="habit-quick-name">{habit.name}</div>
+                <div className="habit-quick-meta">
+                  {habit.streakDays > 0 ? `🔥 ${habit.streakDays}  ` : ''}
+                  {habit.completedToday ? '✓ done' : 'tap to complete'}
+                </div>
               </button>
             ))
           )}
         </div>
       </div>
 
-      <form className="habit-form" onSubmit={handleCreate}>
-        <input placeholder="New habit name" value={name} onChange={e => setName(e.target.value)} />
-        <input type="time" value={notifyTime} onChange={e => setNotifyTime(e.target.value)} />
-        <input type="time" value={priorityStart} onChange={e => setPriorityStart(e.target.value)} />
-        <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} />
-        <label className="checkbox-row">
-          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-          active
-        </label>
-        <button type="submit" disabled={loading}>Add Habit</button>
-      </form>
+      <button type="button" className="collapse-toggle" onClick={() => setListOpen(v => !v)}>
+        {listOpen ? '▾' : '▸'} All habits ({habits.length})
+      </button>
 
-      {loading ? <div>Loading...</div> : null}
-      <ul className="habit-list">
-        {habits.map(habit => (
-          <HabitRow key={habit.id} habit={habit} onSave={handleSave} onDelete={handleDelete} onCheckIn={handleCheckIn} />
-        ))}
-      </ul>
+      {listOpen && (
+        <>
+          <form className="habit-form" onSubmit={handleCreate}>
+            <input placeholder="New habit name" value={name} onChange={e => setName(e.target.value)} />
+            <label className="habit-field">
+              <span className="field-label">通知時刻</span>
+              <input type="time" value={notifyTime} onChange={e => setNotifyTime(e.target.value)} />
+            </label>
+            <label className="habit-field">
+              <span className="field-label">ウィジェット優先 開始</span>
+              <input type="time" value={priorityStart} onChange={e => setPriorityStart(e.target.value)} />
+            </label>
+            <label className="habit-field">
+              <span className="field-label">ウィジェット優先 終了</span>
+              <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} />
+            </label>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+              active
+            </label>
+            <button type="submit" disabled={loading}>Add Habit</button>
+          </form>
+
+          {loading ? <div>Loading...</div> : null}
+          <ul className="habit-list">
+            {habits.map(habit => (
+              <HabitRow key={habit.id} habit={habit} onSave={handleSave} onDelete={handleDelete} onCheckIn={handleCheckIn} />
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createBelief, deleteBelief, getBeliefs, updateBelief, type Belief } from '../api.ts'
 
 type Props = {
@@ -6,11 +6,26 @@ type Props = {
   apiKey: string
 }
 
-function BeliefRow({ belief, onSave, onDelete }: { belief: Belief; onSave: (belief: Belief) => Promise<void>; onDelete: (belief: Belief) => Promise<void> }) {
+function BeliefRow({ belief, onSave, onDelete }: {
+  belief: Belief
+  onSave: (belief: Belief) => Promise<void>
+  onDelete: (belief: Belief) => Promise<void>
+}) {
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [text, setText] = useState(belief.text)
   const [isActive, setIsActive] = useState(belief.isActive)
+  const rowRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function handlePointerDown(e: PointerEvent) {
+      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [menuOpen])
 
   async function save() {
     setBusy(true)
@@ -33,18 +48,36 @@ function BeliefRow({ belief, onSave, onDelete }: { belief: Belief; onSave: (beli
   }
 
   return (
-    <li className={`belief-row${belief.isActive ? '' : ' inactive'}`}>
+    <li ref={rowRef} className={`belief-row${belief.isActive ? '' : ' inactive'}`}>
       {!editing ? (
-        <>
-          <div>
-            <button type="button" className="link-button task-node-title" onClick={() => setEditing(true)}>{belief.text}</button>
-            <div className="meta">{belief.id} • {belief.isActive ? 'active' : 'inactive'}</div>
+        <div className="task-node-body">
+          <div className="task-node-head">
+            <button type="button" className="link-button task-node-title belief-text" onClick={() => setEditing(true)}>
+              {belief.text}
+            </button>
+            <button
+              type="button"
+              className="task-node-menu-button"
+              onClick={() => setMenuOpen(v => !v)}
+              disabled={busy}
+              aria-label="Actions for belief"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              ⋯
+            </button>
           </div>
-          <div className="actions">
-            <button type="button" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
-            <button type="button" onClick={remove} disabled={busy}>Delete</button>
-          </div>
-        </>
+          {menuOpen && (
+            <div className="task-node-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setEditing(true) }} disabled={busy}>
+                Edit
+              </button>
+              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); void remove() }} disabled={busy}>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="belief-editor">
           <textarea value={text} onChange={e => setText(e.target.value)} rows={3} />
@@ -65,6 +98,7 @@ function BeliefRow({ belief, onSave, onDelete }: { belief: Belief; onSave: (beli
 export default function BeliefsPanel({ serverUrl, apiKey }: Props) {
   const [beliefs, setBeliefs] = useState<Belief[]>([])
   const [loading, setLoading] = useState(false)
+  const [listOpen, setListOpen] = useState(false)
   const [text, setText] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [featuredId, setFeaturedId] = useState<string | null>(null)
@@ -89,7 +123,10 @@ export default function BeliefsPanel({ serverUrl, apiKey }: Props) {
     refresh()
   }, [serverUrl, apiKey])
 
-  const featured = useMemo(() => beliefs.find(belief => belief.id === featuredId) ?? beliefs.find(belief => belief.isActive) ?? null, [beliefs, featuredId])
+  const featured = useMemo(
+    () => beliefs.find(b => b.id === featuredId) ?? beliefs.find(b => b.isActive) ?? null,
+    [beliefs, featuredId]
+  )
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -122,21 +159,33 @@ export default function BeliefsPanel({ serverUrl, apiKey }: Props) {
         <div className="featured-text">{featured ? featured.text : 'No active belief yet'}</div>
       </div>
 
-      <form className="belief-form" onSubmit={handleCreate}>
-        <textarea placeholder="Write a belief..." value={text} onChange={e => setText(e.target.value)} rows={3} />
-        <label className="checkbox-row">
-          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-          active
-        </label>
-        <button type="submit" disabled={loading}>Add Belief</button>
-      </form>
+      <button
+        type="button"
+        className="collapse-toggle"
+        onClick={() => setListOpen(v => !v)}
+      >
+        {listOpen ? '▾' : '▸'} All beliefs ({beliefs.length})
+      </button>
 
-      {loading ? <div>Loading...</div> : null}
-      <ul className="belief-list">
-        {beliefs.map(belief => (
-          <BeliefRow key={belief.id} belief={belief} onSave={handleSave} onDelete={handleDelete} />
-        ))}
-      </ul>
+      {listOpen && (
+        <>
+          <form className="belief-form" onSubmit={handleCreate}>
+            <textarea placeholder="Write a belief..." value={text} onChange={e => setText(e.target.value)} rows={3} />
+            <label className="checkbox-row">
+              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+              active
+            </label>
+            <button type="submit" disabled={loading}>Add Belief</button>
+          </form>
+
+          {loading ? <div>Loading...</div> : null}
+          <ul className="belief-list">
+            {beliefs.map(belief => (
+              <BeliefRow key={belief.id} belief={belief} onSave={handleSave} onDelete={handleDelete} />
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
 }
