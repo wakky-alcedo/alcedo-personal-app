@@ -46,6 +46,7 @@ function buildHabitViews() {
 
     return {
       ...habit,
+      id: String(habit.id),
       isActive: Boolean(habit.isActive),
       completedToday: logSet.has(today),
       streakDays,

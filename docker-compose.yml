@@ -1,0 +1,34 @@
+services:
+  frontend:
+    build:
+      context: ./web-app
+      dockerfile: Dockerfile
+      args:
+        VITE_SERVER_URL: ${VITE_SERVER_URL:-http://localhost:8787}
+    ports:
+      - "3000:3000"
+    restart: always
+
+  backend:
+    build:
+      context: ./pc-server
+      dockerfile: Dockerfile
+    ports:
+      - "8787:8787"
+    volumes:
+      - sqlite_data:/data
+    environment:
+      - API_KEY=${API_KEY:-dev-local-key}
+      - DATA_DIR=/data
+    restart: always
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  sqlite_data:
