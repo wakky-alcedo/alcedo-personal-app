@@ -78,6 +78,13 @@ if (!hasSubtasks) {
   db.exec("ALTER TABLE tasks ADD COLUMN subtasks TEXT NOT NULL DEFAULT '[]'");
 }
 
+const hasParentId = columns.some((column) => column.name === "parentId");
+if (!hasParentId) {
+  // parentId will be NULL for root tasks; use TEXT to store parent task id
+  db.exec("ALTER TABLE tasks ADD COLUMN parentId TEXT NULL");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parentId)");
+}
+
 const beliefColumns = db.prepare("PRAGMA table_info(beliefs)").all() as Array<{ name: string }>;
 if (beliefColumns.length === 0) {
   db.exec(`

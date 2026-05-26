@@ -20,6 +20,7 @@ export type TaskNode = {
   done: boolean
   dueAt?: string | null
   priority?: 'low' | 'medium' | 'high'
+  parentId?: string | null
   subtasks: TaskNode[]
 }
 
@@ -85,6 +86,7 @@ function normalizeSubtasks(subtasks: unknown): TaskNode[] {
       description: subtask.description ?? null,
       dueAt: subtask.dueAt ?? null,
       priority: (subtask.priority as any) ?? 'low',
+      parentId: subtask.parentId ?? null,
       done: Boolean(subtask.done),
       subtasks: normalizeSubtasks(subtask.subtasks),
     }))

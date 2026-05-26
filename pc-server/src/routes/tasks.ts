@@ -11,7 +11,9 @@ type UpsertTaskInput = {
   priority: "low" | "medium" | "high";
   dueAt?: string;
   status: "todo" | "doing" | "done";
-  subtasks?: Array<{ id: string; title: string; done: boolean; subtasks?: unknown }>;
+  // optional legacy nested subtasks or flat parentId model
+  subtasks?: Array<{ id: string; title: string; done: boolean; dueAt?: string | null; priority?: 'low' | 'medium' | 'high'; subtasks?: unknown }>;
+  parentId?: string | null;
   updatedAt: string;
   version: number;
 };
@@ -24,9 +26,36 @@ type DeleteTaskInput = {
 
 type TaskRow = UpsertTaskInput & {
   deletedAt: string | null;
+  parentId: string | null;
 };
 
-function normalizeSubtasks(subtasks: unknown) {
+type StoredSubtask = {
+  id: string;
+  title: string;
+  description: string | null;
+  done: boolean;
+  dueAt: string | null;
+  priority: 'low' | 'medium' | 'high';
+  parentId?: string | null;
+  subtasks: StoredSubtask[];
+};
+
+type NormalizedUpsertRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  categoryType: "short_term" | "long_term";
+  categoryName: string;
+  priority: "low" | "medium" | "high";
+  dueAt: string | null;
+  status: "todo" | "doing" | "done";
+  subtasks: string;
+  parentId: string | null;
+  updatedAt: string;
+  version: number;
+};
+
+function normalizeSubtasks(subtasks: unknown): StoredSubtask[] {
   if (typeof subtasks === "string") {
     try {
       return normalizeSubtasks(JSON.parse(subtasks));
@@ -39,11 +68,14 @@ function normalizeSubtasks(subtasks: unknown) {
 
   return subtasks
     .filter(Boolean)
-    .map((subtask: any) => ({
+    .map((subtask: any): StoredSubtask => ({
       id: subtask.id ?? randomUUID(),
       title: String(subtask.title ?? ""),
       description: subtask.description ?? null,
       done: Boolean(subtask.done),
+      dueAt: subtask.dueAt ?? null,
+      priority: (subtask.priority as any) ?? 'low',
+      parentId: subtask.parentId ?? null,
       subtasks: normalizeSubtasks(subtask.subtasks),
     }));
 }
@@ -52,6 +84,7 @@ function normalizeTaskRow(row: any) {
   return {
     ...row,
     subtasks: normalizeSubtasks(row.subtasks),
+    parentId: row.parentId ?? null,
   };
 }
 
@@ -62,7 +95,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
     const upserts = request.body.upserts ?? request.body.tasks ?? [];
     const deletions = request.body.deletions ?? [];
 
-    const normalizedUpserts = upserts.map((item: any) => ({
+    const normalizedUpserts: NormalizedUpsertRow[] = upserts.map((item: any) => ({
       id: item.id ?? randomUUID(),
       title: item.title ?? "",
       description: item.description ?? null,
@@ -71,7 +104,9 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       priority: item.priority ?? "low",
       dueAt: item.dueAt ?? null,
       status: item.status ?? "todo",
+      // preserve legacy subtasks JSON if provided, but prefer parentId model
       subtasks: JSON.stringify(normalizeSubtasks(item.subtasks)),
+      parentId: item.parentId ?? null,
       updatedAt: item.updatedAt ?? new Date().toISOString(),
       version: item.version ?? 1,
     }));
@@ -84,9 +119,9 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
 
     const upsert = db.prepare(`
       INSERT INTO tasks (
-        id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, deletedAt, updatedAt, version
+        id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, parentId, deletedAt, updatedAt, version
       ) VALUES (
-        @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, NULL, @updatedAt, @version
+        @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, @parentId, NULL, @updatedAt, @version
       )
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
@@ -97,6 +132,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
         dueAt = excluded.dueAt,
         status = excluded.status,
         subtasks = excluded.subtasks,
+        parentId = excluded.parentId,
         deletedAt = NULL,
         updatedAt = excluded.updatedAt,
         version = excluded.version
@@ -124,7 +160,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       ON CONFLICT(id) DO NOTHING
     `);
 
-    const tx = db.transaction((items: UpsertTaskInput[], removed: DeleteTaskInput[]) => {
+    const tx = db.transaction((items: NormalizedUpsertRow[], removed: DeleteTaskInput[]) => {
       for (const task of items) {
         upsert.run(task);
       }
@@ -141,13 +177,30 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/tasks", async (request) => {
     const since = (request.query as { since?: string }).since;
+    let rows: any[] = []
     if (!since) {
-      const rows = db.prepare("SELECT * FROM tasks ORDER BY updatedAt DESC").all();
-      return { tasks: rows.map(normalizeTaskRow) };
+      rows = db.prepare("SELECT * FROM tasks ORDER BY updatedAt DESC").all();
+    } else {
+      rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since);
     }
 
-    const rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since);
-    return { tasks: rows.map(normalizeTaskRow) };
+    // Build tree from flat rows using parentId
+    const map = new Map<string, any>();
+    for (const r of rows) {
+      const normalized = normalizeTaskRow(r);
+      map.set(r.id, { ...normalized, subtasks: normalized.subtasks.slice() });
+    }
+    const roots: any[] = [];
+    for (const r of rows) {
+      const node = map.get(r.id)!;
+      const pid = r.parentId ?? null;
+      if (pid && map.has(pid)) {
+        map.get(pid).subtasks.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return { tasks: roots };
   });
 
   app.get("/sync/changes", async (request, reply) => {
@@ -157,15 +210,29 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    type TaskRow = {
+    type SyncRow = {
       id: string;
       updatedAt: string;
       version: number;
       deletedAt: string | null;
+      parentId: string | null;
     };
 
-    const rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since) as TaskRow[];
-    const upserts = rows.filter((row) => !row.deletedAt).map(normalizeTaskRow);
+    const rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since) as SyncRow[];
+    // build tree similarly and return upserts as roots
+    const map = new Map<string, any>();
+    for (const r of rows) {
+      const normalized = normalizeTaskRow(r);
+      map.set(r.id, { ...normalized, subtasks: normalized.subtasks.slice() });
+    }
+    const roots: any[] = [];
+    for (const r of rows) {
+      const node = map.get(r.id)!;
+      const pid = r.parentId ?? null;
+      if (pid && map.has(pid)) map.get(pid).subtasks.push(node);
+      else roots.push(node);
+    }
+    const upserts = rows.filter((row) => !row.deletedAt).length ? roots : [];
     const deletions = rows.filter((row) => !!row.deletedAt).map((row) => ({ id: row.id, updatedAt: row.updatedAt, version: row.version }));
 
     return { upserts, deletions };

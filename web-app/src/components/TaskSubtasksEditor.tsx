@@ -14,6 +14,7 @@ function createTaskNode(title = ''): TaskNode {
     done: false,
     dueAt: null,
     priority: 'low',
+    parentId: null,
     subtasks: [],
   }
 }
