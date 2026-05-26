@@ -1,0 +1,8 @@
+node_modules/
+dist/
+pc-server/data/
+.env
+.env.*
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
