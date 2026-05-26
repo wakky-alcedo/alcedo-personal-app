@@ -133,7 +133,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
         status = excluded.status,
         subtasks = excluded.subtasks,
         parentId = excluded.parentId,
-        deletedAt = NULL,
+        deletedAt = CASE WHEN excluded.version > tasks.version THEN NULL ELSE tasks.deletedAt END,
         updatedAt = excluded.updatedAt,
         version = excluded.version
       WHERE excluded.version > tasks.version
@@ -179,9 +179,9 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
     const since = (request.query as { since?: string }).since;
     let rows: any[] = []
     if (!since) {
-      rows = db.prepare("SELECT * FROM tasks ORDER BY updatedAt DESC").all();
+      rows = db.prepare("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY updatedAt DESC").all();
     } else {
-      rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since);
+      rows = db.prepare("SELECT * FROM tasks WHERE deletedAt IS NULL AND updatedAt > ? ORDER BY updatedAt ASC").all(since);
     }
 
     // Build tree from flat rows using parentId
@@ -219,21 +219,24 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
     };
 
     const rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since) as SyncRow[];
-    // build tree similarly and return upserts as roots
+    const liveRows = rows.filter((r) => !r.deletedAt);
+    const deletedRows = rows.filter((r) => !!r.deletedAt);
+
+    // Build tree from live rows only
     const map = new Map<string, any>();
-    for (const r of rows) {
+    for (const r of liveRows) {
       const normalized = normalizeTaskRow(r);
       map.set(r.id, { ...normalized, subtasks: normalized.subtasks.slice() });
     }
     const roots: any[] = [];
-    for (const r of rows) {
+    for (const r of liveRows) {
       const node = map.get(r.id)!;
       const pid = r.parentId ?? null;
       if (pid && map.has(pid)) map.get(pid).subtasks.push(node);
       else roots.push(node);
     }
-    const upserts = rows.filter((row) => !row.deletedAt).length ? roots : [];
-    const deletions = rows.filter((row) => !!row.deletedAt).map((row) => ({ id: row.id, updatedAt: row.updatedAt, version: row.version }));
+    const upserts = roots;
+    const deletions = deletedRows.map((row) => ({ id: row.id, updatedAt: row.updatedAt, version: row.version }));
 
     return { upserts, deletions };
   });

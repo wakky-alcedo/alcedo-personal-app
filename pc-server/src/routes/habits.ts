@@ -35,7 +35,9 @@ function buildHabitViews() {
     const logSet = new Set(habitLogs);
     const sortedDates = Array.from(logSet).sort().reverse();
     let streakDays = 0;
-    let cursor = sortedDates[0] ?? null;
+    // Start from today; fall back to yesterday so a streak isn't broken
+    // before the user has had a chance to check in today.
+    let cursor: string | null = logSet.has(today) ? today : previousDateKey(today);
 
     while (cursor && logSet.has(cursor)) {
       streakDays += 1;

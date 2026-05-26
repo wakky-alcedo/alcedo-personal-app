@@ -1,0 +1,2 @@
+# MCP config contains secrets — use .ai/mcp.json.example as template
+.ai/mcp.json

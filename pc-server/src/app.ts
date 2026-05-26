@@ -19,7 +19,7 @@ export function createApp() {
 
     const value = request.headers["x-api-key"];
     if (value !== apiKey) {
-      reply.code(401).send({ message: "unauthorized" });
+      return reply.code(401).send({ message: "unauthorized" });
     }
   });
 
