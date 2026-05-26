@@ -30,12 +30,10 @@ main { display: grid; gap: 16px; }
 .featured-card { padding: 16px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #273b6b); color: #fff; box-shadow: var(--shadow-md); }
 .featured-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.08em; }
 .featured-text { font-size: 20px; font-weight: 700; margin-top: 8px; line-height: 1.4; }
-.belief-form, .habit-form, .new-task, .task-editor, .belief-editor, .habit-editor, .subtasks-editor { display: grid; gap: 8px; }
-.belief-form textarea, .belief-editor textarea, .task-editor textarea { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
+.belief-form, .habit-form, .new-task, .belief-editor, .habit-editor { display: grid; gap: 8px; }
+.belief-form textarea, .belief-editor textarea { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
 .new-task { grid-template-columns: repeat(5, minmax(0, 1fr)) auto; align-items: center; }
 .new-task input, .new-task select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e6edf8; }
-.new-task .subtasks-editor,
-.task-editor .subtasks-editor { grid-column: 1 / -1; }
 .habit-form { grid-template-columns: 2fr 1fr 1fr 1fr auto auto; align-items: center; }
 .habit-form input { width: 100%; }
 .habit-quick-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
@@ -66,12 +64,6 @@ main { display: grid; gap: 16px; }
 .task-node-description-row { display: block; width: 100%; margin-left: 40px; padding: 0; }
 .task-node-description-row.task-node-description { font: inherit; text-align: left; color: var(--text-muted); }
 .task-node-description-row.task-node-description:hover { text-decoration: underline; }
-.subtasks-editor { padding: 10px; border: 1px dashed #e6edf8; border-radius: 12px; background: var(--surface-weak); }
-.subtasks-list { display: grid; gap: 8px; }
-.subtask-row { display: grid; gap: 8px; grid-template-columns: auto 1fr auto; align-items: center; }
-.child-editor { grid-column: 1 / -1; }
-.subtasks-view { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
-.subtasks-view .done { opacity: 0.7; text-decoration: line-through; }
 .section-caption { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #667085; }
 .meta { color: #667085; font-size: 12px; margin-top: 4px; }
 .description { margin-top: 6px; }
@@ -92,14 +84,6 @@ input, textarea, select { font: inherit; }
 	.new-task { grid-template-columns: 1fr 1fr; }
 	.habit-form { grid-template-columns: 1fr 1fr; }
 	.config input { width: 100%; }
-	.subtask-row { grid-template-columns: auto 1fr; }
 }
 
 .habit-featured { gap: 12px; }
-
-@media (max-width: 800px) {
-	.new-task { grid-template-columns: 1fr 1fr; }
-	.habit-form { grid-template-columns: 1fr 1fr; }
-	.config input { width: 100%; }
-	.subtask-row { grid-template-columns: auto 1fr; }
-}

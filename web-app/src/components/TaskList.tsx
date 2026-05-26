@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { Task, TaskNode } from '../api.ts'
-import TaskSubtasksEditor from './TaskSubtasksEditor.tsx'
 type RowProps = {
   task: Task
   onDone: (t: Task) => void
