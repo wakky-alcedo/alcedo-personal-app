@@ -15,30 +15,7 @@ The Android app is a separate repository (not present here). Phase 1 is Android 
 
 ## Development Commands
 
-### PC Server (`cd pc-server`)
-```bash
-npm install
-API_KEY=dev-local-key npm run dev    # dev server with hot reload (tsx watch)
-npm run build                         # compile TypeScript to dist/
-npm start                             # run compiled output
-```
-
-Server starts at `http://localhost:8787`. Auth header `X-Api-Key` is required on every request.
-
-### Web App (`cd web-app`)
-```bash
-npm install
-npm run dev      # Vite dev server
-npm run build    # production build
-npm run preview  # preview production build
-```
-
-The web app defaults to `http://localhost:8787` as the backend. Override via `VITE_SERVER_URL` env var.
-
-### Quick API verification
-```bash
-curl -H "X-Api-Key: dev-local-key" http://localhost:8787/api/v1/tasks
-```
+See `.claude/skills/run-dev-servers/SKILL.md` for all dev/build/preview commands, env vars, and startup verification.
 
 ## Architecture
 
@@ -67,13 +44,6 @@ Web App      ↔  REST API                 ↔  pc-server
 - **Soft delete**: deletes store a tombstone (`deletedAt`) rather than removing the row, enabling sync safety.
 - **Subtasks** are stored as a JSON column (`subtasks TEXT`) on the parent task row. The `parentId` column is an alternative flat model — both coexist for backward compatibility.
 - **Habits**: streak and `completedToday` are computed at query time in `routes/habits.ts`, not stored.
-
-### Environment
-Copy `.env.example` to `.env` in the repo root before starting the server:
-```
-API_KEY=dev-local-key
-PORT=8787
-```
 
 ## Coding Conventions
 
