@@ -1,4 +1,5 @@
 # MCP configs contain secrets — use the corresponding .example files as templates
 .ai/mcp.json
+.mcp.json
 .vscode/mcp.json
 
