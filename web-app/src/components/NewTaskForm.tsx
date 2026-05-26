@@ -20,12 +20,11 @@ export default function NewTaskForm({ onCreate }: Props) {
         title: title.trim(),
         priority,
         dueAt: dueAt ? new Date(`${dueAt}T00:00:00`).toISOString() : null,
-        subtasks,
+        subtasks: [],
       })
       setTitle('')
       setPriority('low')
       setDueAt('')
-      setSubtasks([])
     } catch (err) {
       console.error(err)
       alert('Failed to create task')
