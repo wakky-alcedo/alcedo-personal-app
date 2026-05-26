@@ -132,3 +132,18 @@ if (habitLogColumns.length === 0) {
     CREATE INDEX IF NOT EXISTS idx_habit_logs_done_date ON habit_logs(doneDate);
   `);
 }
+
+// Phase 2: analytics tables
+db.exec(`
+CREATE TABLE IF NOT EXISTS analytics_daily (
+  id TEXT PRIMARY KEY,
+  targetDate TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'manual',
+  category TEXT NOT NULL,
+  durationSec INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_date ON analytics_daily(targetDate);
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_updated ON analytics_daily(updatedAt);
+`);

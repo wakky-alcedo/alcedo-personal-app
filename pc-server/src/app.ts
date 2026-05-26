@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerBeliefRoutes } from "./routes/beliefs.js";
 import { registerHabitRoutes } from "./routes/habits.js";
 import { registerTaskRoutes } from "./routes/tasks.js";
@@ -26,6 +27,7 @@ export function createApp() {
   app.register(registerTaskRoutes, { prefix: "/api/v1" });
   app.register(registerBeliefRoutes, { prefix: "/api/v1" });
   app.register(registerHabitRoutes, { prefix: "/api/v1" });
+  app.register(registerAnalyticsRoutes, { prefix: "/api/v1" });
 
   return app;
 }

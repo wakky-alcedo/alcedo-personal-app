@@ -347,3 +347,74 @@ export async function markTaskDone(serverUrl: string, apiKey: string, task: Task
     version: task.version + 1,
   })
 }
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+export type AnalyticsEntry = {
+  id: string
+  targetDate: string
+  source: string
+  category: string
+  durationSec: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type AnalyticsDailyResponse = {
+  date: string
+  entries: AnalyticsEntry[]
+  totalSec: number
+  snsWarning: boolean
+}
+
+export type AnalyticsSummaryDay = { date: string } & { [category: string]: number | string }
+
+export type AnalyticsSummaryResponse = {
+  range: string
+  startDate: string
+  endDate: string
+  data: AnalyticsSummaryDay[]
+  snsWarning: boolean
+}
+
+export async function getAnalyticsDaily(serverUrl: string, apiKey: string, date: string): Promise<AnalyticsDailyResponse> {
+  const res = await fetch(`${serverUrl}/api/v1/analytics/daily?date=${encodeURIComponent(date)}`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch analytics daily failed')
+  return res.json()
+}
+
+export async function createAnalyticsEntry(
+  serverUrl: string, apiKey: string,
+  body: { targetDate: string; category: string; durationSec: number; source?: string }
+): Promise<AnalyticsEntry> {
+  const res = await fetch(`${serverUrl}/api/v1/analytics/daily`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) throw new Error('create analytics entry failed')
+  return res.json()
+}
+
+export async function deleteAnalyticsEntry(serverUrl: string, apiKey: string, id: string): Promise<void> {
+  const res = await fetch(`${serverUrl}/api/v1/analytics/daily/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('delete analytics entry failed')
+}
+
+export async function getAnalyticsSummary(
+  serverUrl: string, apiKey: string,
+  range: 'weekly' | 'monthly', anchor?: string
+): Promise<AnalyticsSummaryResponse> {
+  const params = new URLSearchParams({ range })
+  if (anchor) params.set('anchor', anchor)
+  const res = await fetch(`${serverUrl}/api/v1/analytics/summary?${params}`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch analytics summary failed')
+  return res.json()
+}
