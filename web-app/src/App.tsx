@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { getTasks, createTask, updateTask, deleteTask, markTaskDone, type Task } from './api.ts'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
-import ServerConfigBar from './components/ServerConfigBar.tsx'
+import SettingsPage from './pages/SettingsPage.tsx'
 
 const DEFAULT_SERVER = (import.meta.env.VITE_SERVER_URL as string) || 'http://localhost:8787'
 const DEFAULT_API_KEY = 'dev-local-key'
 
-type Tab = 'dashboard' | 'analytics'
+type Tab = 'dashboard' | 'analytics' | 'settings'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -54,34 +54,28 @@ export default function App() {
   return (
     <div className="container">
       <header>
-        <h1>Alcedo</h1>
-        <nav className="top-tab-nav">
-          <button
-            type="button"
-            className={`top-tab-btn${tab === 'dashboard' ? ' active' : ''}`}
-            onClick={() => setTab('dashboard')}
-          >
-            ダッシュボード
-          </button>
-          <button
-            type="button"
-            className={`top-tab-btn${tab === 'analytics' ? ' active' : ''}`}
-            onClick={() => setTab('analytics')}
-          >
-            分析
-          </button>
-        </nav>
-        <ServerConfigBar
-          serverUrl={serverUrl}
-          apiKey={apiKey}
-          loading={loading}
-          onServerUrlChange={setServerUrl}
-          onApiKeyChange={setApiKey}
-          onRefresh={refresh}
-        />
+        <div className="app-header-row">
+          <h1>Alcedo</h1>
+          <nav className="top-tab-nav">
+            {([
+              ['dashboard', 'ダッシュボード'],
+              ['analytics', '分析'],
+              ['settings', '設定'],
+            ] as [Tab, string][]).map(([t, label]) => (
+              <button
+                key={t}
+                type="button"
+                className={`top-tab-btn${tab === t ? ' active' : ''}`}
+                onClick={() => setTab(t)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </header>
 
-      {tab === 'dashboard' ? (
+      {tab === 'dashboard' && (
         <DashboardPage
           serverUrl={serverUrl}
           apiKey={apiKey}
@@ -92,8 +86,17 @@ export default function App() {
           onSaveTask={handleSave}
           onDeleteTask={handleDelete}
         />
-      ) : (
-        <AnalyticsPage serverUrl={serverUrl} apiKey={apiKey} />
+      )}
+      {tab === 'analytics' && <AnalyticsPage serverUrl={serverUrl} apiKey={apiKey} />}
+      {tab === 'settings' && (
+        <SettingsPage
+          serverUrl={serverUrl}
+          apiKey={apiKey}
+          loading={loading}
+          onServerUrlChange={setServerUrl}
+          onApiKeyChange={setApiKey}
+          onRefresh={refresh}
+        />
       )}
     </div>
   )

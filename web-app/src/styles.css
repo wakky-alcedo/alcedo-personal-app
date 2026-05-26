@@ -91,6 +91,10 @@ input, textarea, select { font: inherit; }
 
 .habit-featured { gap: 12px; }
 
+/* ─── App header ─────────────────────────────────────────── */
+.app-header-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.app-header-row h1 { margin: 0; }
+
 /* ─── Top tab navigation ─────────────────────────────────── */
 .top-tab-nav { display: flex; gap: 4px; margin-top: 10px; }
 .top-tab-btn { padding: 6px 16px; border-radius: 8px 8px 0 0; border: 1px solid #e6edf8; border-bottom: none; background: var(--surface-weak); color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 14px; }
@@ -132,6 +136,16 @@ input, textarea, select { font: inherit; }
 .goal-editor { display: grid; gap: 6px; padding: 10px; background: var(--surface-weak); border-radius: 8px; border: 1px solid #e6edf8; }
 .goal-edit-row { display: flex; gap: 8px; align-items: center; }
 .goal-edit-row input { width: 72px; padding: 4px 6px; border-radius: 6px; border: 1px solid #e6edf8; font: inherit; }
+
+/* ─── Settings page ──────────────────────────────────────── */
+.settings-panel { display: grid; gap: var(--gap); }
+.settings-group { display: grid; gap: 12px; background: var(--surface-weak); border: 1px solid #e6edf8; border-radius: var(--radius); padding: 16px; }
+.settings-row { display: flex; align-items: center; gap: 12px; }
+.settings-label { min-width: 96px; font-size: 14px; color: var(--text-muted); }
+.settings-input { flex: 1; max-width: 360px; padding: 8px 10px; border-radius: 8px; border: 1px solid #dbe7ff; font: inherit; }
+.settings-refresh-btn { align-self: flex-start; padding: 8px 16px; border-radius: 10px; border: 1px solid #dbe7ff; background: #fff; cursor: pointer; font-weight: 600; }
+.settings-refresh-btn:hover { background: var(--surface-weak); }
+.settings-refresh-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* ─── Inner tab nav (analytics day/week/month) ───────────── */
 .tab-nav { display: flex; gap: 4px; }
