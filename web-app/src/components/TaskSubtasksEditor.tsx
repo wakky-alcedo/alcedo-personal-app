@@ -12,6 +12,8 @@ function createTaskNode(title = ''): TaskNode {
     id: crypto.randomUUID(),
     title,
     done: false,
+    dueAt: null,
+    priority: 'low',
     subtasks: [],
   }
 }
@@ -50,7 +52,8 @@ export default function TaskSubtasksEditor({ subtasks, onChange, depth = 0 }: Pr
   }
 
   function addNode() {
-    onChange([...subtasks, createTaskNode()])
+    // Previously appended an empty child node. Removing automatic empty child creation
+    // per UI decision: subtasks are added via the task actions menu instead.
   }
 
   function removeNode(index: number) {
@@ -59,8 +62,7 @@ export default function TaskSubtasksEditor({ subtasks, onChange, depth = 0 }: Pr
 
   return (
     <div className="subtasks-editor">
-      {depth === 0 ? <div className="section-caption">Child tasks</div> : null}
-      {subtasks.length === 0 ? <div className="meta">No child tasks yet</div> : null}
+      {/* Removed "Child tasks" heading and empty-state text to simplify UI */}
       <div className="subtasks-list">
         {subtasks.map((node, index) => (
           <TaskNodeEditor
@@ -73,7 +75,7 @@ export default function TaskSubtasksEditor({ subtasks, onChange, depth = 0 }: Pr
           />
         ))}
       </div>
-      <button type="button" onClick={addNode}>Add Child Task</button>
+      {/* Removed inline "Add Child Task" button to avoid creating empty subtasks by default */}
     </div>
   )
 }

@@ -18,6 +18,8 @@ export type TaskNode = {
   title: string
   description?: string | null
   done: boolean
+  dueAt?: string | null
+  priority?: 'low' | 'medium' | 'high'
   subtasks: TaskNode[]
 }
 
@@ -81,6 +83,8 @@ function normalizeSubtasks(subtasks: unknown): TaskNode[] {
       id: subtask.id ?? randomId(),
       title: String(subtask.title ?? ''),
       description: subtask.description ?? null,
+      dueAt: subtask.dueAt ?? null,
+      priority: (subtask.priority as any) ?? 'low',
       done: Boolean(subtask.done),
       subtasks: normalizeSubtasks(subtask.subtasks),
     }))

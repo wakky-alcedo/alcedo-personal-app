@@ -56,7 +56,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: { habit: Habit; onSave
       {!editing ? (
         <>
           <div>
-            <div className="title">{habit.name}</div>
+            <button type="button" className="link-button task-node-title" onClick={() => setEditing(true)}>{habit.name}</button>
             <div className="meta">
               {habit.id} • {habit.isActive ? 'active' : 'inactive'} • notify: {habit.notifyTime || 'none'} • streak: {habit.streakDays} day(s)
             </div>

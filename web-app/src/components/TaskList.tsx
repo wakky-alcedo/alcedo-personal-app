@@ -14,6 +14,8 @@ function createTaskNode(title = ''): TaskNode {
     id: crypto.randomUUID(),
     title,
     done: false,
+    dueAt: null,
+    priority: 'low',
     subtasks: [],
   }
 }
@@ -77,6 +79,8 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
   }, [task])
 
   const dueLabel = useMemo(() => (draft.dueAt ? new Date(draft.dueAt).toLocaleDateString() : 'none'), [draft.dueAt])
+  const [editingDue, setEditingDue] = useState(false)
+  const [editingDuePath, setEditingDuePath] = useState<string | null>(null)
 
   function updateRootTask(nextTask: Task) {
     setDraft(cloneTask(nextTask))
@@ -112,6 +116,28 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
     }))
   }
 
+  function moveInArray<T>(arr: T[], from: number, to: number) {
+    const copy = arr.slice()
+    const [item] = copy.splice(from, 1)
+    copy.splice(to, 0, item)
+    return copy
+  }
+
+  function updateTaskTreeReorder(nodes: TaskNode[], path: number[], fromIndex: number, toIndex: number): TaskNode[] {
+    if (path.length === 0) {
+      // reorder at root subtasks
+      return moveInArray(nodes, fromIndex, toIndex)
+    }
+    const [idx, ...rest] = path
+    return nodes.map((n, i) => {
+      if (i !== idx) return n
+      return {
+        ...n,
+        subtasks: updateTaskTreeReorder(n.subtasks, rest, fromIndex, toIndex),
+      }
+    })
+  }
+
   function addChild(path: number[]) {
     const target = path.length === 0 ? { subtasks: draft.subtasks } as any : getNodeAtPath(draft.subtasks, path)
     const newIndex = target ? target.subtasks.length : 0
@@ -121,6 +147,27 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
     }))
     // focus the newly created child row
     setEditingPath([...path, newIndex])
+  }
+
+  async function reorderSubtasks(parentPath: number[], fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return
+    const prev = cloneTask(draft)
+    const nextDraft = {
+      ...draft,
+      subtasks: updateTaskTreeReorder(draft.subtasks, parentPath, fromIndex, toIndex),
+    }
+    // optimistic
+    setDraft(cloneTask(nextDraft))
+    setBusy(true)
+    try {
+      await saveTask(nextDraft)
+    } catch (err) {
+      setDraft(prev)
+      console.error('reorder failed', err)
+      alert('Failed to reorder tasks')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function saveTask(nextTask: Task) {
@@ -281,6 +328,32 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
     return (
       <li
         key={node.id}
+        draggable={path.length > 0}
+        onDragStart={e => {
+          if (path.length === 0) return
+          const parent = path.slice(0, -1)
+          const index = path[path.length - 1]
+          try {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ parent, index }))
+            e.dataTransfer.effectAllowed = 'move'
+          } catch {}
+        }}
+        onDragOver={e => { e.preventDefault() }}
+        onDrop={e => {
+          e.preventDefault()
+          try {
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+            const fromParent: number[] = data.parent || []
+            const fromIndex: number = data.index
+            const toParent = path.slice(0, -1)
+            const toIndex = path[path.length - 1]
+            if (JSON.stringify(fromParent) === JSON.stringify(toParent)) {
+              void reorderSubtasks(toParent, fromIndex, toIndex)
+            }
+          } catch (err) {
+            // ignore
+          }
+        }}
         className={`task-node-card ${node.done ? 'done' : ''}`}
         role="listitem"
         aria-label={nodeName}
@@ -326,6 +399,13 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
                   }}
                   aria-label={`Title for ${nodeName}`}
                 />
+                  <label className="priority-select">
+                    <select value={node.priority ?? 'low'} onChange={e => updateNode(path, n => ({ ...n, priority: e.target.value as any }))} aria-label={`Priority for ${nodeName}`}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                    </select>
+                  </label>
                 <textarea
                   value={node.description ?? ''}
                   onChange={e => updateNode(path, n => ({ ...n, description: e.target.value }))}
@@ -343,6 +423,19 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
                 />
               </div>
             )}
+              <div className="task-due">
+                {!editingDuePath || editingDuePath !== pathKey(path) ? (
+                  <button type="button" className="due-label" onClick={() => setEditingDuePath(pathKey(path))} aria-label={`Due date: ${node.dueAt ? new Date(node.dueAt).toLocaleDateString() : 'No due'}`} disabled={busy}>{node.dueAt ? new Date(node.dueAt).toLocaleDateString() : '📅'}</button>
+                ) : (
+                  <input
+                    type="date"
+                    value={node.dueAt ? node.dueAt.slice(0, 10) : ''}
+                    onChange={e => updateNode(path, n => ({ ...n, dueAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : null }))}
+                    onBlur={() => { setEditingDuePath(null); void commitEditing(path) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditingDuePath(null); void commitEditing(path) } if (e.key === 'Escape') { e.preventDefault(); setEditingDuePath(null) } }}
+                  />
+                )}
+              </div>
             <button
               type="button"
               className="task-node-menu-button"
@@ -363,9 +456,25 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
           ) : null}
         </div>
         {node.subtasks.length > 0 ? (
-          <ul className="task-tree">
-            {node.subtasks.map((child, childIndex) => renderNode(child, [...path, childIndex]))}
-          </ul>
+            <ul
+              className="task-tree"
+              onDragOver={e => { e.preventDefault() }}
+              onDrop={e => {
+                e.preventDefault()
+                try {
+                  const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                  const fromParent: number[] = data.parent || []
+                  const fromIndex: number = data.index
+                  const toParent = path
+                  // append to end
+                  if (JSON.stringify(fromParent) === JSON.stringify(toParent)) {
+                    void reorderSubtasks(toParent, fromIndex, node.subtasks.length)
+                  }
+                } catch {}
+              }}
+            >
+              {node.subtasks.map((child, childIndex) => renderNode(child, [...path, childIndex]))}
+            </ul>
         ) : null}
       </li>
     )
@@ -414,6 +523,13 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
                 }}
                 aria-label="Task title"
               />
+                <label className="priority-select">
+                  <select value={draft.priority ?? 'low'} onChange={e => setDraft(current => ({ ...current, priority: e.target.value as any }))} aria-label="Priority">
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select>
+                </label>
               <textarea
                 value={draft.description ?? ''}
                 onChange={e => setDraft(current => ({ ...current, description: e.target.value }))}
@@ -431,6 +547,19 @@ function TaskRow({ task, onDone, onSave, onDelete }: { task: Task; onDone: Props
               />
             </div>
           )}
+          <div className="task-due">
+            {!editingDue ? (
+              <button type="button" className="due-label" onClick={() => setEditingDue(true)} aria-label={`Due date: ${dueLabel}`} disabled={busy}>{draft.dueAt ? new Date(draft.dueAt).toLocaleDateString() : '📅'}</button>
+            ) : (
+              <input
+                type="date"
+                value={draft.dueAt ? draft.dueAt.slice(0, 10) : ''}
+                onChange={e => setDraft(current => ({ ...current, dueAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : null }))}
+                onBlur={() => { setEditingDue(false); void save() }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditingDue(false); void save() } if (e.key === 'Escape') { e.preventDefault(); setEditingDue(false); } }}
+              />
+            )}
+          </div>
           <button
             type="button"
             className="task-node-menu-button"

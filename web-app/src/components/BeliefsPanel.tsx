@@ -37,7 +37,7 @@ function BeliefRow({ belief, onSave, onDelete }: { belief: Belief; onSave: (beli
       {!editing ? (
         <>
           <div>
-            <div className="title">{belief.text}</div>
+            <button type="button" className="link-button task-node-title" onClick={() => setEditing(true)}>{belief.text}</button>
             <div className="meta">{belief.id} • {belief.isActive ? 'active' : 'inactive'}</div>
           </div>
           <div className="actions">
