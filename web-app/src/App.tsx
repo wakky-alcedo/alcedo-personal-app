@@ -6,6 +6,8 @@ import SettingsPage from './pages/SettingsPage.tsx'
 
 const DEFAULT_SERVER = (import.meta.env.VITE_SERVER_URL as string) || 'http://localhost:8787'
 const DEFAULT_API_KEY = 'dev-local-key'
+const LS_SERVER_KEY = 'alcedo_server_url'
+const LS_API_KEY = 'alcedo_api_key'
 
 type Tab = 'dashboard' | 'analytics' | 'settings'
 
@@ -13,8 +15,22 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(false)
-  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER)
-  const [apiKey, setApiKey] = useState(DEFAULT_API_KEY)
+  const [serverUrl, setServerUrl] = useState(
+    () => localStorage.getItem(LS_SERVER_KEY) ?? DEFAULT_SERVER
+  )
+  const [apiKey, setApiKey] = useState(
+    () => localStorage.getItem(LS_API_KEY) ?? DEFAULT_API_KEY
+  )
+
+  function handleServerUrlChange(value: string) {
+    setServerUrl(value)
+    localStorage.setItem(LS_SERVER_KEY, value)
+  }
+
+  function handleApiKeyChange(value: string) {
+    setApiKey(value)
+    localStorage.setItem(LS_API_KEY, value)
+  }
 
   useEffect(() => { refresh() }, [serverUrl, apiKey])
 
@@ -93,8 +109,8 @@ export default function App() {
           serverUrl={serverUrl}
           apiKey={apiKey}
           loading={loading}
-          onServerUrlChange={setServerUrl}
-          onApiKeyChange={setApiKey}
+          onServerUrlChange={handleServerUrlChange}
+          onApiKeyChange={handleApiKeyChange}
           onRefresh={refresh}
         />
       )}

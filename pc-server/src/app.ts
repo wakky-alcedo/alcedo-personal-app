@@ -1,22 +1,22 @@
+import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerBeliefRoutes } from "./routes/beliefs.js";
 import { registerHabitRoutes } from "./routes/habits.js";
 import { registerTaskRoutes } from "./routes/tasks.js";
 
-export function createApp() {
+export async function createApp() {
   const app = Fastify({ logger: true });
   const apiKey = process.env.API_KEY ?? "dev-local-key";
 
-  app.addHook("onRequest", async (request, reply) => {
-    reply.header("Access-Control-Allow-Origin", "*");
-    reply.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type,X-Api-Key");
+  await app.register(cors, {
+    origin: "*",
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-Api-Key"],
+  });
 
-    if (request.method === "OPTIONS") {
-      reply.code(204).send();
-      return;
-    }
+  app.addHook("onRequest", async (request, reply) => {
+    if (request.method === "OPTIONS") return;
 
     const value = request.headers["x-api-key"];
     if (value !== apiKey) {
