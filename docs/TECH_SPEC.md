@@ -18,8 +18,9 @@
 - 通知アクションは「完了」「後で」を提供
 
 4. Obsidian 連携
+- Phase2 で実装（当面は後回し）
 - スマホ側はバッファ保存と送信要求のみ
-- PC側で Obsidian Vault へ追記し，Git commit は PC 側処理として実施（実装対象）
+- PC側で Obsidian Vault へ追記し，Git commit は PC 側処理として実施
 
 5. セキュリティ
 - API キー等は Android Keystore ベースで暗号化保管
@@ -67,8 +68,9 @@
 
 ### 4.3 連携
 - Android -> PC: HTTPS REST API
-- PC -> Obsidian: Obsidian Local Vault ファイル追記
-- PC -> Git: サーバー側で add/commit（push は任意）
+- PC -> Obsidian: Obsidian Local Vault ファイル追記（Phase2）
+- PC -> Git: サーバー側で add/commit（push は任意，Phase2）
+- 同期方向: Phase1 は Android -> PC の片方向，Phase2以降で PC -> Android を追加して双方向化
 
 ## 5. モジュール設計
 ### 5.1 Android モジュール
@@ -334,12 +336,15 @@
 - 信念の表示と編集
 - タスクの基本的なCRUD操作
 - 習慣の記録とストリーク表示
-- 信念，タスク，習慣の同期
+- タスクの同期（Android -> PC の片方向・最小構成）
 
 ### Phase 2
 - 日次ダッシュボード
 - 週次/月次分析強化
 - 日次レポートと目標達成率
+- タスク同期の双方向化（PC -> Android 追加，競合解決を導入）
+
+### Phase2.5
 - Shared Intent -> バッファ -> PC同期 -> Obsidian追記 -> Git commit
 - Google カレンダー / Google マップ / HomeAssistant 連携
 
@@ -348,6 +353,7 @@
 
 ## 16. 既知の未確定事項
 0. Obsidian連携の完了定義（PC受信ACKまで / Vault追記完了まで / Git commit完了まで）は後回し
+0.5 双方向同期時の競合解決ポリシー（last-write-wins / version-based merge / manual resolve）の確定
 1. Google マップ履歴連携方式（公式API制約の精査が必要）
 2. HomeAssistant 連携方法（Webhook/API token運用方針）
 3. Web Push 採用有無（PC Webの通知設計）
