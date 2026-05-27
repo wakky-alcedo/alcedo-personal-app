@@ -655,7 +655,10 @@ type Props = {
 }
 
 export default function TaskList({ tasks, onDone, onSave, onDelete }: Props) {
-  const [sortMode, setSortMode] = useState<'manual' | 'priority' | 'dueAt' | 'title'>('manual')
+  const [sortMode, setSortMode] = useState<'manual' | 'priority' | 'dueAt' | 'title'>(
+    () => (localStorage.getItem('taskListSortMode') as any) ?? 'manual'
+  )
+  useEffect(() => { localStorage.setItem('taskListSortMode', sortMode) }, [sortMode])
   const safeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !task.deletedAt)
   const orderedTasks = useMemo(() => {
     const list = safeTasks.slice()
