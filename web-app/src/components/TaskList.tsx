@@ -25,7 +25,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
       description: null,
       done: false,
       dueAt: null,
-      priority: 'low',
+      priority: 'medium',
       parentId: null,
       subtasks: [],
     }
@@ -98,7 +98,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
           description: current.description ?? null,
           done: current.status === 'done',
           dueAt: current.dueAt ?? null,
-          priority: (current as any).priority ?? 'low',
+          priority: (current as any).priority ?? 'medium',
           subtasks: current.subtasks.map(cloneTaskNode),
         }
         const next = updater(rootNode)
@@ -182,7 +182,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
       title: nextTask.title.trim(),
       description: nextTask.description?.trim() || null,
       dueAt: nextTask.dueAt ? new Date(`${nextTask.dueAt.slice(0, 10)}T00:00:00`).toISOString() : null,
-      priority: (nextTask as any).priority ?? 'low',
+      priority: (nextTask as any).priority ?? 'medium',
     })
   }
 
@@ -421,7 +421,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
               )}
               <label className="priority-select">
                 <select
-                  value={node.priority ?? 'low'}
+                  value={node.priority ?? 'medium'}
                   onChange={e => {
                     const nextTask = {
                       ...draft,
@@ -570,7 +570,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
             )}
             <label className="priority-select">
               <select
-                value={draft.priority ?? 'low'}
+                value={draft.priority ?? 'medium'}
                 onChange={e => {
                   const nextTask = { ...draft, priority: e.target.value as any }
                   setDraft(cloneTask(nextTask))

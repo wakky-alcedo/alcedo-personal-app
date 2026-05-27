@@ -7,7 +7,7 @@ type Props = {
 
 export default function NewTaskForm({ onCreate }: Props) {
   const [title, setTitle] = useState('')
-  const [priority, setPriority] = useState<TaskInput['priority']>('low')
+  const [priority, setPriority] = useState<TaskInput['priority']>('medium')
   const [dueAt, setDueAt] = useState('')
   const [busy, setBusy] = useState(false)
 

@@ -74,7 +74,7 @@ function normalizeSubtasks(subtasks: unknown): StoredSubtask[] {
       description: subtask.description ?? null,
       done: Boolean(subtask.done),
       dueAt: subtask.dueAt ?? null,
-      priority: (subtask.priority as any) ?? 'low',
+      priority: (subtask.priority as any) ?? 'medium',
       parentId: subtask.parentId ?? null,
       subtasks: normalizeSubtasks(subtask.subtasks),
     }));
@@ -101,7 +101,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       description: item.description ?? null,
       categoryType: item.categoryType ?? "short_term",
       categoryName: item.categoryName ?? "default",
-      priority: item.priority ?? "low",
+      priority: item.priority ?? "medium",
       dueAt: item.dueAt ?? null,
       status: item.status ?? "todo",
       // preserve legacy subtasks JSON if provided, but prefer parentId model
