@@ -21,7 +21,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
   function createTaskNode(): TaskNode {
     return {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      title: 'New task',
+      title: '',
       description: null,
       done: false,
       dueAt: null,

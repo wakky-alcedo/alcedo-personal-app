@@ -34,6 +34,11 @@ VITE_SERVER_URL=https://myappapi.example.com   # バックエンドの公開URL
 docker compose up --build -d
 ```
 
+```bash
+docker compose build --no-cache frontend
+docker compose up -d
+```
+
 | サービス | URL |
 |---|---|
 | フロントエンド | `http://localhost:3000`（Cloudflare 経由なら公開URL） |
