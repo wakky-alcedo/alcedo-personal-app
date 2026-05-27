@@ -34,6 +34,17 @@ export default function App() {
 
   useEffect(() => { refresh() }, [serverUrl, apiKey])
 
+  useEffect(() => {
+    const es = new EventSource(`${serverUrl}/api/v1/events?key=${encodeURIComponent(apiKey)}`)
+    es.onmessage = async () => {
+      try {
+        const list = await getTasks(serverUrl, apiKey)
+        setTasks(list)
+      } catch {}
+    }
+    return () => es.close()
+  }, [serverUrl, apiKey])
+
   async function refresh() {
     setLoading(true)
     try {

@@ -60,6 +60,10 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
   const [openMenuPath, setOpenMenuPath] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const titleInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setDraft(cloneTask(task))
+  }, [task.version])
   const dueLabel = draft.dueAt ? new Date(draft.dueAt).toLocaleDateString() : 'No due'
 
   function updateRootTask(next: Task) {

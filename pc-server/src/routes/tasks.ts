@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
 import { db } from "../db.js";
+import { broadcast } from "./events.js";
 
 type UpsertTaskInput = {
   id: string;
@@ -172,6 +173,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
     });
 
     tx(normalizedUpserts, normalizedDeletions);
+    broadcast("tasks-changed");
     return { acceptedUpserts: normalizedUpserts.length, acceptedDeletions: normalizedDeletions.length };
   });
 
