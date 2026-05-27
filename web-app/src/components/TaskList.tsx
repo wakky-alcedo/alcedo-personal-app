@@ -148,6 +148,35 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
     })
   }
 
+  function addSiblingAfter(path: number[]) {
+    const parentPath = path.slice(0, -1)
+    const insertAt = path[path.length - 1] + 1
+    const newNode = createTaskNode()
+    if (parentPath.length === 0) {
+      setDraft(current => ({
+        ...current,
+        subtasks: [
+          ...current.subtasks.slice(0, insertAt),
+          newNode,
+          ...current.subtasks.slice(insertAt),
+        ],
+      }))
+    } else {
+      setDraft(current => ({
+        ...current,
+        subtasks: updateTaskTree(current.subtasks, parentPath, node => ({
+          ...node,
+          subtasks: [
+            ...node.subtasks.slice(0, insertAt),
+            newNode,
+            ...node.subtasks.slice(insertAt),
+          ],
+        })),
+      }))
+    }
+    setEditingPath([...parentPath, insertAt])
+  }
+
   function addChild(path: number[]) {
     const target = path.length === 0 ? { subtasks: draft.subtasks } as any : getNodeAtPath(draft.subtasks, path)
     const newIndex = target ? target.subtasks.length : 0
@@ -410,7 +439,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
                     autoFocus
                     value={node.title}
                     onChange={e => updateNode(path, n => ({ ...n, title: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void commitEditing(path) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSiblingAfter(path) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
                     onBlur={() => {
                       setTimeout(() => {
                         const el = editorRefs.current.get(pathKey(path))
