@@ -174,3 +174,16 @@ input, textarea, select { font: inherit; }
 .belief-text { flex: 1; white-space: pre-wrap; word-break: break-word; font-weight: 600; }
 .collapse-toggle { background: transparent; border: 0; padding: 2px 0; color: var(--text-muted); font-size: 13px; cursor: pointer; text-align: left; }
 .collapse-toggle:hover { color: var(--text-primary); }
+
+/* ─── Task list toolbar (filter + sort) ─────────────────── */
+.task-list-shell { display: grid; gap: var(--gap); }
+.task-list-toolbar { display: grid; gap: 6px; padding: 10px 12px; background: var(--surface-weak); border: 1px solid #e6edf8; border-radius: var(--radius); }
+.filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filter-row-label { font-size: 12px; color: var(--text-muted); min-width: 48px; }
+.filter-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.filter-chip { padding: 3px 10px; border-radius: 20px; border: 1px solid #dbe7ff; background: #fff; color: var(--text-muted); font-size: 12px; cursor: pointer; font: inherit; transition: background 0.1s, color 0.1s; }
+.filter-chip:hover { background: #eef3ff; color: var(--text-primary); }
+.filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.sort-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+.sort-label select { padding: 3px 6px; border-radius: 6px; border: 1px solid #dbe7ff; font: inherit; font-size: 12px; background: #fff; color: var(--text-primary); }
+.task-list-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
