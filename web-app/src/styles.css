@@ -26,6 +26,14 @@ main { display: grid; gap: 16px; }
 .config { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .config input { width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #dbe7ff; }
 .beliefs-panel, .habits-panel, .tasks-panel, .task-list-section { display: grid; gap: var(--gap); }
+.beliefs-panel--compact, .habits-panel--compact { gap: 6px; padding: 12px; border-radius: var(--radius); background: var(--card-bg); border: 1px solid #eef3ff; }
+.compact-panel-btn { border: 0; background: transparent; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 4px; border-radius: 4px; }
+.compact-panel-btn:hover { background: #eef3ff; }
+.compact-belief-text { margin: 4px 0 0; font-weight: 600; line-height: 1.5; color: var(--text-primary); }
+.compact-empty { color: var(--text-muted); }
+.habit-quick-list--compact { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+.habit-quick-card--compact { padding: 7px 10px; display: flex; justify-content: space-between; align-items: center; }
+.habit-quick-card--compact .habit-quick-meta { margin-top: 0; margin-left: 6px; white-space: nowrap; }
 .section-header { display:flex; justify-content:space-between; align-items:center; gap: 12px; }
 .featured-card { padding: 16px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #273b6b); color: #fff; box-shadow: var(--shadow-md); }
 .featured-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.08em; }

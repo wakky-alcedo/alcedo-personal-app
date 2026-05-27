@@ -4,6 +4,7 @@ import { createBelief, deleteBelief, getBeliefs, updateBelief, type Belief } fro
 type Props = {
   serverUrl: string
   apiKey: string
+  compact?: boolean
 }
 
 function BeliefRow({ belief, onSave, onDelete }: {
@@ -95,7 +96,7 @@ function BeliefRow({ belief, onSave, onDelete }: {
   )
 }
 
-export default function BeliefsPanel({ serverUrl, apiKey }: Props) {
+export default function BeliefsPanel({ serverUrl, apiKey, compact = false }: Props) {
   const [beliefs, setBeliefs] = useState<Belief[]>([])
   const [loading, setLoading] = useState(false)
   const [listOpen, setListOpen] = useState(false)
@@ -145,6 +146,18 @@ export default function BeliefsPanel({ serverUrl, apiKey }: Props) {
   async function handleDelete(belief: Belief) {
     await deleteBelief(serverUrl, apiKey, belief)
     await refresh()
+  }
+
+  if (compact) {
+    return (
+      <section className="beliefs-panel beliefs-panel--compact">
+        <div className="section-header">
+          <h2>Featured belief</h2>
+          <button type="button" className="compact-panel-btn" onClick={refresh} disabled={loading} title="Randomize">↺</button>
+        </div>
+        <p className="compact-belief-text">{featured ? featured.text : '—'}</p>
+      </section>
+    )
   }
 
   return (

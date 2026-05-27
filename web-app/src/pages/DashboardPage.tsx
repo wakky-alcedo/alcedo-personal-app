@@ -18,8 +18,8 @@ type Props = {
 export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCreateTask, onDoneTask, onSaveTask, onDeleteTask }: Props) {
   return (
     <main>
-      <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} />
-      <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} />
+      <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
+      <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
       <TasksPanel
         loading={loading}
         tasks={tasks}

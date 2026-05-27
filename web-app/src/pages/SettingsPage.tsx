@@ -1,4 +1,6 @@
 import React from 'react'
+import BeliefsPanel from '../components/BeliefsPanel.tsx'
+import HabitsPanel from '../components/HabitsPanel.tsx'
 
 type Props = {
   serverUrl: string
@@ -41,6 +43,9 @@ export default function SettingsPage({ serverUrl, apiKey, loading, onServerUrlCh
           {loading ? '読み込み中…' : 'データを再取得'}
         </button>
       </div>
+
+      <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} />
+      <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} />
     </section>
   )
 }

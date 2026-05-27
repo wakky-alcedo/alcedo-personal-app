@@ -4,6 +4,7 @@ import { checkInHabit, createHabit, deleteHabit, getHabits, updateHabit, type Ha
 type Props = {
   serverUrl: string
   apiKey: string
+  compact?: boolean
 }
 
 function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
@@ -167,7 +168,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
   )
 }
 
-export default function HabitsPanel({ serverUrl, apiKey }: Props) {
+export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Props) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [loading, setLoading] = useState(false)
   const [listOpen, setListOpen] = useState(false)
@@ -217,6 +218,64 @@ export default function HabitsPanel({ serverUrl, apiKey }: Props) {
   async function handleDelete(habit: Habit) { await deleteHabit(serverUrl, apiKey, habit); await refresh() }
   async function handleCheckIn(habit: Habit) { await checkInHabit(serverUrl, apiKey, habit); await refresh() }
 
+  const quickCheckCard = (
+    <div className="featured-card habit-featured">
+      <div className="featured-label">Habit check</div>
+      <div className="habit-quick-list">
+        {quickHabits.length === 0 ? (
+          <div className="featured-text">No active habits yet</div>
+        ) : (
+          quickHabits.map(habit => (
+            <button
+              key={habit.id}
+              type="button"
+              className={`habit-quick-card${habit.completedToday ? ' done' : ''}`}
+              onClick={() => handleCheckIn(habit)}
+              disabled={loading || habit.completedToday}
+            >
+              <div className="habit-quick-name">{habit.name}</div>
+              <div className="habit-quick-meta">
+                {habit.streakDays > 0 ? `🔥 ${habit.streakDays}  ` : ''}
+                {habit.completedToday ? '✓ done' : 'tap to complete'}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <section className="habits-panel habits-panel--compact">
+        <div className="section-header">
+          <h2>Habit check</h2>
+          <button type="button" className="compact-panel-btn" onClick={refresh} disabled={loading} title="Refresh">↺</button>
+        </div>
+        <div className="habit-quick-list habit-quick-list--compact">
+          {quickHabits.length === 0 ? (
+            <span className="compact-empty">No active habits</span>
+          ) : (
+            quickHabits.map(habit => (
+              <button
+                key={habit.id}
+                type="button"
+                className={`habit-quick-card habit-quick-card--compact${habit.completedToday ? ' done' : ''}`}
+                onClick={() => handleCheckIn(habit)}
+                disabled={loading || habit.completedToday}
+              >
+                <span className="habit-quick-name">{habit.name}</span>
+                <span className="habit-quick-meta">
+                  {habit.streakDays > 0 ? `🔥${habit.streakDays} ` : ''}{habit.completedToday ? '✓' : ''}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="habits-panel">
       <div className="section-header">
@@ -225,7 +284,7 @@ export default function HabitsPanel({ serverUrl, apiKey }: Props) {
       </div>
 
       <div className="featured-card habit-featured">
-        <div className="featured-label">Quick check</div>
+        <div className="featured-label">Habit check</div>
         <div className="habit-quick-list">
           {quickHabits.length === 0 ? (
             <div className="featured-text">No active habits yet</div>
