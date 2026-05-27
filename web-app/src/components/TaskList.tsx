@@ -439,7 +439,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
                     autoFocus
                     value={node.title}
                     onChange={e => updateNode(path, n => ({ ...n, title: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSiblingAfter(path) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSiblingAfter(path) } if (e.key === 'Tab') { e.preventDefault(); addChild(path) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
                     onBlur={() => {
                       setTimeout(() => {
                         const el = editorRefs.current.get(pathKey(path))
@@ -588,7 +588,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
                   ref={titleInputRef}
                   value={draft.title}
                   onChange={e => setDraft(current => ({ ...current, title: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void commitEditing([]) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void commitEditing([]) } if (e.key === 'Tab') { e.preventDefault(); addChild([]) } if (e.key === 'Escape') { e.preventDefault(); cancelEditing() } }}
                   onBlur={() => {
                     setTimeout(() => {
                       const el = editorRefs.current.get(pathKey([]))
