@@ -67,6 +67,9 @@ main { display: grid; gap: 16px; }
 .task-node-description-row { display: block; width: 100%; margin-left: 40px; padding: 0; }
 .task-node-description-row.task-node-description { font: inherit; text-align: left; color: var(--text-muted); }
 .task-node-description-row.task-node-description:hover { text-decoration: none; cursor: text; }
+.description-url { color: #0017C1; text-decoration: underline; cursor: pointer; }
+.description-url:hover { text-decoration-thickness: 2px; }
+.description-url-icon { font-size: 0.75em; margin-left: 2px; vertical-align: super; }
 .section-caption { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #667085; }
 .meta { color: #667085; font-size: 12px; margin-top: 4px; }
 .description { margin-top: 6px; }

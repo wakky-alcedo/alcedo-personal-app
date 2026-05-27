@@ -1,5 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { Task, TaskNode } from '../api.ts'
+
+const URL_RE = /(https?:\/\/[^\s]+)/g
+
+function DescriptionContent({ text, onEdit }: { text: string; onEdit: () => void }) {
+  const parts = text.split(URL_RE)
+  // split with capture group: even indices = plain text, odd indices = URLs
+  return (
+    <button type="button" className="task-node-description task-node-description-row" onClick={onEdit}>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <span
+            key={i}
+            className="description-url"
+            onClick={e => { if (e.ctrlKey || e.metaKey) { e.stopPropagation(); window.open(part, '_blank', 'noopener noreferrer') } }}
+            title="Ctrl+クリックで開く"
+          >
+            {part}<span className="description-url-icon" aria-label="新しいタブを開きます">↗</span>
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </button>
+  )
+}
 type RowProps = {
   task: Task
   onDone: (t: Task) => void
@@ -517,9 +542,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
                 aria-label={`Description for ${nodeName}`}
               />
             ) : (
-              <button type="button" className="task-node-description task-node-description-row" onClick={() => setEditingDescriptionPath(pathKey(path))} aria-label={`Description for ${nodeName}`} disabled={busy}>
-                {node.description}
-              </button>
+              <DescriptionContent text={node.description ?? ''} onEdit={() => setEditingDescriptionPath(pathKey(path))} />
             )
           ) : null}
           {isMenuOpen(path) ? (
@@ -660,9 +683,7 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
                 aria-label="Task description"
               />
             ) : (
-              <button type="button" className="task-node-description task-node-description-row" onClick={() => setEditingDescriptionPath(pathKey([]))} aria-label="Task description" disabled={busy}>
-                {draft.description}
-              </button>
+              <DescriptionContent text={draft.description ?? ''} onEdit={() => setEditingDescriptionPath(pathKey([]))} />
             )
           ) : null}
         {isMenuOpen([]) ? (
