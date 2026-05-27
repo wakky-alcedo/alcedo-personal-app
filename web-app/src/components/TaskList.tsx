@@ -796,15 +796,13 @@ export default function TaskList({ tasks, onDone, onSave, onDelete }: Props) {
           </div>
         </div>
         <div className="filter-row">
-          <label className="sort-label">
-            Sort
-            <select value={sortMode} onChange={e => setSortMode(e.target.value as typeof sortMode)}>
-              <option value="manual">manual</option>
-              <option value="priority">priority</option>
-              <option value="dueAt">due date</option>
-              <option value="title">title</option>
-            </select>
-          </label>
+          <span className="filter-row-label">Sort</span>
+          <select className="sort-select" value={sortMode} onChange={e => setSortMode(e.target.value as typeof sortMode)}>
+            <option value="manual">manual</option>
+            <option value="priority">priority</option>
+            <option value="dueAt">due date</option>
+            <option value="title">title</option>
+          </select>
         </div>
       </div>
       {orderedTasks.length === 0 ? (
