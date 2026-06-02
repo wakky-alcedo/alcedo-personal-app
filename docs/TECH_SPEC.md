@@ -123,9 +123,9 @@
 - 指標算出（学習比率，SNS時間など）
 
 5. web_ui
-- ダッシュボード
+- ダッシュボード：信念（コンパクト）＋習慣クイックチェック（コンパクト）＋タスク一覧（フィルタ・ソート・インライン編集・期限色分け）
 - 分析レポート（日次/週次/月次）
-- 設定画面
+- 設定画面：サーバー接続設定＋信念フル管理＋習慣フル管理
 
 ## 6. データ仕様
 ### 6.1 Android (Room)
@@ -181,33 +181,59 @@
 - duration_sec: int
 
 ### 6.2 PC (SQLite)
-1. sync_inbox
-- id: UUID
-- mobile_item_id: UUID
-- payload_json: text
-- received_at: datetime
-- processed_at: datetime?
+スキーマ定義: `pc-server/src/db.ts`
 
-2. obsidian_append_logs
-- id: UUID
-- mobile_item_id: UUID
-- target_file: string
-- result: enum(success, failed)
-- message: string?
-- created_at: datetime
+1. tasks
+- id: TEXT PRIMARY KEY (UUID)
+- title: TEXT NOT NULL
+- description: TEXT?
+- categoryType: TEXT NOT NULL (short_term | long_term)
+- categoryName: TEXT NOT NULL
+- priority: TEXT NOT NULL (low | medium | high)
+- dueAt: TEXT? (ISO 8601, UTC midnight `YYYY-MM-DDT00:00:00.000Z`)
+- status: TEXT NOT NULL (todo | doing | done)
+- subtasks: TEXT NOT NULL DEFAULT '[]' (JSON, 再帰的ツリー構造)
+- parentId: TEXT? (フラットモデル用, subtasks JSONと共存)
+- deletedAt: TEXT? (ソフトデリート用タイムスタンプ)
+- updatedAt: TEXT NOT NULL (ISO 8601)
+- version: INTEGER NOT NULL (楽観的排他制御用)
 
-3. git_commit_logs
-- id: UUID
-- commit_hash: string?
-- message: string
-- result: enum(success, skipped, failed)
-- created_at: datetime
+2. beliefs
+- id: TEXT PRIMARY KEY (UUID)
+- text: TEXT NOT NULL
+- isActive: INTEGER NOT NULL (0/1)
+- createdAt: TEXT NOT NULL
+- updatedAt: TEXT NOT NULL
 
-4. analytics_daily
-- id: UUID
-- target_date: date
-- metric_key: string
-- metric_value: number
+3. habits
+- id: TEXT PRIMARY KEY (UUID)
+- name: TEXT NOT NULL
+- notifyTime: TEXT?
+- widgetPriorityTimeRangeStart: TEXT?
+- widgetPriorityTimeRangeEnd: TEXT?
+- isActive: INTEGER NOT NULL (0/1)
+- createdAt: TEXT NOT NULL
+- updatedAt: TEXT NOT NULL
+
+4. habit_logs
+- id: TEXT PRIMARY KEY (UUID)
+- habitId: TEXT NOT NULL
+- doneDate: TEXT NOT NULL
+- createdAt: TEXT NOT NULL
+- UNIQUE(habitId, doneDate)
+
+5. analytics_daily
+- id: TEXT PRIMARY KEY (UUID)
+- targetDate: TEXT NOT NULL
+- source: TEXT NOT NULL DEFAULT 'manual'
+- category: TEXT NOT NULL
+- durationSec: INTEGER NOT NULL DEFAULT 0
+- createdAt: TEXT NOT NULL
+- updatedAt: TEXT NOT NULL
+
+6. sync_inbox (Phase2)
+7. obsidian_append_logs (Phase2)
+8. git_commit_logs (Phase2)
 
 ## 7. API 仕様（PC Local API）
 ### 7.1 認証
@@ -215,21 +241,52 @@
 - APIキー不一致時は 401
 
 ### 7.2 エンドポイント
-1. POST /api/v1/sync/obsidian-buffer
+#### タスク (実装済み: `pc-server/src/routes/tasks.ts`)
+1. POST /api/v1/sync/tasks
+- 用途: タスクのupsert/削除（Android同期・Web UI共通）
+- Request: { tasks?: UpsertTaskInput[], deletions?: DeleteTaskInput[] }
+- 競合解決: version-based（incoming.version > stored.version のみ受理）
+- Response: { acceptedUpserts, acceptedDeletions }
+
+2. GET /api/v1/tasks
+- 用途: 全タスク取得（deletedAt IS NULL のみ）
+- Query: since? (差分取得用 updatedAt フィルタ)
+- Response: { tasks: Task[] }（parentIdによるツリー構築済み）
+
+3. GET /api/v1/sync/changes?since=ISO8601
+- 用途: 差分同期（Android用）
+- Response: { upserts: Task[], deletions: {id, deletedAt}[] }
+
+#### 信念 (実装済み: `pc-server/src/routes/beliefs.ts`)
+4. GET /api/v1/beliefs — 一覧取得
+5. POST /api/v1/beliefs — 作成
+6. PUT /api/v1/beliefs/:id — 更新
+7. DELETE /api/v1/beliefs/:id — 削除
+
+#### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
+8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
+9. POST /api/v1/habits — 作成
+10. PUT /api/v1/habits/:id — 更新
+11. DELETE /api/v1/habits/:id — 削除
+12. POST /api/v1/habits/:id/check-in — 日次チェックイン
+
+#### リアルタイム通知 (実装済み: `pc-server/src/routes/events.ts`)
+13. GET /api/v1/events — SSE (Server-Sent Events)
+- 用途: タスク変更のリアルタイム通知
+- クライアントはこのイベントで差分取得を行う
+
+#### Obsidian連携 (Phase2)
+14. POST /api/v1/sync/obsidian-buffer
 - 用途: Android バッファ一括送信
 - Request: items[]（mobile_item_id, title, body, tags, created_at, dedupe_hash）
 - Response: accepted_ids[], rejected_ids[]
 
-2. POST /api/v1/sync/trigger
+15. POST /api/v1/sync/trigger
 - 用途: NFC/SSID トリガー送信開始
-- Request: trigger_type(nfc|wifi), occurred_at
-- Response: queued_count
 
-3. GET /api/v1/analytics/daily?date=YYYY-MM-DD
-- 用途: 日次分析取得
-
-4. GET /api/v1/analytics/summary?range=daily|weekly|monthly
-- 用途: 集計グラフ表示
+#### 分析 (実装済み: `pc-server/src/routes/analytics.ts`)
+16. GET /api/v1/analytics/daily?date=YYYY-MM-DD — 日次分析取得
+17. GET /api/v1/analytics/summary?range=daily|weekly|monthly — 集計グラフ表示
 
 ## 8. Obsidian/Git 連携仕様
 1. 追記先ファイル
@@ -253,17 +310,27 @@
 - commit message: `mobile-sync: YYYY-MM-DD HH:mm` 
 
 ## 9. 同期/リトライ仕様
-1. Android 送信
+### 9.1 タスク同期（version-based）
+- Upsert: incoming.version > stored.version の場合のみ上書き（同一versionならupdatedAt比較）
+- 削除: ソフトデリート（deletedAt タイムスタンプ）で同期安全性を確保
+- サーバーは変更時に SSE で `tasks-changed` をブロードキャスト
+
+### 9.2 Web UI クライアント同期
+- 楽観的更新: 保存時にローカルstateを即時更新し，APIエラー時のみロールバック（`App.tsx` handleSave/handleDelete）
+- バックグラウンド同期: EventSource (SSE) で `tasks-changed` を受信し `getTasks()` で最新化（フルリフレッシュせずスクロール位置を維持）
+- 初回ロードのみ loading 表示．既にタスクが表示されている場合は loading でDOMを破棄しない
+
+### 9.3 Android 送信
 - 送信は WorkManager で実行
 - Backoff: exponential
 - 最大再試行回数: 5
 
-2. 失敗分類
+### 9.4 失敗分類
 - 4xx: 永続失敗（failed）
 - 5xx/タイムアウト: 再試行
 - ネットワーク不可: 接続復帰待ち再試行
 
-3. 一貫性
+### 9.5 一貫性
 - Android 側はサーバー受理応答後に synced 化
 - 中断時は idempotent に再送
 
@@ -333,10 +400,11 @@
 
 ## 15. リリース段階
 ### Phase 1 (MVP)
-- 信念の表示と編集
-- タスクの基本的なCRUD操作
-- 習慣の記録とストリーク表示
-- タスクの同期（Android -> PC の片方向・最小構成）
+- 信念の表示と編集（ダッシュボードにコンパクト表示，設定でフル管理）
+- タスクのCRUD＋サブタスクツリー＋ステータス/優先度フィルタ＋期限色分け＋インライン編集
+- 習慣の記録とストリーク表示（ダッシュボードにコンパクト表示，設定でフル管理）
+- タスクの同期（Android -> PC の片方向・最小構成，version-based 競合解決）
+- Web UI の楽観的更新＋SSEリアルタイム通知
 
 ### Phase 2
 - 日次ダッシュボード
