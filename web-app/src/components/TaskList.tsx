@@ -252,7 +252,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
       ...nextTask,
       title: nextTask.title.trim(),
       description: nextTask.description?.trim() || null,
-      dueAt: nextTask.dueAt ? new Date(`${nextTask.dueAt.slice(0, 10)}T00:00:00`).toISOString() : null,
+      dueAt: nextTask.dueAt ? `${nextTask.dueAt.slice(0, 10)}T00:00:00.000Z` : null,
       priority: (nextTask as any).priority ?? 'medium',
     })
   }
@@ -530,7 +530,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
                           ...draft,
                           subtasks: updateTaskTree(draft.subtasks, path, n => ({
                             ...n,
-                            dueAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : null,
+                            dueAt: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
                           })),
                         }
                         setDraft(cloneTask(nextTask))
@@ -672,7 +672,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
               onChange={e => {
                 const nextTask = {
                   ...draft,
-                  dueAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : null,
+                  dueAt: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
                 }
                 setDraft(cloneTask(nextTask))
                 void saveTask(nextTask)
