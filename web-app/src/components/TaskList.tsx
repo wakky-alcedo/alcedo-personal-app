@@ -93,7 +93,6 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
 
   function updateRootTask(next: Task) {
     setDraft(cloneTask(next))
-    onDone?.(next)
   }
 
   useEffect(() => {
@@ -357,12 +356,20 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
     setOpenMenuPath(pathKey(path))
   }
 
+  function stripEmptySubtasks(nodes: TaskNode[]): TaskNode[] {
+    return nodes
+      .filter(n => n.title.trim() !== '')
+      .map(n => ({ ...n, subtasks: stripEmptySubtasks(n.subtasks) }))
+  }
+
   async function commitNode(path: number[] | null) {
     if (path === null) return
     setBusy(true)
+    const cleaned = { ...draft, subtasks: stripEmptySubtasks(draft.subtasks) }
+    setDraft(cleaned)
     const prev = cloneTask(draft)
     try {
-      await saveTask(draft)
+      await saveTask(cleaned)
       if (pathEquals(editingPath, path)) setEditingPath(null)
     } catch (err) {
       setDraft(prev)
