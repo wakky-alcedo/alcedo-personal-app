@@ -65,6 +65,10 @@ main { display: grid; gap: 16px; }
 .task-node-menu { display: grid; gap: 4px; margin-left: auto; padding: 8px; border: 1px solid #e6edf8; border-radius: 12px; background: #fff; box-shadow: var(--shadow-md); min-width: 160px; }
 .task-node-menu button { width: 100%; justify-content: flex-start; padding: 8px 10px; border-radius: 8px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .task-node-menu button:hover { background: var(--surface-weak); }
+.task-node-card.due-overdue { opacity: 0.5; }
+.task-node-card.due-today { background: linear-gradient(180deg, #fef2f2, #fee2e2); border-color: #fca5a5; }
+.task-node-card.due-soon { background: linear-gradient(180deg, #fffbeb, #fef3c7); border-color: #fcd34d; }
+.task-node-card.due-near { background: linear-gradient(180deg, #fefce8, #fef9c3); border-color: #fde047; }
 .task-status-toggle { margin-left: auto; }
 .task-summary-actions, .task-node-actions { justify-content: flex-start; display:flex; gap:8px; }
 .title-row { display:flex; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: wrap; }

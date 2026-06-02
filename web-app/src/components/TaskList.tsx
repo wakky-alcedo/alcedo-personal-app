@@ -3,6 +3,21 @@ import type { Task, TaskNode } from '../api.ts'
 
 const URL_RE = /(https?:\/\/[^\s]+)/g
 
+function dueDateClass(dueAt: string | null | undefined): string {
+  if (!dueAt) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(dueAt)
+  due.setHours(0, 0, 0, 0)
+  const diff = due.getTime() - today.getTime()
+  const days = diff / (1000 * 60 * 60 * 24)
+  if (days < 0) return 'due-overdue'
+  if (days === 0) return 'due-today'
+  if (days <= 3) return 'due-soon'
+  if (days <= 7) return 'due-near'
+  return ''
+}
+
 function DescriptionContent({ text, onEdit }: { text: string; onEdit: () => void }) {
   const parts = text.split(URL_RE)
   // split with capture group: even indices = plain text, odd indices = URLs
@@ -436,7 +451,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
             // ignore
           }
         }}
-        className={`task-node-card ${node.done ? 'done' : ''}`}
+        className={`task-node-card ${node.done ? 'done' : ''} ${dueDateClass(node.dueAt)}`}
         role="listitem"
         aria-label={nodeName}
         onContextMenu={event => {
@@ -586,7 +601,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
 
   return (
     <li
-      className={`task-node-card ${task.status === 'done' ? 'done' : ''}`}
+      className={`task-node-card ${task.status === 'done' ? 'done' : ''} ${dueDateClass(draft.dueAt)}`}
       role="listitem"
       aria-label={draft.title}
       onContextMenu={event => {
