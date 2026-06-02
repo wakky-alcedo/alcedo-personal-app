@@ -20,7 +20,7 @@ export default function TasksPanel({ loading, tasks, onCreateTask, onSaveTask, o
 
       <NewTaskForm onCreate={onCreateTask} />
 
-      {loading ? <div>Loading...</div> : <TaskList tasks={tasks} onSave={onSaveTask} onDelete={onDeleteTask} />}
+      {loading && !tasks.length ? <div>Loading...</div> : <TaskList tasks={tasks} onSave={onSaveTask} onDelete={onDeleteTask} />}
     </section>
   )
 }

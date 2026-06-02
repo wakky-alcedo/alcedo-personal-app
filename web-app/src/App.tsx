@@ -60,17 +60,28 @@ export default function App() {
 
   async function handleCreate(task: Partial<Task> & { title: string }) {
     await createTask(serverUrl, apiKey, task)
-    await refresh()
+    // EventSource handles adding the new task to the list
   }
 
   async function handleSave(task: Task) {
-    await updateTask(serverUrl, apiKey, task)
-    await refresh()
+    const optimistic = { ...task, version: task.version + 1, updatedAt: new Date().toISOString() }
+    setTasks(prev => prev.map(t => t.id === task.id ? optimistic : t))
+    try {
+      await updateTask(serverUrl, apiKey, task)
+    } catch (e) {
+      setTasks(prev => prev.map(t => t.id === task.id ? task : t))
+      throw e
+    }
   }
 
   async function handleDelete(task: Task) {
-    await deleteTask(serverUrl, apiKey, task)
-    await refresh()
+    setTasks(prev => prev.filter(t => t.id !== task.id))
+    try {
+      await deleteTask(serverUrl, apiKey, task)
+    } catch (e) {
+      setTasks(prev => [...prev, task])
+      throw e
+    }
   }
 
   return (
