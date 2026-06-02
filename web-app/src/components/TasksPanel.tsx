@@ -7,12 +7,11 @@ type Props = {
   loading: boolean
   tasks: Task[]
   onCreateTask: (task: Partial<Task> & { title: string }) => Promise<void>
-  onDoneTask: (task: Task) => Promise<void>
   onSaveTask: (task: Task) => Promise<void>
   onDeleteTask: (task: Task) => Promise<void>
 }
 
-export default function TasksPanel({ loading, tasks, onCreateTask, onDoneTask, onSaveTask, onDeleteTask }: Props) {
+export default function TasksPanel({ loading, tasks, onCreateTask, onSaveTask, onDeleteTask }: Props) {
   return (
     <section className="tasks-panel">
       <div className="section-header">
@@ -21,7 +20,7 @@ export default function TasksPanel({ loading, tasks, onCreateTask, onDoneTask, o
 
       <NewTaskForm onCreate={onCreateTask} />
 
-      {loading ? <div>Loading...</div> : <TaskList tasks={tasks} onDone={onDoneTask} onSave={onSaveTask} onDelete={onDeleteTask} />}
+      {loading ? <div>Loading...</div> : <TaskList tasks={tasks} onSave={onSaveTask} onDelete={onDeleteTask} />}
     </section>
   )
 }

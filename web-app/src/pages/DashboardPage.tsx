@@ -10,12 +10,11 @@ type Props = {
   loading: boolean
   tasks: Task[]
   onCreateTask: (task: Partial<Task> & { title: string }) => Promise<void>
-  onDoneTask: (task: Task) => Promise<void>
   onSaveTask: (task: Task) => Promise<void>
   onDeleteTask: (task: Task) => Promise<void>
 }
 
-export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCreateTask, onDoneTask, onSaveTask, onDeleteTask }: Props) {
+export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCreateTask, onSaveTask, onDeleteTask }: Props) {
   return (
     <main>
       <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
@@ -24,7 +23,6 @@ export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCre
         loading={loading}
         tasks={tasks}
         onCreateTask={onCreateTask}
-        onDoneTask={onDoneTask}
         onSaveTask={onSaveTask}
         onDeleteTask={onDeleteTask}
       />

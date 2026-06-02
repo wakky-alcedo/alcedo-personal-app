@@ -27,12 +27,11 @@ function DescriptionContent({ text, onEdit }: { text: string; onEdit: () => void
 }
 type RowProps = {
   task: Task
-  onDone: (t: Task) => void
   onSave: (t: Task) => Promise<void>
   onDelete: (t: Task) => Promise<void>
 }
 
-function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
+function TaskRow({ task, onSave, onDelete }: RowProps) {
   const [editingDescriptionPath, setEditingDescriptionPath] = useState<string | null>(null)
 
   function pathLabel(path: number[]) {
@@ -710,7 +709,6 @@ function TaskRow({ task, onDone, onSave, onDelete }: RowProps) {
 
 type Props = {
   tasks?: Task[] | null
-  onDone: (t: Task) => void
   onSave: (t: Task) => Promise<void>
   onDelete: (t: Task) => Promise<void>
 }
@@ -718,7 +716,7 @@ type Props = {
 type StatusFilter = 'all' | 'todo' | 'doing' | 'done'
 type PriorityFilter = 'all' | 'high' | 'medium' | 'low'
 
-export default function TaskList({ tasks, onDone, onSave, onDelete }: Props) {
+export default function TaskList({ tasks, onSave, onDelete }: Props) {
   const [sortMode, setSortMode] = useState<'manual' | 'priority' | 'dueAt' | 'title'>(
     () => (localStorage.getItem('taskListSortMode') as any) ?? 'manual'
   )
@@ -817,7 +815,7 @@ export default function TaskList({ tasks, onDone, onSave, onDelete }: Props) {
       ) : (
         <ul className="task-list">
           {orderedTasks.map(t => (
-            <TaskRow key={t.id} task={t} onDone={onDone} onSave={onSave} onDelete={onDelete} />
+            <TaskRow key={t.id} task={t} onSave={onSave} onDelete={onDelete} />
           ))}
         </ul>
       )}

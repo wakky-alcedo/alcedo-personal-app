@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { getTasks, createTask, updateTask, deleteTask, markTaskDone, type Task } from './api.ts'
+import { getTasks, createTask, updateTask, deleteTask, type Task } from './api.ts'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
@@ -68,11 +68,6 @@ export default function App() {
     await refresh()
   }
 
-  async function handleDone(task: Task) {
-    await markTaskDone(serverUrl, apiKey, task)
-    await refresh()
-  }
-
   async function handleDelete(task: Task) {
     await deleteTask(serverUrl, apiKey, task)
     await refresh()
@@ -109,7 +104,6 @@ export default function App() {
           loading={loading}
           tasks={tasks}
           onCreateTask={handleCreate}
-          onDoneTask={handleDone}
           onSaveTask={handleSave}
           onDeleteTask={handleDelete}
         />

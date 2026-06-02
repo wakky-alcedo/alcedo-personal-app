@@ -339,14 +339,6 @@ export async function deleteTask(serverUrl: string, apiKey: string, task: Task) 
   return res.json()
 }
 
-export async function markTaskDone(serverUrl: string, apiKey: string, task: Task) {
-  return updateTask(serverUrl, apiKey, {
-    ...task,
-    status: 'done',
-    updatedAt: new Date().toISOString(),
-    version: task.version + 1,
-  })
-}
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
