@@ -1,0 +1,8 @@
+[
+  { "pattern": "devenv|Code|rider|idea64", "field": "processName", "category": "開発" },
+  { "pattern": "chrome|firefox|msedge", "field": "processName", "category": "ブラウザ" },
+  { "pattern": "Discord|LINE|Slack|Teams", "field": "processName", "category": "コミュニケーション" },
+  { "pattern": "YouTube|Netflix|Crunchyroll|Twitch", "field": "windowTitle", "category": "娯楽" },
+  { "pattern": "Twitter|X\\s*[-–]", "field": "windowTitle", "category": "SNS" },
+  { "pattern": "Anki|Notion|Obsidian", "field": "processName", "category": "学習" }
+]

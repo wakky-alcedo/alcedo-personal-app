@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
+import { registerActivityRoutes } from "./routes/activity.js";
 import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerBeliefRoutes } from "./routes/beliefs.js";
 import { registerEventRoutes } from "./routes/events.js";
@@ -30,6 +31,7 @@ export async function createApp() {
   app.register(registerBeliefRoutes, { prefix: "/api/v1" });
   app.register(registerHabitRoutes, { prefix: "/api/v1" });
   app.register(registerAnalyticsRoutes, { prefix: "/api/v1" });
+  app.register(registerActivityRoutes, { prefix: "/api/v1" });
   app.register(registerEventRoutes, { prefix: "/api/v1" });
 
   return app;

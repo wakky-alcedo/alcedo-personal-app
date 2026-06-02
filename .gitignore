@@ -4,3 +4,7 @@
 .vscode/mcp.json
 
 .env
+
+# .NET build output
+bin/
+obj/

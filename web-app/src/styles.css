@@ -190,3 +190,24 @@ input, textarea, select { font: inherit; }
 .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 .sort-select { padding: 3px 6px; border-radius: 6px; border: 1px solid #dbe7ff; font: inherit; font-size: 12px; background: #fff; color: var(--text-primary); }
 .task-list-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+/* ─── Activity timeline ─────────────────────────────────── */
+.activity-timeline { display: grid; gap: 2px; max-height: 480px; overflow-y: auto; }
+.activity-block { display: flex; gap: 8px; align-items: stretch; min-height: 32px; }
+.activity-block-time { min-width: 72px; font-size: 12px; color: var(--text-muted); padding-top: 6px; font-variant-numeric: tabular-nums; }
+.activity-block-duration { margin-left: 4px; opacity: 0.7; }
+.activity-block-bar { width: 4px; border-radius: 2px; flex-shrink: 0; }
+.activity-block-content { flex: 1; padding: 5px 0; min-width: 0; }
+.activity-block-header { display: flex; gap: 8px; align-items: center; }
+.activity-block-category { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.activity-block-category:hover { background: #eef3ff; }
+.activity-block-process { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-block-media { font-size: 13px; flex-shrink: 0; }
+.activity-block-edit { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ─── Activity rules panel ──────────────────────────────── */
+.activity-rule-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.activity-rule-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.activity-rule-row { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: #fff; border: 1px solid #f1f5ff; }
+.activity-rule-pattern { font-size: 13px; background: #f1f5ff; padding: 2px 6px; border-radius: 4px; }
+.activity-rule-cat { font-weight: 600; font-size: 13px; }

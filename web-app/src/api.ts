@@ -410,3 +410,85 @@ export async function getAnalyticsSummary(
   if (!res.ok) throw new Error('fetch analytics summary failed')
   return res.json()
 }
+
+// ─── Activity Tracking ──────────────────────────────────────────────────────
+
+export type ActivityLog = {
+  id: string
+  timestamp: string
+  processName: string
+  windowTitle: string
+  category: string
+  isMediaPlaying: boolean
+  source: string
+  createdAt: string
+}
+
+export type ActivitySummary = {
+  category: string
+  durationSec: number
+}
+
+export type ActivityRule = {
+  id: string
+  pattern: string
+  field: 'processName' | 'windowTitle'
+  category: string
+  priority: number
+  createdAt: string
+  updatedAt: string
+}
+
+export async function getActivityLogs(serverUrl: string, apiKey: string, date: string): Promise<ActivityLog[]> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/logs?date=${encodeURIComponent(date)}`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch activity logs failed')
+  return res.json()
+}
+
+export async function getActivitySummary(serverUrl: string, apiKey: string, date: string): Promise<ActivitySummary[]> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/summary?date=${encodeURIComponent(date)}`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch activity summary failed')
+  return res.json()
+}
+
+export async function updateActivityCategory(serverUrl: string, apiKey: string, id: string, category: string): Promise<void> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/logs/${encodeURIComponent(id)}/category`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify({ category })
+  })
+  if (!res.ok) throw new Error('update activity category failed')
+}
+
+export async function getActivityRules(serverUrl: string, apiKey: string): Promise<ActivityRule[]> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/rules`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch activity rules failed')
+  return res.json()
+}
+
+export async function createActivityRule(
+  serverUrl: string, apiKey: string,
+  body: { pattern: string; field?: string; category: string; priority?: number }
+): Promise<ActivityRule> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/rules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) throw new Error('create activity rule failed')
+  return res.json()
+}
+
+export async function deleteActivityRule(serverUrl: string, apiKey: string, id: string): Promise<void> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/rules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('delete activity rule failed')
+}

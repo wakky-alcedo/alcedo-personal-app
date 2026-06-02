@@ -147,3 +147,29 @@ CREATE TABLE IF NOT EXISTS analytics_daily (
 CREATE INDEX IF NOT EXISTS idx_analytics_daily_date ON analytics_daily(targetDate);
 CREATE INDEX IF NOT EXISTS idx_analytics_daily_updated ON analytics_daily(updatedAt);
 `);
+
+// Activity tracking tables
+db.exec(`
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id TEXT PRIMARY KEY,
+  timestamp TEXT NOT NULL,
+  processName TEXT NOT NULL,
+  windowTitle TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT '未分類',
+  isMediaPlaying INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'win-tracker',
+  createdAt TEXT NOT NULL,
+  UNIQUE(timestamp, processName)
+);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp);
+
+CREATE TABLE IF NOT EXISTS activity_rules (
+  id TEXT PRIMARY KEY,
+  pattern TEXT NOT NULL,
+  field TEXT NOT NULL DEFAULT 'processName',
+  category TEXT NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+`);
