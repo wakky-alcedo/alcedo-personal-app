@@ -43,7 +43,7 @@ import java.time.format.DateTimeFormatter
 // ─── データクラス ──────────────────────────────────────────────────────────────
 
 data class CategoryDuration(val category: String, val durationSec: Long)
-data class AppUsage(val appName: String, val packageName: String, val totalSec: Long)
+data class AppUsage(val appName: String, val packageName: String, val totalSec: Long, val category: String = "未分類")
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
@@ -113,13 +113,15 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startMs, endMs)
             .filter { it.totalTimeInForeground > 0 }
 
-        // アプリ名取得
+        // アプリ情報・OS標準カテゴリ取得
         val pm = app.packageManager
         val appList = stats.mapNotNull { us ->
-            val name = try { pm.getApplicationLabel(pm.getApplicationInfo(us.packageName, 0)).toString() }
-                       catch (e: Exception) { us.packageName }
+            val (name, osCategory) = try {
+                val info = pm.getApplicationInfo(us.packageName, android.content.pm.PackageManager.GET_META_DATA)
+                pm.getApplicationLabel(info).toString() to info.category
+            } catch (e: Exception) { us.packageName to android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED }
             val sec = us.totalTimeInForeground / 1000
-            if (sec < 5) null else AppUsage(name, us.packageName, sec)
+            if (sec < 5) null else AppUsage(name, us.packageName, sec, CategoryMapper.fromOsCategory(osCategory))
         }.sortedByDescending { it.totalSec }
 
         _topApps.value = appList.take(10)
@@ -127,8 +129,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         // カテゴリ別に集計
         val catMap = mutableMapOf<String, Long>()
         appList.forEach { a ->
-            val cat = CategoryMapper.get(a.packageName)
-            catMap[cat] = (catMap[cat] ?: 0L) + a.totalSec
+            catMap[a.category] = (catMap[a.category] ?: 0L) + a.totalSec
         }
         _phoneUsage.value = catMap.entries
             .sortedByDescending { it.value }

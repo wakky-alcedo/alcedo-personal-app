@@ -54,6 +54,7 @@ class UsageStatsSyncWorker(
                 .put("processName",  s.appLabel)
                 .put("windowTitle",  s.appLabel)
                 .put("browserUrl",   JSONObject.NULL)
+                .put("category",     s.category)   // OS分類をサーバーに渡す
                 .put("isMediaPlaying", false)
             )
         }

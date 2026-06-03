@@ -72,6 +72,7 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
         processName: string;
         windowTitle?: string;
         browserUrl?: string | null;
+        category?: string | null;   // クライアント側分類（OS標準等）。サーバーのルールにない場合のフォールバック
         isMediaPlaying?: boolean;
       }>;
     };
@@ -103,7 +104,11 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
         if (!log.startedAt || !log.processName) continue;
         const id = randomUUID();
         const browserUrl = log.browserUrl ?? null;
-        const category = classifyLog(log.processName, log.windowTitle ?? "", browserUrl, rules);
+        const serverCategory = classifyLog(log.processName, log.windowTitle ?? "", browserUrl, rules);
+        // サーバーのルールがマッチしない（未分類）場合はクライアント送信のカテゴリをフォールバックとして使用
+        const category = serverCategory !== "未分類"
+          ? serverCategory
+          : (log.category && log.category !== "未分類" ? log.category : "未分類");
         upsertLog.run({
           id,
           deviceId,
