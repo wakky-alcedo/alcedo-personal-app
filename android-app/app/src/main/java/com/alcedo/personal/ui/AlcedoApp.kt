@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -14,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.alcedo.personal.analytics.AnalyticsScreen
 import com.alcedo.personal.ui.dashboard.DashboardScreen
 import com.alcedo.personal.ui.settings.BeliefsManagementScreen
 import com.alcedo.personal.ui.settings.HabitsManagementScreen
@@ -28,6 +30,7 @@ fun AlcedoApp() {
 
     val rootItems = listOf(
         NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home, null) },
+        NavItem("analytics", "分析")    { Text("📊", fontSize = 18.sp) },
         NavItem("settings",  "設定")    { Icon(Icons.Default.Settings, null) },
     )
 
@@ -59,6 +62,7 @@ fun AlcedoApp() {
             composable("dashboard") {
                 DashboardScreen(onNavigateToTask = { taskId -> navController.navigate("tasks/$taskId") })
             }
+            composable("analytics") { AnalyticsScreen() }
             composable(
                 "tasks/{taskId}",
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType })

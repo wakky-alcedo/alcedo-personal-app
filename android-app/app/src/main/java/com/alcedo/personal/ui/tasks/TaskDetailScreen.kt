@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,7 +28,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.sync.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.Instant
 
 class TaskDetailViewModel(app: Application, saved: SavedStateHandle) : AndroidViewModel(app) {
     private val taskId = saved.get<String>("taskId") ?: ""
@@ -137,9 +142,7 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
                 }
             }
             item {
-                OutlinedTextField(dueAt, { dueAt = it }, Modifier.fillMaxWidth(),
-                    label = { Text("期限 (YYYY-MM-DD)") }, singleLine = true,
-                    placeholder = { Text("2026-06-30") })
+                DueDateField(dueAt) { dueAt = it }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -163,6 +166,63 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
                 }
             }
             item { Spacer(Modifier.height(32.dp)) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DueDateField(dueAt: String, onChange: (String) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    val initialMillis = remember(dueAt) {
+        if (dueAt.isNotEmpty()) {
+            try {
+                LocalDate.parse(dueAt).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+            } catch (e: Exception) { null }
+        } else null
+    }
+    val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+
+    Box(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = if (dueAt.isEmpty()) "未設定" else dueAt,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("期限") },
+            readOnly = true,
+            trailingIcon = {
+                if (dueAt.isNotEmpty()) {
+                    IconButton(onClick = { onChange("") }) {
+                        Icon(Icons.Default.Close, "クリア", Modifier.size(18.dp))
+                    }
+                }
+            }
+        )
+        // TextField上に透明なクリック領域を重ねてカレンダーを開く
+        Box(Modifier.matchParentSize().clickable { showPicker = true })
+    }
+
+    if (showPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        val date = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                            .format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        onChange(date)
+                    }
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("キャンセル") }
+            }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
