@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,8 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 
+private fun priorityOrder(p: String) = when (p) { "high" -> 0; "medium" -> 1; else -> 2 }
+
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 class TasksViewModel(app: Application) : AndroidViewModel(app) {
@@ -39,20 +42,29 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _filter      = MutableStateFlow("all")
+    private val _sort        = MutableStateFlow("updatedAt")
     private val _showAddForm = MutableStateFlow(false)
     val filter:      StateFlow<String>  = _filter
+    val sort:        StateFlow<String>  = _sort
     val showAddForm: StateFlow<Boolean> = _showAddForm
 
-    val tasks: StateFlow<List<TaskEntity>> = combine(_allTasks, _filter) { list, f ->
-        when (f) {
+    val tasks: StateFlow<List<TaskEntity>> = combine(_allTasks, _filter, _sort) { list, f, s ->
+        val filtered = when (f) {
             "todo"  -> list.filter { it.status == "todo" }
             "doing" -> list.filter { it.status == "doing" }
             "done"  -> list.filter { it.status == "done" }
             else    -> list
         }
+        when (s) {
+            "priority" -> filtered.sortedBy { priorityOrder(it.priority) }
+            "dueAt"    -> filtered.sortedWith(compareBy(nullsLast()) { it.dueAt?.take(10) })
+            "title"    -> filtered.sortedBy { it.title }
+            else       -> filtered.sortedByDescending { it.updatedAt }
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setFilter(f: String)     { _filter.value = f }
+    fun setSort(s: String)       { _sort.value = s }
     fun toggleAddForm()          { _showAddForm.value = !_showAddForm.value }
     fun hideAddForm()            { _showAddForm.value = false }
 
@@ -106,6 +118,7 @@ fun TasksScreen(
 ) {
     val tasks       by vm.tasks.collectAsStateWithLifecycle()
     val filter      by vm.filter.collectAsStateWithLifecycle()
+    val sort        by vm.sort.collectAsStateWithLifecycle()
     val showAddForm by vm.showAddForm.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -130,17 +143,20 @@ fun TasksScreen(
                 item { AddTaskForm(onAdd = { vm.createTask(it) }, onDismiss = { vm.hideAddForm() }) }
             }
 
-            // フィルター
+            // フィルター + ソート
             item {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("all" to "All", "todo" to "Todo", "doing" to "Doing", "done" to "Done")
-                        .forEachIndexed { idx, (v, label) ->
-                            SegmentedButton(
-                                selected = filter == v, onClick = { vm.setFilter(v) },
-                                shape = SegmentedButtonDefaults.itemShape(idx, 4),
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                            )
-                        }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        listOf("all" to "All", "todo" to "Todo", "doing" to "Doing", "done" to "Done")
+                            .forEachIndexed { idx, (v, label) ->
+                                SegmentedButton(
+                                    selected = filter == v, onClick = { vm.setFilter(v) },
+                                    shape = SegmentedButtonDefaults.itemShape(idx, 4),
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                    }
+                    SortDropdown(sort) { vm.setSort(it) }
                 }
             }
 
@@ -183,6 +199,47 @@ private fun AddTaskForm(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onAdd(title) })
     )
+}
+
+// ─── ソートドロップダウン ──────────────────────────────────────────────────────
+
+private val SORT_OPTIONS = listOf(
+    "updatedAt" to "更新日時",
+    "dueAt"     to "期限",
+    "priority"  to "優先度",
+    "title"     to "タイトル",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SortDropdown(current: String, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = SORT_OPTIONS.firstOrNull { it.first == current }?.second ?: current
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("並び替え:", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(4.dp))
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.menuAnchor(),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(label, style = MaterialTheme.typography.labelSmall)
+                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(16.dp))
+            }
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                SORT_OPTIONS.forEach { (value, name) ->
+                    DropdownMenuItem(
+                        text = { Text(name, style = MaterialTheme.typography.bodySmall) },
+                        onClick = { onSelect(value); expanded = false },
+                        trailingIcon = if (value == current) {{ Text("✓", color = MaterialTheme.colorScheme.primary) }} else null
+                    )
+                }
+            }
+        }
+    }
 }
 
 // ─── タスクカード ──────────────────────────────────────────────────────────────
