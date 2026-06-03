@@ -1,0 +1,62 @@
+package com.alcedo.personal.sync
+
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+class SyncStatusConverters {
+    @TypeConverter
+    fun fromSyncStatus(value: SyncStatus): String = value.name
+
+    @TypeConverter
+    fun toSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
+}
+
+@Database(
+    entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class],
+    version = 2,
+    exportSchema = false
+)
+@TypeConverters(SyncStatusConverters::class)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun taskDao(): TaskDao
+    abstract fun beliefDao(): BeliefDao
+    abstract fun habitDao(): HabitDao
+
+    companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS beliefs (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        text TEXT NOT NULL,
+                        isActive INTEGER NOT NULL,
+                        createdAt TEXT NOT NULL,
+                        updatedAt TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS habits (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        notifyTime TEXT,
+                        isActive INTEGER NOT NULL,
+                        createdAt TEXT NOT NULL,
+                        updatedAt TEXT NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS habit_logs (
+                        habitId TEXT NOT NULL,
+                        doneDate TEXT NOT NULL,
+                        createdAt TEXT NOT NULL,
+                        PRIMARY KEY (habitId, doneDate)
+                    )
+                """.trimIndent())
+            }
+        }
+    }
+}
