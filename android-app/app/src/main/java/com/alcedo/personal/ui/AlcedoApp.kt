@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alcedo.personal.analytics.AnalyticsScreen
 import com.alcedo.personal.ui.dashboard.DashboardScreen
+import com.alcedo.personal.ui.tasks.TasksScreen
 import com.alcedo.personal.ui.settings.BeliefsManagementScreen
 import com.alcedo.personal.ui.settings.HabitsManagementScreen
 import com.alcedo.personal.ui.settings.SettingsScreen
@@ -30,6 +31,7 @@ fun AlcedoApp() {
 
     val rootItems = listOf(
         NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home, null) },
+        NavItem("tasks",     "タスク")  { Text("📋", fontSize = 18.sp) },
         NavItem("analytics", "分析")    { Text("📊", fontSize = 18.sp) },
         NavItem("settings",  "設定")    { Icon(Icons.Default.Settings, null) },
     )
@@ -61,6 +63,9 @@ fun AlcedoApp() {
         NavHost(navController, startDestination = "dashboard") {
             composable("dashboard") {
                 DashboardScreen(onNavigateToTask = { taskId -> navController.navigate("tasks/$taskId") })
+            }
+            composable("tasks") {
+                TasksScreen(onNavigateToDetail = { taskId -> navController.navigate("tasks/$taskId") })
             }
             composable("analytics") { AnalyticsScreen() }
             composable(

@@ -38,19 +38,8 @@ fun DashboardScreen(onNavigateToTask: (String) -> Unit = {}, vm: DashboardViewMo
     val beliefs          by vm.beliefs.collectAsStateWithLifecycle()
     val currentBelief    by vm.currentBelief.collectAsStateWithLifecycle()
     val habitsWithStatus by vm.habitsWithStatus.collectAsStateWithLifecycle()
-    val tasks            by vm.tasks.collectAsStateWithLifecycle()
-    val showAddTask      by vm.showAddTask.collectAsStateWithLifecycle()
+    val todayTodos       by vm.todayTodos.collectAsStateWithLifecycle()
     val syncing          by vm.syncing.collectAsStateWithLifecycle()
-
-    var taskFilter by remember { mutableStateOf("todo") }
-    val filteredTasks = tasks.filter {
-        when (taskFilter) {
-            "todo"  -> it.status == "todo"
-            "doing" -> it.status == "doing"
-            "done"  -> it.status == "done"
-            else    -> true
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -87,36 +76,24 @@ fun DashboardScreen(onNavigateToTask: (String) -> Unit = {}, vm: DashboardViewMo
                 HabitsBlock(habitsWithStatus, vm)
             }
 
-            // ─── タスク ────────────────────────────────────────────────────────
+            // ─── 今日のタスク ──────────────────────────────────────────────────
             item {
-                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                    Text("Tasks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    IconButton(onClick = { vm.toggleAddTask() }) { Icon(Icons.Default.Add, null) }
-                }
+                Text("今日のタスク", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            if (showAddTask) {
-                item { TaskAddForm(onAdd = { vm.createTask(it) }, onDismiss = { vm.hideAddTask() }) }
-            }
-            item {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("todo" to "Todo", "doing" to "Doing", "done" to "Done", "all" to "All")
-                        .forEachIndexed { idx, (v, label) ->
-                            SegmentedButton(selected = taskFilter == v, onClick = { taskFilter = v },
-                                shape = SegmentedButtonDefaults.itemShape(idx, 4),
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) })
-                        }
-                }
-            }
-            if (filteredTasks.isEmpty()) {
+            if (todayTodos.isEmpty()) {
                 item {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) {
-                        Text("タスクがありません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Card(Modifier.fillMaxWidth()) {
+                        Box(Modifier.fillMaxWidth().padding(20.dp), Alignment.Center) {
+                            Text("今日が期限のタスクはありません",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
-            items(filteredTasks, key = { it.id }) { task ->
+            items(todayTodos, key = { it.id }) { task ->
                 TaskCard(task, onToggleDone = { vm.toggleDone(task) },
-                    onDelete = { vm.deleteTask(task) },
+                    onDelete = {}, // Dashboard では削除しない
                     onTap = { onNavigateToTask(task.id) })
             }
             item { Spacer(Modifier.height(16.dp)) }
@@ -271,22 +248,6 @@ private fun HabitHeatmapContent(habits: List<HabitUiState>) {
 }
 
 // ─── タスク追加フォーム ─────────────────────────────────────────────────────
-
-@Composable
-private fun TaskAddForm(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
-    var title by remember { mutableStateOf("") }
-    OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(),
-        placeholder = { Text("タスクのタイトル") }, singleLine = true,
-        trailingIcon = {
-            Row {
-                TextButton(onClick = onDismiss) { Text("キャンセル") }
-                TextButton(onClick = { onAdd(title) }, enabled = title.isNotBlank()) { Text("追加") }
-            }
-        },
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onAdd(title) })
-    )
-}
 
 // ─── タスクカード ───────────────────────────────────────────────────────────
 

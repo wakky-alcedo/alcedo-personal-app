@@ -9,7 +9,6 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.UUID
 
 data class HabitUiState(
     val habit: HabitEntity,
@@ -23,11 +22,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val beliefRepo = BeliefRepository(app, db.beliefDao())
     private val habitRepo  = HabitRepository(app, db.habitDao())
 
-    private val _beliefIndex  = MutableStateFlow(0)
-    private val _showAddTask  = MutableStateFlow(false)
-    private val _syncing      = MutableStateFlow(false)
-    val showAddTask: StateFlow<Boolean>  = _showAddTask
-    val syncing:     StateFlow<Boolean>  = _syncing
+    private val _beliefIndex = MutableStateFlow(0)
+    private val _syncing     = MutableStateFlow(false)
+    val syncing: StateFlow<Boolean> = _syncing
 
     val beliefs: StateFlow<List<BeliefEntity>> = beliefRepo.observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -36,7 +33,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         .map { list -> if (list.isEmpty()) null else list[_beliefIndex.value % list.size] }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val tasks: StateFlow<List<TaskEntity>> = taskDao.observeActiveTasks()
+    /** 今日が期限かつ todo のタスクのみ */
+    val todayTodos: StateFlow<List<TaskEntity>> = taskDao.observeActiveTasks()
+        .map { list ->
+            val todayPrefix = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            list.filter { it.status == "todo" && it.dueAt?.startsWith(todayPrefix) == true }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _habitsWithStatus = MutableStateFlow<List<HabitUiState>>(emptyList())
@@ -66,24 +68,6 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         if (list.size > 1) _beliefIndex.value = (_beliefIndex.value + 1) % list.size
     }
 
-    fun toggleAddTask() { _showAddTask.value = !_showAddTask.value }
-    fun hideAddTask()   { _showAddTask.value = false }
-
-    fun createTask(title: String) {
-        if (title.isBlank()) return
-        viewModelScope.launch {
-            val now = Instant.now().toString()
-            taskDao.upsert(TaskEntity(
-                id = UUID.randomUUID().toString(), title = title.trim(),
-                description = null, categoryType = "short_term", categoryName = "today",
-                priority = "medium", dueAt = null, status = "todo",
-                syncStatus = SyncStatus.UNSENT, deletedAt = null, updatedAt = now, version = 1
-            ))
-            TaskSyncScheduler.enqueue(getApplication())
-            _showAddTask.value = false
-        }
-    }
-
     fun toggleDone(task: TaskEntity) {
         viewModelScope.launch {
             taskDao.upsert(task.copy(
@@ -91,16 +75,6 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 syncStatus = SyncStatus.UNSENT,
                 updatedAt = Instant.now().toString(),
                 version = task.version + 1
-            ))
-            TaskSyncScheduler.enqueue(getApplication())
-        }
-    }
-
-    fun deleteTask(task: TaskEntity) {
-        viewModelScope.launch {
-            val now = Instant.now().toString()
-            taskDao.upsert(task.copy(
-                deletedAt = now, syncStatus = SyncStatus.UNSENT, updatedAt = now, version = task.version + 1
             ))
             TaskSyncScheduler.enqueue(getApplication())
         }
