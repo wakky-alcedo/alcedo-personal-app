@@ -9,59 +9,86 @@ public class SyncService : IDisposable
 {
     private readonly HttpClient _http;
     private readonly string _serverUrl;
-    private readonly string _apiKey;
-    private readonly List<ActivityLog> _buffer = [];
+    private readonly string _deviceId;
+    private readonly List<ActivityLog> _completed = [];
+    private ActivityLog? _currentSession;
     private readonly object _lock = new();
     private static readonly string BufferFilePath =
         Path.Combine(AppContext.BaseDirectory, "buffer.json");
 
-    public SyncService(string serverUrl, string apiKey)
+    public SyncService(string serverUrl, string apiKey, string deviceId)
     {
         _serverUrl = serverUrl.TrimEnd('/');
-        _apiKey = apiKey;
+        _deviceId = deviceId;
         _http = new HttpClient();
-        _http.DefaultRequestHeaders.Add("X-Api-Key", _apiKey);
+        _http.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 
-        // Load any persisted buffer from a previous session
         if (File.Exists(BufferFilePath))
         {
             try
             {
                 var json = File.ReadAllText(BufferFilePath);
-                var loaded = JsonSerializer.Deserialize<List<ActivityLog>>(json,
+                var state = JsonSerializer.Deserialize<PersistedState>(json,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (loaded != null) _buffer.AddRange(loaded);
+                if (state != null)
+                {
+                    if (state.Completed != null) _completed.AddRange(state.Completed);
+                    _currentSession = state.CurrentSession;
+                }
                 File.Delete(BufferFilePath);
             }
             catch { /* ignore corrupt buffer */ }
         }
     }
 
-    public void Add(ActivityLog log)
+    /// <summary>
+    /// Called on each sample tick. Starts, extends, or ends sessions based on whether activity changed.
+    /// </summary>
+    public void UpdateActivity(ActivityLog snapshot)
     {
         lock (_lock)
         {
-            _buffer.Add(log);
+            var now = DateTime.UtcNow.ToString("o");
+
+            if (_currentSession == null)
+            {
+                _currentSession = CreateSession(snapshot, now);
+            }
+            else if (IsSameActivity(snapshot, _currentSession))
+            {
+                _currentSession.IsMediaPlaying = snapshot.IsMediaPlaying;
+            }
+            else
+            {
+                _currentSession.EndedAt = now;
+                _completed.Add(_currentSession);
+                _currentSession = CreateSession(snapshot, now);
+            }
         }
     }
 
     public int PendingCount
     {
-        get { lock (_lock) { return _buffer.Count; } }
+        get { lock (_lock) { return _completed.Count; } }
     }
 
     public async Task<bool> SyncAsync()
     {
         List<ActivityLog> batch;
+        int completedCount;
         lock (_lock)
         {
-            if (_buffer.Count == 0) return true;
-            batch = new List<ActivityLog>(_buffer);
+            if (_completed.Count == 0 && _currentSession == null) return true;
+            batch = new List<ActivityLog>(_completed);
+            completedCount = _completed.Count;
+            // Include the current open session so the server knows "what's happening now"
+            if (_currentSession != null)
+                batch.Add(CopySession(_currentSession));
         }
 
         try
         {
-            var payload = new { logs = batch };
+            var payload = new { deviceId = _deviceId, logs = batch };
             var response = await _http.PostAsJsonAsync(
                 $"{_serverUrl}/api/v1/activity/bulk", payload);
 
@@ -69,16 +96,12 @@ public class SyncService : IDisposable
             {
                 lock (_lock)
                 {
-                    // Remove only the items we sent (more may have been added)
-                    _buffer.RemoveRange(0, Math.Min(batch.Count, _buffer.Count));
+                    _completed.RemoveRange(0, Math.Min(completedCount, _completed.Count));
                 }
                 return true;
             }
         }
-        catch
-        {
-            // Network error — keep buffer for retry
-        }
+        catch { /* Network error — keep buffer for retry */ }
 
         return false;
     }
@@ -87,18 +110,52 @@ public class SyncService : IDisposable
     {
         lock (_lock)
         {
-            if (_buffer.Count == 0) return;
+            if (_completed.Count == 0 && _currentSession == null) return;
             try
             {
-                var json = JsonSerializer.Serialize(_buffer);
-                File.WriteAllText(BufferFilePath, json);
+                var state = new PersistedState
+                {
+                    Completed = new List<ActivityLog>(_completed),
+                    CurrentSession = _currentSession != null ? CopySession(_currentSession) : null,
+                };
+                File.WriteAllText(BufferFilePath, JsonSerializer.Serialize(state));
             }
             catch { /* best-effort */ }
         }
     }
 
-    public void Dispose()
+    public void Dispose() => _http.Dispose();
+
+    private ActivityLog CreateSession(ActivityLog snapshot, string startedAt) => new()
     {
-        _http.Dispose();
+        DeviceId = _deviceId,
+        StartedAt = startedAt,
+        EndedAt = null,
+        ProcessName = snapshot.ProcessName,
+        WindowTitle = snapshot.WindowTitle,
+        BrowserUrl = snapshot.BrowserUrl,
+        IsMediaPlaying = snapshot.IsMediaPlaying,
+    };
+
+    private static ActivityLog CopySession(ActivityLog s) => new()
+    {
+        DeviceId = s.DeviceId,
+        StartedAt = s.StartedAt,
+        EndedAt = s.EndedAt,
+        ProcessName = s.ProcessName,
+        WindowTitle = s.WindowTitle,
+        BrowserUrl = s.BrowserUrl,
+        IsMediaPlaying = s.IsMediaPlaying,
+    };
+
+    private static bool IsSameActivity(ActivityLog a, ActivityLog b) =>
+        a.ProcessName == b.ProcessName &&
+        a.WindowTitle == b.WindowTitle &&
+        a.BrowserUrl == b.BrowserUrl;
+
+    private class PersistedState
+    {
+        public List<ActivityLog>? Completed { get; set; }
+        public ActivityLog? CurrentSession { get; set; }
     }
 }

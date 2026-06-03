@@ -150,20 +150,6 @@ CREATE INDEX IF NOT EXISTS idx_analytics_daily_updated ON analytics_daily(update
 
 // Activity tracking tables
 db.exec(`
-CREATE TABLE IF NOT EXISTS activity_logs (
-  id TEXT PRIMARY KEY,
-  timestamp TEXT NOT NULL,
-  processName TEXT NOT NULL,
-  windowTitle TEXT NOT NULL,
-  browserUrl TEXT,
-  category TEXT NOT NULL DEFAULT '未分類',
-  isMediaPlaying INTEGER NOT NULL DEFAULT 0,
-  source TEXT NOT NULL DEFAULT 'win-tracker',
-  createdAt TEXT NOT NULL,
-  UNIQUE(timestamp, processName)
-);
-CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp);
-
 CREATE TABLE IF NOT EXISTS activity_rules (
   id TEXT PRIMARY KEY,
   pattern TEXT NOT NULL,
@@ -175,8 +161,47 @@ CREATE TABLE IF NOT EXISTS activity_rules (
 );
 `);
 
-// Migration: add browserUrl column to existing activity_logs tables
-const activityCols = db.prepare("PRAGMA table_info(activity_logs)").all() as Array<{ name: string }>;
-if (activityCols.length > 0 && !activityCols.some((c) => c.name === "browserUrl")) {
-  db.exec("ALTER TABLE activity_logs ADD COLUMN browserUrl TEXT");
+// Migrate activity_logs: old schema (timestamp) → new session schema (startedAt + endedAt + deviceId)
+{
+  const cols = db.prepare("PRAGMA table_info(activity_logs)").all() as Array<{ name: string }>;
+  const hasTimestamp = cols.some((c) => c.name === "timestamp");
+  const hasStartedAt = cols.some((c) => c.name === "startedAt");
+
+  if (hasTimestamp && !hasStartedAt) {
+    // Migrate old point-sample data to session format
+    db.exec("ALTER TABLE activity_logs RENAME TO activity_logs_v1");
+  }
+
+  if (!hasStartedAt) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        deviceId TEXT NOT NULL DEFAULT 'unknown',
+        startedAt TEXT NOT NULL,
+        endedAt TEXT,
+        processName TEXT NOT NULL,
+        windowTitle TEXT NOT NULL DEFAULT '',
+        browserUrl TEXT,
+        category TEXT NOT NULL DEFAULT '未分類',
+        isMediaPlaying INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'win-tracker',
+        createdAt TEXT NOT NULL,
+        UNIQUE(deviceId, startedAt)
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_started ON activity_logs(startedAt)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_device ON activity_logs(deviceId, startedAt)`);
+  }
+
+  if (hasTimestamp && !hasStartedAt) {
+    // Copy old rows: timestamp → startedAt, endedAt = NULL, deviceId = 'unknown'
+    db.exec(`
+      INSERT OR IGNORE INTO activity_logs
+        (id, deviceId, startedAt, endedAt, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)
+      SELECT
+        id, 'unknown', timestamp, NULL, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt
+      FROM activity_logs_v1
+    `);
+    db.exec("DROP TABLE activity_logs_v1");
+  }
 }

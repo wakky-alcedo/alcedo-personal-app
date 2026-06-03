@@ -423,7 +423,9 @@ export async function getAnalyticsSummary(
 
 export type ActivityLog = {
   id: string
-  timestamp: string
+  deviceId: string
+  startedAt: string
+  endedAt: string | null
   processName: string
   windowTitle: string
   browserUrl: string | null
@@ -456,20 +458,33 @@ export async function getCurrentActivity(serverUrl: string, apiKey: string): Pro
   return res.json()
 }
 
-export async function getActivityLogs(serverUrl: string, apiKey: string, date: string): Promise<ActivityLog[]> {
-  const res = await fetch(`${serverUrl}/api/v1/activity/logs?date=${encodeURIComponent(date)}`, {
+export async function getActivityLogs(serverUrl: string, apiKey: string, date: string, deviceId?: string): Promise<ActivityLog[]> {
+  const params = new URLSearchParams({ date })
+  if (deviceId) params.set('deviceId', deviceId)
+  const res = await fetch(`${serverUrl}/api/v1/activity/logs?${params}`, {
     headers: { 'X-Api-Key': apiKey }
   })
   if (!res.ok) throw new Error('fetch activity logs failed')
   return res.json()
 }
 
-export async function getActivitySummary(serverUrl: string, apiKey: string, date: string): Promise<ActivitySummary[]> {
-  const res = await fetch(`${serverUrl}/api/v1/activity/summary?date=${encodeURIComponent(date)}`, {
+export async function getActivitySummary(serverUrl: string, apiKey: string, date: string, deviceId?: string): Promise<ActivitySummary[]> {
+  const params = new URLSearchParams({ date })
+  if (deviceId) params.set('deviceId', deviceId)
+  const res = await fetch(`${serverUrl}/api/v1/activity/summary?${params}`, {
     headers: { 'X-Api-Key': apiKey }
   })
   if (!res.ok) throw new Error('fetch activity summary failed')
   return res.json()
+}
+
+export async function getActivityDevices(serverUrl: string, apiKey: string): Promise<string[]> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/devices`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch activity devices failed')
+  const rows = await res.json() as Array<{ deviceId: string }>
+  return rows.map(r => r.deviceId)
 }
 
 export async function updateActivityCategory(serverUrl: string, apiKey: string, id: string, category: string): Promise<void> {

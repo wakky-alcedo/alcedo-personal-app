@@ -6,4 +6,5 @@ public class AppSettings
     public string ApiKey { get; set; } = "dev-local-key";
     public int SampleIntervalSeconds { get; set; } = 15;
     public int SyncIntervalMinutes { get; set; } = 5;
+    public string DeviceId { get; set; } = Environment.MachineName;
 }

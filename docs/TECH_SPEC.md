@@ -66,6 +66,19 @@
 - グラフ表示: Recharts
 - 認証: ローカル API キー方式（単一ユーザー前提）
 
+### 4.3 Windows アクティビティトラッカー (win-tracker)
+- 言語: C# (.NET 8, Windows Forms)
+- ディレクトリ: `win-tracker/`
+- 動作: システムトレイ常駐アプリ
+- 機能:
+  - GetForegroundWindow でアクティブウィンドウを監視
+  - UI Automation でブラウザのタブタイトル・URL取得（Chrome/Edge/Firefox/Vivaldi/Brave対応）
+  - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5)
+  - セッション管理: アクティビティが変化した時のみセッションを完結させてバッファ追加（同一内容継続は記録しない）
+  - 5分ごとにバッファをサーバーへ一括 POST
+  - 終了時にバッファをディスク永続化、次回起動時に再ロード
+  - `--diag` フラグ: UI Automation ツリーをファイルダンプする診断モード
+
 ### 4.3 連携
 - Android -> PC: HTTPS REST API
 - PC -> Obsidian: Obsidian Local Vault ファイル追記（Phase2）
@@ -119,13 +132,21 @@
 - commit 実行
 
 4. analytics
-- Android/PC 時間データ統合
-- 指標算出（学習比率，SNS時間など）
+- 手動記録 (analytics_daily) と自動記録 (activity_logs) の2系統
+- 指標算出（カテゴリ別時間, SNS時間警告）
+- 日次/週次/月次集計
 
-5. web_ui
-- ダッシュボード：信念（コンパクト）＋習慣クイックチェック（コンパクト）＋タスク一覧（フィルタ・ソート・インライン編集・期限色分け）
-- 分析レポート（日次/週次/月次）
-- 設定画面：サーバー接続設定＋信念フル管理＋習慣フル管理
+5. activity_tracker (win-tracker 連携)
+- win-tracker からのセッションデータ受信・保存 (`POST /activity/bulk`)
+- セッションベースの分類（activity_rules テーブルの正規表現ルール）
+- クロスデバイス引き継ぎ: 別デバイスのオープンセッションを自動クローズ
+- 既存ログの一括再分類 (`POST /activity/reclassify`)
+
+6. web_ui
+- ダッシュボード：アクティブタブバナー＋信念（コンパクト）＋習慣（クイックチェック＋カレンダーヒートマップ）＋タスク一覧
+- 分析：日次（作業記録タイムライン＋手動記録）・週次・月次，デバイスフィルタ
+- 設定：サーバー接続＋信念フル管理＋習慣フル管理＋分類ルール管理
+- URLハッシュによるタブ状態保持（`#dashboard` / `#analytics` / `#settings`）
 
 ## 6. データ仕様
 ### 6.1 Android (Room)
@@ -231,9 +252,31 @@
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
 
-6. sync_inbox (Phase2)
-7. obsidian_append_logs (Phase2)
-8. git_commit_logs (Phase2)
+6. activity_logs（win-tracker セッションデータ）
+- id: TEXT PRIMARY KEY (UUID, サーバー生成)
+- deviceId: TEXT NOT NULL DEFAULT 'unknown'（例: `DELL-XPS`, `Environment.MachineName`）
+- startedAt: TEXT NOT NULL（UTC ISO 8601, セッション開始）
+- endedAt: TEXT（UTC ISO 8601, NULL = 進行中オープンセッション）
+- processName: TEXT NOT NULL
+- windowTitle: TEXT NOT NULL（ブラウザはタブタイトル, 他はウィンドウタイトル）
+- browserUrl: TEXT（ブラウザのみ, クエリ文字列・フラグメント除去済み）
+- category: TEXT NOT NULL DEFAULT '未分類'（activity_rules で自動分類）
+- isMediaPlaying: INTEGER NOT NULL DEFAULT 0（メディア再生中フラグ）
+- source: TEXT NOT NULL DEFAULT 'win-tracker'
+- createdAt: TEXT NOT NULL
+- UNIQUE(deviceId, startedAt)
+
+7. activity_rules（自動分類ルール）
+- id: TEXT PRIMARY KEY (UUID)
+- pattern: TEXT NOT NULL（正規表現）
+- field: TEXT NOT NULL DEFAULT 'processName'（'processName' | 'windowTitle' | 'browserUrl'）
+- category: TEXT NOT NULL（分類先カテゴリ名）
+- priority: INTEGER NOT NULL DEFAULT 0（高い値が優先）
+- createdAt, updatedAt: TEXT NOT NULL
+
+8. sync_inbox (Phase2)
+9. obsidian_append_logs (Phase2)
+10. git_commit_logs (Phase2)
 
 ## 7. API 仕様（PC Local API）
 ### 7.1 認証
@@ -265,28 +308,62 @@
 
 #### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
 8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
-9. POST /api/v1/habits — 作成
-10. PUT /api/v1/habits/:id — 更新
-11. DELETE /api/v1/habits/:id — 削除
-12. POST /api/v1/habits/:id/check-in — 日次チェックイン
+9. POST /api/v1/habits — 作成・更新（id 指定で upsert）
+10. DELETE /api/v1/habits/:id — 削除（habit_logs も削除）
+11. POST /api/v1/habits/:id/logs — 日次チェックイン
+- Body: `{ doneDate?: string }` (省略時は当日)
+- UNIQUE(habitId, doneDate) で二重チェックイン防止
+12. GET /api/v1/habits/logs?from=YYYY-MM-DD&to=YYYY-MM-DD — ログ一覧取得
+- 用途: 習慣カレンダーヒートマップ表示用
+- Response: `[{ habitId, doneDate }]`
 
 #### リアルタイム通知 (実装済み: `pc-server/src/routes/events.ts`)
 13. GET /api/v1/events — SSE (Server-Sent Events)
 - 用途: タスク変更のリアルタイム通知
 - クライアントはこのイベントで差分取得を行う
 
+#### アクティビティ追跡 (実装済み: `pc-server/src/routes/activity.ts`)
+14. POST /api/v1/activity/bulk — win-tracker からセッションを一括受信
+- Body: `{ deviceId: string, logs: Session[] }`
+- Session: `{ startedAt, endedAt?, processName, windowTitle, browserUrl?, isMediaPlaying? }`
+- 挿入時に activity_rules で自動分類
+- endedAt=null のセッションが含まれる場合: 他デバイスのオープンセッションを同タイムスタンプで自動クローズ（クロスデバイス引き継ぎ）
+- UPSERT: UNIQUE(deviceId, startedAt) に競合時は endedAt を更新（クローズ済みセッションは再オープンしない）
+
+15. GET /api/v1/activity/current — 最新セッション1件取得
+- オープンセッション（endedAt IS NULL）を優先返却
+- 用途: ダッシュボードの ActiveTabBanner
+
+16. GET /api/v1/activity/logs?date=YYYY-MM-DD&deviceId=xxx — 日次セッション一覧
+17. GET /api/v1/activity/summary?date=YYYY-MM-DD&deviceId=xxx — カテゴリ別実測時間集計
+- 時間計算: `(julianday(COALESCE(endedAt, now)) - julianday(startedAt)) * 86400`
+
+18. GET /api/v1/activity/devices — 記録済みデバイスID一覧
+- 用途: 分析ページのデバイスフィルタ
+
+19. POST /api/v1/activity/logs/:id/category — カテゴリ手動修正
+
+20. GET /api/v1/activity/rules — 分類ルール一覧
+21. POST /api/v1/activity/rules — 分類ルール作成・更新（id 指定で upsert）
+22. DELETE /api/v1/activity/rules/:id — ルール削除
+
+23. POST /api/v1/activity/reclassify — 全既存ログを現在のルールで再分類
+- 用途: ルール変更後に過去ログへ遡及適用
+
 #### Obsidian連携 (Phase2)
-14. POST /api/v1/sync/obsidian-buffer
+24. POST /api/v1/sync/obsidian-buffer
 - 用途: Android バッファ一括送信
 - Request: items[]（mobile_item_id, title, body, tags, created_at, dedupe_hash）
 - Response: accepted_ids[], rejected_ids[]
 
-15. POST /api/v1/sync/trigger
+25. POST /api/v1/sync/trigger
 - 用途: NFC/SSID トリガー送信開始
 
 #### 分析 (実装済み: `pc-server/src/routes/analytics.ts`)
-16. GET /api/v1/analytics/daily?date=YYYY-MM-DD — 日次分析取得
-17. GET /api/v1/analytics/summary?range=daily|weekly|monthly — 集計グラフ表示
+26. GET /api/v1/analytics/daily?date=YYYY-MM-DD — 日次分析取得（手動記録）
+27. POST /api/v1/analytics/daily — 手動記録追加
+28. DELETE /api/v1/analytics/daily/:id — 手動記録削除
+29. GET /api/v1/analytics/summary?range=weekly|monthly&anchor=YYYY-MM-DD — 集計グラフ表示
 
 ## 8. Obsidian/Git 連携仕様
 1. 追記先ファイル
@@ -357,22 +434,25 @@
 - 習慣タップで完了記録
 
 ## 12. 分析指標
-1. 基本指標
-- 学習時間
-- SNS時間
-- 娯楽時間
-- 移動時間
-- 睡眠推定時間
+### 12.1 自動計測（activity_logs）
+- win-tracker がセッションベースで収集（変化時のみ記録）
+- カテゴリ: 開発/ブラウザ/コミュニケーション/学習/SNS/娯楽/未分類（デフォルト）
+- 分類ルール: activity_rules テーブルの正規表現（processName / windowTitle / browserUrl で照合, priority 降順）
+- デフォルトルール (`rules.json`): youtube/Netflix/Twitch→娯楽, twitter→SNS, github/stackoverflow→開発, Discord/Slack→コミュニケーション, Obsidian/Anki→学習
+- デバイスフィルタ: deviceId ごとに集計可能, 全デバイス合算も可
 
-2. 警告ルール（初期値）
-- SNS使用時間 >= 60分/日 で警告
+### 12.2 手動記録（analytics_daily）
+- Web UI から手動でカテゴリ・時間を記録
+- SNS使用時間 >= 60分/日 で警告表示
 
-3. レポート単位
-- 週次/月次（日次と目標達成率は Phase2 で追加）
+### 12.3 レポート単位
+- 日次: タイムライン表示 + カテゴリ円グラフ（自動）, 手動記録一覧
+- 週次/月次: カテゴリ別積み上げ棒グラフ
 
-4. カテゴリ設計
-- 初期テンプレート（学習/SNS/娯楽/移動/その他）を提供
-- 一部カテゴリ名とマッピングをユーザー編集可能
+### 12.4 習慣カレンダー
+- 過去60日分を習慣ごとに横1行のヒートマップ表示
+- 達成日=緑, 未達成=グレー, 今日=青枠
+- ダッシュボードの Habits セクションに統合
 
 ## 13. セキュリティ仕様
 1. Android
@@ -399,12 +479,17 @@
 - PC 停止中は Android 側にバッファ保持し再送
 
 ## 15. リリース段階
-### Phase 1 (MVP)
+### Phase 1 (MVP) ✅ 実装済み
 - 信念の表示と編集（ダッシュボードにコンパクト表示，設定でフル管理）
 - タスクのCRUD＋サブタスクツリー＋ステータス/優先度フィルタ＋期限色分け＋インライン編集
-- 習慣の記録とストリーク表示（ダッシュボードにコンパクト表示，設定でフル管理）
+- 習慣の記録とストリーク表示（ダッシュボードにクイックチェック＋60日ヒートマップ統合，設定でフル管理）
 - タスクの同期（Android -> PC の片方向・最小構成，version-based 競合解決）
 - Web UI の楽観的更新＋SSEリアルタイム通知
+- URLハッシュによるタブ状態保持
+- **win-tracker (Windows)**: アクティブウィンドウ・ブラウザタブタイトル/URLを自動記録（セッションモデル）
+- **マルチデバイス対応**: deviceId によるデバイス識別，クロスデバイス引き継ぎ（別デバイスがアクティブになったら前デバイスのセッションを自動クローズ）
+- **分析タイムライン**: カテゴリ別時間配分, デバイスフィルタ, 分類ルール管理（正規表現），既存ログ再分類
+- **ActiveTabBanner**: ダッシュボード上部に現在のアクティブウィンドウ/タブをリアルタイム表示
 
 ### Phase 2
 - 日次ダッシュボード

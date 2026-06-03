@@ -4,7 +4,9 @@ import { db } from "../db.js";
 
 type ActivityLogRow = {
   id: string;
-  timestamp: string;
+  deviceId: string;
+  startedAt: string;
+  endedAt: string | null;
   processName: string;
   windowTitle: string;
   browserUrl: string | null;
@@ -36,35 +38,45 @@ function classifyLog(
       rule.field === "browserUrl" ? (browserUrl ?? "") :
       processName;
     try {
-      if (new RegExp(rule.pattern, "i").test(target)) {
-        return rule.category;
-      }
-    } catch {
-      // invalid regex — skip
-    }
+      if (new RegExp(rule.pattern, "i").test(target)) return rule.category;
+    } catch { /* invalid regex */ }
   }
   return "未分類";
 }
 
+function normalizeRow(r: ActivityLogRow) {
+  return { ...r, isMediaPlaying: Boolean(r.isMediaPlaying) };
+}
+
 const activityRoutes: FastifyPluginAsync = async (app) => {
-  const insertLog = db.prepare(`
-    INSERT OR IGNORE INTO activity_logs (id, timestamp, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)
-    VALUES (@id, @timestamp, @processName, @windowTitle, @browserUrl, @category, @isMediaPlaying, @source, @createdAt)
+  const upsertLog = db.prepare(`
+    INSERT INTO activity_logs
+      (id, deviceId, startedAt, endedAt, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)
+    VALUES
+      (@id, @deviceId, @startedAt, @endedAt, @processName, @windowTitle, @browserUrl, @category, @isMediaPlaying, @source, @createdAt)
+    ON CONFLICT(deviceId, startedAt) DO UPDATE SET
+      endedAt       = CASE WHEN activity_logs.endedAt IS NOT NULL THEN activity_logs.endedAt ELSE excluded.endedAt END,
+      windowTitle   = excluded.windowTitle,
+      browserUrl    = excluded.browserUrl,
+      category      = excluded.category,
+      isMediaPlaying = excluded.isMediaPlaying
   `);
 
-  // POST /activity/bulk — batch insert from win-tracker
+  // POST /activity/bulk — receive sessions from a device
   app.post<{
     Body: {
+      deviceId?: string;
       logs: Array<{
-        timestamp: string;
+        startedAt: string;
+        endedAt?: string | null;
         processName: string;
-        windowTitle: string;
+        windowTitle?: string;
         browserUrl?: string | null;
         isMediaPlaying?: boolean;
       }>;
     };
   }>("/activity/bulk", async (request, reply) => {
-    const { logs } = request.body;
+    const { deviceId = "unknown", logs } = request.body;
     if (!Array.isArray(logs) || logs.length === 0) {
       return reply.code(400).send({ message: "logs array is required" });
     }
@@ -77,14 +89,26 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     const inserted: string[] = [];
 
     const tx = db.transaction(() => {
+      // Phase 3: close other devices' open sessions when this device has an open session
+      const openSession = logs.find((l) => !l.endedAt);
+      if (openSession) {
+        db.prepare(`
+          UPDATE activity_logs
+          SET endedAt = ?
+          WHERE deviceId != ? AND endedAt IS NULL AND startedAt < ?
+        `).run(openSession.startedAt, deviceId, openSession.startedAt);
+      }
+
       for (const log of logs) {
-        if (!log.timestamp || !log.processName) continue;
+        if (!log.startedAt || !log.processName) continue;
         const id = randomUUID();
         const browserUrl = log.browserUrl ?? null;
         const category = classifyLog(log.processName, log.windowTitle ?? "", browserUrl, rules);
-        insertLog.run({
+        upsertLog.run({
           id,
-          timestamp: log.timestamp,
+          deviceId,
+          startedAt: log.startedAt,
+          endedAt: log.endedAt ?? null,
           processName: log.processName,
           windowTitle: log.windowTitle ?? "",
           browserUrl,
@@ -101,149 +125,123 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     return { inserted: inserted.length };
   });
 
-  // GET /activity/current — latest single record
+  // GET /activity/current — most recent session (prefer open)
   app.get("/activity/current", async () => {
     const row = db
-      .prepare("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 1")
+      .prepare(`
+        SELECT * FROM activity_logs
+        ORDER BY CASE WHEN endedAt IS NULL THEN 0 ELSE 1 END, startedAt DESC
+        LIMIT 1
+      `)
       .get() as ActivityLogRow | undefined;
     if (!row) return null;
-    return { ...row, isMediaPlaying: Boolean(row.isMediaPlaying) };
+    return normalizeRow(row);
   });
 
-  // GET /activity/logs?date=YYYY-MM-DD
+  // GET /activity/logs?date=YYYY-MM-DD&deviceId=xxx
   app.get("/activity/logs", async (request) => {
-    const date =
-      (request.query as { date?: string }).date ??
-      new Date().toISOString().slice(0, 10);
-    const startOfDay = `${date}T00:00:00`;
-    const endOfDay = `${date}T23:59:59`;
+    const { date, deviceId } = request.query as { date?: string; deviceId?: string };
+    const d = date ?? new Date().toISOString().slice(0, 10);
+    const next = new Date(`${d}T00:00:00`);
+    next.setDate(next.getDate() + 1);
+    const nextDay = next.toISOString().slice(0, 10);
 
-    const rows = db
-      .prepare(
-        `SELECT * FROM activity_logs
-         WHERE timestamp >= ? AND timestamp <= ?
-         ORDER BY timestamp ASC`
-      )
-      .all(startOfDay, endOfDay) as ActivityLogRow[];
+    let query = `SELECT * FROM activity_logs WHERE startedAt >= ? AND startedAt < ?`;
+    const params: string[] = [`${d}T00:00:00`, `${nextDay}T00:00:00`];
 
-    return rows.map((r) => ({
-      ...r,
-      isMediaPlaying: Boolean(r.isMediaPlaying),
-    }));
+    if (deviceId) {
+      query += ` AND deviceId = ?`;
+      params.push(deviceId);
+    }
+
+    query += ` ORDER BY startedAt ASC`;
+
+    const rows = db.prepare(query).all(...params) as ActivityLogRow[];
+    return rows.map(normalizeRow);
   });
 
-  // GET /activity/summary?date=YYYY-MM-DD
+  // GET /activity/summary?date=YYYY-MM-DD&deviceId=xxx
   app.get("/activity/summary", async (request) => {
-    const date =
-      (request.query as { date?: string }).date ??
-      new Date().toISOString().slice(0, 10);
-    const startOfDay = `${date}T00:00:00`;
-    const endOfDay = `${date}T23:59:59`;
+    const { date, deviceId } = request.query as { date?: string; deviceId?: string };
+    const d = date ?? new Date().toISOString().slice(0, 10);
+    const next = new Date(`${d}T00:00:00`);
+    next.setDate(next.getDate() + 1);
+    const nextDay = next.toISOString().slice(0, 10);
 
-    // Each log represents a 15-second sample
-    const SAMPLE_SEC = 15;
-    const rows = db
-      .prepare(
-        `SELECT category, COUNT(*) as count
-         FROM activity_logs
-         WHERE timestamp >= ? AND timestamp <= ?
-         GROUP BY category
-         ORDER BY count DESC`
-      )
-      .all(startOfDay, endOfDay) as Array<{ category: string; count: number }>;
+    let query = `
+      SELECT category,
+        CAST(SUM(
+          (julianday(COALESCE(endedAt, datetime('now'))) - julianday(startedAt)) * 86400
+        ) AS INTEGER) as durationSec
+      FROM activity_logs
+      WHERE startedAt >= ? AND startedAt < ?
+    `;
+    const params: string[] = [`${d}T00:00:00`, `${nextDay}T00:00:00`];
 
-    return rows.map((r) => ({
-      category: r.category,
-      durationSec: r.count * SAMPLE_SEC,
-    }));
+    if (deviceId) {
+      query += ` AND deviceId = ?`;
+      params.push(deviceId);
+    }
+    query += ` GROUP BY category ORDER BY durationSec DESC`;
+
+    return db.prepare(query).all(...params) as Array<{ category: string; durationSec: number }>;
+  });
+
+  // GET /activity/devices — list of known device IDs
+  app.get("/activity/devices", async () => {
+    return db
+      .prepare("SELECT DISTINCT deviceId FROM activity_logs ORDER BY deviceId")
+      .all() as Array<{ deviceId: string }>;
   });
 
   // POST /activity/logs/:id/category — manual category correction
-  app.post<{
-    Params: { id: string };
-    Body: { category: string };
-  }>("/activity/logs/:id/category", async (request, reply) => {
-    const { id } = request.params;
-    const { category } = request.body;
-    if (!category) {
-      return reply.code(400).send({ message: "category is required" });
+  app.post<{ Params: { id: string }; Body: { category: string } }>(
+    "/activity/logs/:id/category",
+    async (request, reply) => {
+      const { id } = request.params;
+      const { category } = request.body;
+      if (!category) return reply.code(400).send({ message: "category is required" });
+      db.prepare("UPDATE activity_logs SET category = ? WHERE id = ?").run(category, id);
+      return { updated: true };
     }
-    db.prepare("UPDATE activity_logs SET category = ? WHERE id = ?").run(
-      category,
-      id
-    );
-    return { updated: true };
-  });
+  );
 
   // GET /activity/rules
   app.get("/activity/rules", async () => {
-    return db
-      .prepare("SELECT * FROM activity_rules ORDER BY priority DESC")
-      .all() as ActivityRuleRow[];
+    return db.prepare("SELECT * FROM activity_rules ORDER BY priority DESC").all();
   });
 
   // POST /activity/rules — create or update
   app.post<{
-    Body: {
-      id?: string;
-      pattern: string;
-      field?: string;
-      category: string;
-      priority?: number;
-    };
+    Body: { id?: string; pattern: string; field?: string; category: string; priority?: number };
   }>("/activity/rules", async (request, reply) => {
-    const { id, pattern, field = "processName", category, priority = 0 } =
-      request.body;
+    const { id, pattern, field = "processName", category, priority = 0 } = request.body;
     if (!pattern || !category) {
-      return reply
-        .code(400)
-        .send({ message: "pattern and category are required" });
+      return reply.code(400).send({ message: "pattern and category are required" });
     }
-    // Validate regex
-    try {
-      new RegExp(pattern);
-    } catch {
+    try { new RegExp(pattern); } catch {
       return reply.code(400).send({ message: "invalid regex pattern" });
     }
-
     const now = new Date().toISOString();
     const ruleId = id ?? randomUUID();
-    db.prepare(
-      `INSERT INTO activity_rules (id, pattern, field, category, priority, createdAt, updatedAt)
-       VALUES (@id, @pattern, @field, @category, @priority, @createdAt, @updatedAt)
-       ON CONFLICT(id) DO UPDATE SET
-         pattern = excluded.pattern,
-         field = excluded.field,
-         category = excluded.category,
-         priority = excluded.priority,
-         updatedAt = excluded.updatedAt`
-    ).run({
-      id: ruleId,
-      pattern,
-      field,
-      category,
-      priority,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return db
-      .prepare("SELECT * FROM activity_rules WHERE id = ?")
-      .get(ruleId);
+    db.prepare(`
+      INSERT INTO activity_rules (id, pattern, field, category, priority, createdAt, updatedAt)
+      VALUES (@id, @pattern, @field, @category, @priority, @createdAt, @updatedAt)
+      ON CONFLICT(id) DO UPDATE SET
+        pattern = excluded.pattern, field = excluded.field,
+        category = excluded.category, priority = excluded.priority,
+        updatedAt = excluded.updatedAt
+    `).run({ id: ruleId, pattern, field, category, priority, createdAt: now, updatedAt: now });
+    return db.prepare("SELECT * FROM activity_rules WHERE id = ?").get(ruleId);
   });
 
   // DELETE /activity/rules/:id
-  app.delete<{ Params: { id: string } }>(
-    "/activity/rules/:id",
-    async (request) => {
-      db.prepare("DELETE FROM activity_rules WHERE id = ?").run(
-        request.params.id
-      );
-      return { deleted: true };
-    }
-  );
+  app.delete<{ Params: { id: string } }>("/activity/rules/:id", async (request) => {
+    db.prepare("DELETE FROM activity_rules WHERE id = ?").run(request.params.id);
+    return { deleted: true };
+  });
 
-  // POST /activity/reclassify — re-apply current rules to all existing logs
+  // POST /activity/reclassify — re-apply current rules to all logs
   app.post("/activity/reclassify", async () => {
     const rules = db
       .prepare("SELECT * FROM activity_rules ORDER BY priority DESC")
@@ -255,12 +253,10 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     const update = db.prepare("UPDATE activity_logs SET category = ? WHERE id = ?");
     const tx = db.transaction(() => {
       for (const log of logs) {
-        const category = classifyLog(log.processName, log.windowTitle, log.browserUrl, rules);
-        update.run(category, log.id);
+        update.run(classifyLog(log.processName, log.windowTitle, log.browserUrl, rules), log.id);
       }
     });
     tx();
-
     return { updated: logs.length };
   });
 };

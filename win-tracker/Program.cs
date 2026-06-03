@@ -42,7 +42,7 @@ internal static class Program
         _classifier = new RuleClassifier(rulesPath);
 
         // Init sync service
-        _syncService = new SyncService(settings.ServerUrl, settings.ApiKey);
+        _syncService = new SyncService(settings.ServerUrl, settings.ApiKey, settings.DeviceId);
 
         // Build tray icon
         var contextMenu = new ContextMenuStrip();
@@ -99,7 +99,7 @@ internal static class Program
             var log = ActivityRecorder.Capture();
             if (log != null)
             {
-                _syncService.Add(log);
+                _syncService.UpdateActivity(log);
                 statusItem.Text = $"記録中 ({_syncService.PendingCount})";
             }
         };

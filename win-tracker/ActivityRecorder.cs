@@ -65,7 +65,6 @@ public static class ActivityRecorder
 
         return new ActivityLog
         {
-            Timestamp = DateTime.UtcNow.ToString("o"),
             ProcessName = processName,
             WindowTitle = windowTitle,
             BrowserUrl = browserUrl,

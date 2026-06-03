@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   getAnalyticsDaily, getAnalyticsSummary, deleteAnalyticsEntry,
-  getActivityLogs, getActivitySummary, updateActivityCategory,
+  getActivityLogs, getActivitySummary, getActivityDevices, updateActivityCategory,
   type AnalyticsEntry, type AnalyticsSummaryDay,
   type ActivityLog, type ActivitySummary,
 } from '../api.ts'
@@ -44,6 +44,8 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
   // Activity tracking state
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
   const [activitySummary, setActivitySummary] = useState<ActivitySummary[]>([])
+  const [devices, setDevices] = useState<string[]>([])
+  const [deviceFilter, setDeviceFilter] = useState<string>('all')
 
   const [loading, setLoading] = useState(false)
 
@@ -58,15 +60,18 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
   }, [serverUrl, apiKey, date])
 
   const refreshActivity = useCallback(async () => {
+    const device = deviceFilter === 'all' ? undefined : deviceFilter
     try {
-      const [logs, summary] = await Promise.all([
-        getActivityLogs(serverUrl, apiKey, date),
-        getActivitySummary(serverUrl, apiKey, date),
+      const [logs, summary, devList] = await Promise.all([
+        getActivityLogs(serverUrl, apiKey, date, device),
+        getActivitySummary(serverUrl, apiKey, date, device),
+        getActivityDevices(serverUrl, apiKey),
       ])
       setActivityLogs(logs)
       setActivitySummary(summary)
+      setDevices(devList)
     } catch (e) { console.error(e) }
-  }, [serverUrl, apiKey, date])
+  }, [serverUrl, apiKey, date, deviceFilter])
 
   const refreshSummary = useCallback(async () => {
     if (tab === 'daily') return
@@ -151,6 +156,24 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
 
           {dailySub === 'activity' && (
             <>
+              {devices.length > 1 && (
+                <div className="device-filter">
+                  <span className="field-label">デバイス:</span>
+                  <button
+                    type="button"
+                    className={`filter-chip${deviceFilter === 'all' ? ' active' : ''}`}
+                    onClick={() => setDeviceFilter('all')}
+                  >すべて</button>
+                  {devices.map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`filter-chip${deviceFilter === d ? ' active' : ''}`}
+                      onClick={() => setDeviceFilter(d)}
+                    >{d}</button>
+                  ))}
+                </div>
+              )}
               <div className="analytics-card">
                 <div className="featured-label">作業時間配分</div>
                 <div className="analytics-stat">合計: {formatDuration(activityTotalSec)}</div>

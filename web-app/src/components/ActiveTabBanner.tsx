@@ -32,7 +32,7 @@ export default function ActiveTabBanner({ serverUrl, apiKey }: Props) {
         <span className="active-tab-url">{truncateUrl(log.browserUrl)}</span>
       )}
       <span className="active-tab-meta">
-        {log.processName} · {log.category} · {formatAgo(log.timestamp)}
+        {log.deviceId} · {log.category} · {formatAgo(log.startedAt)}
       </span>
     </div>
   )

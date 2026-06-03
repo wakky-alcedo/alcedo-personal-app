@@ -17,64 +17,18 @@ function colorFor(cat: string) {
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-type Block = {
-  startTime: string
-  endTime: string
-  processName: string
-  windowTitle: string
-  browserUrl: string | null
-  category: string
-  isMediaPlaying: boolean
-  count: number
-  ids: string[]
+function formatDurationSec(sec: number): string {
+  if (sec < 60) return `${sec}s`
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`
+  return `${Math.floor(sec / 3600)}h${Math.floor((sec % 3600) / 60)}m`
 }
 
-function mergeIntoBlocks(logs: ActivityLog[]): Block[] {
-  if (logs.length === 0) return []
-  const blocks: Block[] = []
-  let current: Block = {
-    startTime: logs[0].timestamp,
-    endTime: logs[0].timestamp,
-    processName: logs[0].processName,
-    windowTitle: logs[0].windowTitle,
-    browserUrl: logs[0].browserUrl,
-    category: logs[0].category,
-    isMediaPlaying: logs[0].isMediaPlaying,
-    count: 1,
-    ids: [logs[0].id],
-  }
-  for (let i = 1; i < logs.length; i++) {
-    const log = logs[i]
-    if (
-      log.processName === current.processName &&
-      log.category === current.category &&
-      log.browserUrl === current.browserUrl &&
-      log.windowTitle === current.windowTitle
-    ) {
-      current.endTime = log.timestamp
-      current.count++
-      current.ids.push(log.id)
-      if (log.isMediaPlaying) current.isMediaPlaying = true
-    } else {
-      blocks.push(current)
-      current = {
-        startTime: log.timestamp,
-        endTime: log.timestamp,
-        processName: log.processName,
-        windowTitle: log.windowTitle,
-        browserUrl: log.browserUrl,
-        category: log.category,
-        isMediaPlaying: log.isMediaPlaying,
-        count: 1,
-        ids: [log.id],
-      }
-    }
-  }
-  blocks.push(current)
-  return blocks
+function sessionDuration(log: ActivityLog): number {
+  if (!log.endedAt) return 0
+  return Math.round((new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)
 }
 
 type Props = {
@@ -84,51 +38,45 @@ type Props = {
 }
 
 export default function ActivityTimeline({ logs, categories, onUpdateCategory }: Props) {
-  const [editingBlock, setEditingBlock] = useState<string | null>(null)
-  const blocks = mergeIntoBlocks(logs)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-  if (blocks.length === 0) {
+  if (logs.length === 0) {
     return <div className="analytics-empty">作業記録がありません</div>
-  }
-
-  function handleCategoryChange(block: Block, newCategory: string) {
-    for (const id of block.ids) {
-      onUpdateCategory(id, newCategory)
-    }
-    setEditingBlock(null)
   }
 
   return (
     <div className="activity-timeline">
-      {blocks.map((block, i) => {
-        const key = `${block.startTime}-${i}`
-        const durationMin = Math.round(block.count * 15 / 60)
-        const isEditing = editingBlock === key
+      {logs.map((log) => {
+        const isOpen = !log.endedAt
+        const dur = sessionDuration(log)
+        const isEditing = editingId === log.id
         return (
-          <div key={key} className="activity-block">
+          <div key={log.id} className={`activity-block${isOpen ? ' activity-block--open' : ''}`}>
             <div className="activity-block-time">
-              <span>{formatTime(block.startTime)}</span>
-              {block.count > 1 && <span className="activity-block-duration">{durationMin}m</span>}
+              <span>{formatTime(log.startedAt)}</span>
+              {dur > 0 && <span className="activity-block-duration">{formatDurationSec(dur)}</span>}
+              {isOpen && <span className="activity-block-duration">進行中</span>}
             </div>
-            <div className="activity-block-bar" style={{ backgroundColor: colorFor(block.category) }} />
+            <div className="activity-block-bar" style={{ backgroundColor: colorFor(log.category) }} />
             <div className="activity-block-content">
-              <div className="activity-block-title" title={block.windowTitle}>
-                {block.windowTitle || block.processName}
+              <div className="activity-block-title" title={log.windowTitle}>
+                {log.windowTitle || log.processName}
               </div>
               <div className="activity-block-header">
                 <button
                   type="button"
                   className="activity-block-category"
-                  style={{ color: colorFor(block.category) }}
-                  onClick={() => setEditingBlock(isEditing ? null : key)}
+                  style={{ color: colorFor(log.category) }}
+                  onClick={() => setEditingId(isEditing ? null : log.id)}
                 >
-                  {block.category}
+                  {log.category}
                 </button>
-                <span className="activity-block-process">{block.processName}</span>
-                {block.isMediaPlaying && <span className="activity-block-media" title="メディア再生中">♪</span>}
+                <span className="activity-block-process">{log.processName}</span>
+                <span className="activity-block-device">{log.deviceId}</span>
+                {log.isMediaPlaying && <span className="activity-block-media" title="メディア再生中">♪</span>}
               </div>
-              {block.browserUrl && (
-                <div className="activity-block-url" title={block.browserUrl}>{block.browserUrl}</div>
+              {log.browserUrl && (
+                <div className="activity-block-url" title={log.browserUrl}>{log.browserUrl}</div>
               )}
               {isEditing && (
                 <div className="activity-block-edit">
@@ -136,8 +84,8 @@ export default function ActivityTimeline({ logs, categories, onUpdateCategory }:
                     <button
                       key={cat}
                       type="button"
-                      className={`filter-chip${cat === block.category ? ' active' : ''}`}
-                      onClick={() => handleCategoryChange(block, cat)}
+                      className={`filter-chip${cat === log.category ? ' active' : ''}`}
+                      onClick={() => { onUpdateCategory(log.id, cat); setEditingId(null) }}
                     >
                       {cat}
                     </button>
