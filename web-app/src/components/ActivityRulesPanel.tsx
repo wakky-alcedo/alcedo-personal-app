@@ -3,6 +3,7 @@ import {
   getActivityRules, createActivityRule, updateActivityRule,
   deleteActivityRule, reclassifyActivity, type ActivityRule,
 } from '../api.ts'
+import { useCategoryColors } from '../CategoryColorsContext.tsx'
 
 type Props = { serverUrl: string; apiKey: string }
 
@@ -20,10 +21,12 @@ function fieldLabel(field: string) {
 }
 
 export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
+  const { colors } = useCategoryColors()
+  const categoryNames = Object.keys(colors)
   const [rules, setRules] = useState<ActivityRule[]>([])
   const [pattern, setPattern] = useState('')
   const [field, setField] = useState<'processName' | 'windowTitle' | 'browserUrl'>('processName')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState(() => Object.keys(colors)[0] ?? '')
   const [priority, setPriority] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editState, setEditState] = useState<EditState | null>(null)
@@ -108,13 +111,13 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
           <option value="windowTitle">ウィンドウタイトル</option>
           <option value="browserUrl">ブラウザURL</option>
         </select>
-        <input
-          className="settings-input"
-          placeholder="カテゴリ名"
+        <select
+          className="sort-select"
           value={category}
           onChange={e => setCategory(e.target.value)}
-          style={{ maxWidth: 120 }}
-        />
+        >
+          {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <input
           className="settings-input"
           type="number"
@@ -149,12 +152,13 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
                     <option value="windowTitle">ウィンドウタイトル</option>
                     <option value="browserUrl">ブラウザURL</option>
                   </select>
-                  <input
-                    className="settings-input activity-rule-edit-input"
+                  <select
+                    className="sort-select"
                     value={editState.category}
                     onChange={e => setEditState(s => s && ({ ...s, category: e.target.value }))}
-                    style={{ maxWidth: 110 }}
-                  />
+                  >
+                    {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                   <input
                     className="settings-input activity-rule-edit-input"
                     type="number"
