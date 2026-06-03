@@ -198,8 +198,16 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     return db.prepare(query).all(...params) as Array<{ category: string; durationSec: number }>;
   });
 
-  // GET /activity/devices — list of known device IDs
-  app.get("/activity/devices", async () => {
+  // GET /activity/devices?date=YYYY-MM-DD — その日に活動があったデバイス一覧
+  app.get("/activity/devices", async (request) => {
+    const { date } = request.query as { date?: string };
+    if (date) {
+      const startBoundary = new Date(`${date}T06:00:00`).toISOString();
+      const endBoundary   = (() => { const e = new Date(`${date}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
+      return db
+        .prepare("SELECT DISTINCT deviceId FROM activity_logs WHERE startedAt >= ? AND startedAt < ? ORDER BY deviceId")
+        .all(startBoundary, endBoundary) as Array<{ deviceId: string }>;
+    }
     return db
       .prepare("SELECT DISTINCT deviceId FROM activity_logs ORDER BY deviceId")
       .all() as Array<{ deviceId: string }>;

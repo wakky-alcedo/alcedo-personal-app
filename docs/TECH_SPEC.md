@@ -338,8 +338,9 @@
 17. GET /api/v1/activity/summary?date=YYYY-MM-DD&deviceId=xxx — カテゴリ別実測時間集計
 - 時間計算: `(julianday(COALESCE(endedAt, now)) - julianday(startedAt)) * 86400`
 
-18. GET /api/v1/activity/devices — 記録済みデバイスID一覧
-- 用途: 分析ページのデバイスフィルタ
+18. GET /api/v1/activity/devices?date=YYYY-MM-DD — デバイスID一覧
+- `date` 省略時: 全期間の記録済みデバイス。指定時: その日に活動があったデバイスのみ返す
+- 用途: 分析ページのデバイスフィルタ（当日未使用のデバイスを非表示）
 
 19. POST /api/v1/activity/logs/:id/category — カテゴリ手動修正
 

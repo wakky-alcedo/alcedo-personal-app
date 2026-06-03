@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -52,7 +53,7 @@ data class AppUsage(val appName: String, val packageName: String, val totalSec: 
 
 class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _date    = MutableStateFlow(TimeUtils.effectiveLocalDateStr())
-    private val _tab     = MutableStateFlow(0)
+    private val _tab     = MutableStateFlow(0)  // 0=タイムライン, 1=活動, 2=習慣
     private val _loading = MutableStateFlow(false)
     private val _syncing = MutableStateFlow(false)
     private val _hasUsagePerm = MutableStateFlow(false)
@@ -122,18 +123,18 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     // ─── 活動タブ ──────────────────────────────────────────────────────────────
 
     private suspend fun loadAvailableDevices() = withContext(Dispatchers.IO) {
-        val url = SyncConfig.getServerUrl(getApplication())
-        val key = SyncConfig.getApiKey(getApplication())
+        val url  = SyncConfig.getServerUrl(getApplication())
+        val key  = SyncConfig.getApiKey(getApplication())
+        val date = _date.value
         val conn = runCatching {
-            (URL("$url/api/v1/activity/devices").openConnection() as HttpURLConnection).apply {
+            (URL("$url/api/v1/activity/devices?date=${URLEncoder.encode(date, "UTF-8")}").openConnection() as HttpURLConnection).apply {
                 setRequestProperty("X-Api-Key", key); connectTimeout = 5000; readTimeout = 5000
             }
         }.getOrNull() ?: return@withContext
         if (conn.responseCode !in 200..299) { conn.disconnect(); return@withContext }
         val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
         val arr = JSONArray(json)
-        val devices = (0 until arr.length()).map { arr.getJSONObject(it).getString("deviceId") }
-        _availableDevices.value = devices
+        _availableDevices.value = (0 until arr.length()).map { arr.getJSONObject(it).getString("deviceId") }
     }
 
     private suspend fun loadActivitySummary() = withContext(Dispatchers.IO) {
@@ -158,9 +159,9 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             CategoryDuration(obj.getString("category"), obj.getLong("durationSec"))
         }.sortedByDescending { it.durationSec }
 
-        // スマホのUsageStats（選択デバイスがスマホまたは全デバイス）
+        // 上位アプリ：このAndroid端末が明示的に選択された場合のみ（「すべて」は非表示）
         val myDevice = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
-        if ((device == "all" || device == myDevice) && hasUsagePermission(getApplication())) {
+        if (device == myDevice && hasUsagePermission(getApplication())) {
             loadTopApps()
         } else {
             _topApps.value = emptyList()
@@ -284,17 +285,17 @@ fun AnalyticsScreen(vm: AnalyticsViewModel = viewModel()) {
                 Text(date, style = MaterialTheme.typography.titleMedium)
                 IconButton(onClick = { vm.nextDay() }) { Text("›", fontSize = 24.sp) }
             }
-            // タブ
+            // タブ（0=タイムライン, 1=活動, 2=習慣）
             TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { vm.setTab(0) }, text = { Text("活動") })
-                Tab(selected = tab == 1, onClick = { vm.setTab(1) }, text = { Text("タイムライン") })
+                Tab(selected = tab == 0, onClick = { vm.setTab(0) }, text = { Text("タイムライン") })
+                Tab(selected = tab == 1, onClick = { vm.setTab(1) }, text = { Text("活動") })
                 Tab(selected = tab == 2, onClick = { vm.setTab(2) }, text = { Text("習慣") })
             }
             // コンテンツ
             when (tab) {
-                0 -> ActivityTab(activityDevice, availableDevices, activitySummary, topApps,
+                0 -> TimelineTab(timelineSegments, colorFor, dayStartMs(date))
+                1 -> ActivityTab(activityDevice, availableDevices, activitySummary, topApps,
                     hasUsagePerm, colorFor, context, vm)
-                1 -> TimelineTab(timelineSegments, colorFor)
                 2 -> HabitsTab(habitStats)
             }
         }
@@ -361,22 +362,30 @@ private fun DeviceChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 // ─── タイムラインタブ ─────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TimelineTab(segments: List<TimelineSegment>, colorFor: (String) -> Color) {
+private fun TimelineTab(segments: List<TimelineSegment>, colorFor: (String) -> Color, dayStartMs: Long) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (segments.isEmpty()) {
             EmptyCard("データがありません\n同期ボタンを押してください")
         } else {
-            VerticalDayTimeline(segments, colorFor)
+            VerticalDayTimeline(segments, colorFor, dayStartMs)
+            Spacer(Modifier.height(8.dp))
             // 凡例
-            val cats = segments.filter { !it.isSleep }.map { it.category }.distinct()
-            if (cats.isNotEmpty()) {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    (cats + "睡眠").forEach { cat ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(Modifier.size(10.dp).background(colorFor(cat), RoundedCornerShape(2.dp)))
-                            Text(cat, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val cats = segments.map { it.category }.distinct()
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("凡例", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        cats.forEach { cat ->
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Box(Modifier.size(12.dp).background(colorFor(cat), RoundedCornerShape(3.dp)))
+                                Text(cat, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                            }
                         }
                     }
                 }
