@@ -172,7 +172,7 @@ export default function DayTimeline({ logs, date }: Props) {
       {/* 時刻軸 */}
       <div style={{ position: 'relative', height: 16, marginTop: 2 }}>
         {hourLabels.map(offset => {
-          const h = (6 + offset * 2) % 24
+          const h = (6 + offset) % 24   // offset は既に「日開始からの時間数」
           const pct = (offset / 24) * 100
           return (
             <span key={offset} style={{
