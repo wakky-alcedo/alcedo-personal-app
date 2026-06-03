@@ -126,6 +126,13 @@ export default function DayTimeline({ logs, date }: Props) {
     [logs, dayStartMs]
   )
 
+  // 現在時刻の位置（当日のみ有効）
+  const dayEndMs = dayStartMs + 24 * 60 * 60 * 1000
+  const nowMs = Date.now()
+  const nowFraction = (nowMs >= dayStartMs && nowMs < dayEndMs)
+    ? (nowMs - dayStartMs) / (dayEndMs - dayStartMs)
+    : null
+
   // 時刻ラベル（偶数時刻のみ）
   const hourLabels = Array.from({ length: 13 }, (_, i) => i * 2)  // 0,2,4,...,24 → 6,8,...,6
 
@@ -154,6 +161,25 @@ export default function DayTimeline({ logs, date }: Props) {
           )
         })}
 
+        {/* 現在時刻以降の半透明オーバーレイ */}
+        {nowFraction !== null && (
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${nowFraction * 100}%`, right: 0,
+            background: 'rgba(255,255,255,0.45)',
+            pointerEvents: 'none', zIndex: 2,
+          }} />
+        )}
+        {/* 現在時刻の赤い縦線 */}
+        {nowFraction !== null && (
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `calc(${nowFraction * 100}% - 1px)`,
+            width: 2, background: '#ef4444',
+            pointerEvents: 'none', zIndex: 3,
+          }} />
+        )}
+
         {/* ツールチップ */}
         {tooltip && (
           <div style={{
@@ -172,7 +198,7 @@ export default function DayTimeline({ logs, date }: Props) {
       {/* 時刻軸 */}
       <div style={{ position: 'relative', height: 16, marginTop: 2 }}>
         {hourLabels.map(offset => {
-          const h = (6 + offset) % 24   // offset は既に「日開始からの時間数」
+          const h = (6 + offset) % 24
           const pct = (offset / 24) * 100
           return (
             <span key={offset} style={{
@@ -183,6 +209,17 @@ export default function DayTimeline({ logs, date }: Props) {
             </span>
           )
         })}
+        {/* 現在時刻ラベル */}
+        {nowFraction !== null && (
+          <span style={{
+            position: 'absolute',
+            left: `${nowFraction * 100}%`,
+            transform: 'translateX(-50%)',
+            fontSize: 10, color: '#ef4444', fontWeight: 600,
+          }}>
+            ▲
+          </span>
+        )}
       </div>
 
       {/* クリック時のセッション詳細 */}
