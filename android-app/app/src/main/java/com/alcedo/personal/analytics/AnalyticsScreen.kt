@@ -31,6 +31,7 @@ import com.alcedo.personal.ui.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -159,20 +160,14 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun loadHabitStats() = withContext(Dispatchers.IO) {
-        val db = DbProvider.get(getApplication())
-        val habits = db.habitDao().observeActiveHabits()
-        // 30日間の完了率を計算
-        val from = LocalDate.now().minusDays(29).format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val results = mutableListOf<Pair<String, Float>>()
-        habits.collect { habitList ->
-            habitList.forEach { habit ->
-                val logs = db.habitDao().getRecentLogs(habit.id, from)
-                val rate = logs.size / 30f
-                results.add(habit.name to rate.coerceAtMost(1f))
-            }
-            _habitStats.value = results.sortedByDescending { it.second }
-            return@collect
-        }
+        val db   = DbProvider.get(getApplication())
+        val from = TimeUtils.effectiveDaysAgo(29)
+        // first() で1回だけ取得して即座に返る（collect は終了しない）
+        val habits = db.habitDao().observeActiveHabits().first()
+        _habitStats.value = habits.map { habit ->
+            val logs = db.habitDao().getRecentLogs(habit.id, from)
+            habit.name to (logs.size / 30f).coerceAtMost(1f)
+        }.sortedByDescending { it.second }
     }
 }
 
