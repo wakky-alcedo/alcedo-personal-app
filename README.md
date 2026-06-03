@@ -1,9 +1,35 @@
 # Alcedo
 
-個人用タスク・習慣・信念管理アプリ。
+個人用タスク・習慣・信念・作業記録管理アプリ。
 
-- `pc-server/` — Fastify + SQLite バックエンド
-- `web-app/` — React + Vite フロントエンド
+| サブプロジェクト | 説明 |
+|---|---|
+| `pc-server/` | Fastify + SQLite バックエンド（ポート 8787） |
+| `web-app/` | React + Vite フロントエンド（開発: ポート 5173） |
+| `win-tracker/` | Windows 作業記録トレイアプリ（C# .NET 8） |
+
+---
+
+## ローカル開発
+
+```powershell
+# pc-server（ポート 8787）
+cd pc-server; npm install; $env:API_KEY="dev-local-key"; npm run dev
+
+# web-app（ポート 5173）
+cd web-app; npm install; npm run dev
+```
+
+ブラウザで `http://localhost:5173` を開く（`#dashboard` / `#analytics` / `#settings` でタブ直リンク可）。
+
+### win-tracker を使う場合
+
+→ 詳細は [`win-tracker/README.md`](win-tracker/README.md) を参照。
+
+```powershell
+cd win-tracker
+dotnet run -c Release
+```
 
 ---
 
@@ -70,7 +96,7 @@ docker compose up --build -d
 
 Zero Trust ダッシュボード → **Tunnels** → Public Hostname に以下を設定：
 
-Select your device’s operating system : `Docker`
+Select your device's operating system : `Docker`
 `tunnel run --token eyJhbGciOi...`が表示される．この `eyJhbGciOi...` の長い文字列（トークン）をコピーして `.env` の `CLOUDFLARE_TUNNEL_TOKEN` に貼り付ける．
 
 | Hostname | Service |
@@ -79,17 +105,3 @@ Select your device’s operating system : `Docker`
 | `myappapi.example.com` | `http://backend:8787` |
 
 > **注意**: `localhost` ではなく Docker サービス名（`frontend` / `backend`）を指定すること。
-
----
-
-## ローカル開発
-
-```bash
-# バックエンド
-cd pc-server && npm install && npm run dev
-
-# フロントエンド（別ターミナル）
-cd web-app && npm install && npm run dev
-```
-
-詳細は各サブディレクトリの README を参照。
