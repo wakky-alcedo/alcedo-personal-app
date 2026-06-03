@@ -19,12 +19,50 @@
 
 ---
 
-## 実機（USB）
+## 実機インストール（Android Studio 経由）
 
-1. 開発者オプション → USB デバッグを有効化
-2. PC に接続 → `adb devices` で認識を確認
+### 1. スマホの準備
 
-**サーバー接続**: PC の LAN IP（例: `http://192.168.1.x:8787`）を設定画面の Server URL に入力。
+1. **開発者オプションを有効化**
+   - 設定 → 端末情報 → ビルド番号を **7回連続タップ**
+   - 「開発者になりました」と表示されれば成功
+
+2. **USB デバッグを有効化**
+   - 設定 → 開発者オプション → USB デバッグ **ON**
+
+### 2. PC と接続
+
+1. USBケーブルでスマホとPCを接続
+2. スマホ側に「ファイル転送モード」の選択肢が出た場合は **「ファイル転送（MTP）」** を選択
+3. スマホに **「このPCを信頼しますか？」** と出たら **「許可」** をタップ
+4. Android Studio 上部のデバイスプルダウンに端末名が表示されることを確認
+
+### 3. インストール・実行
+
+Android Studio の **▶ Run ボタン** を押すだけでビルド→インストール→起動まで自動で行われる。
+
+または PowerShell から:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+cd android-app
+.\gradlew installDebug
+```
+
+### 4. アプリの初期設定
+
+初回起動後、**設定タブ** から以下を入力:
+
+| 項目 | 値 |
+|---|---|
+| Server URL | `http://192.168.x.x:8787`（PC の LAN IP） |
+| API Key | `dev-local-key` |
+
+PC の LAN IP は PowerShell で確認できる:
+```powershell
+(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress
+```
+
 PC 側でポート 8787 のファイアウォール許可が必要な場合あり。
 
 ---
