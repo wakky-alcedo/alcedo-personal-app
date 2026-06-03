@@ -1,8 +1,10 @@
 package com.alcedo.personal.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -80,12 +82,9 @@ fun DashboardScreen(onNavigateToTask: (String) -> Unit = {}, vm: DashboardViewMo
                 )
             }
 
-            // ─── 習慣クイックチェック ──────────────────────────────────────────
+            // ─── 習慣（クイックチェック + カレンダー） ──────────────────────────
             item {
-                HabitCard(habitsWithStatus) { vm.checkInHabit(it) }
-            }
-            if (habitsWithStatus.isNotEmpty()) {
-                item { HabitHeatmap(habitsWithStatus, vm) }
+                HabitsBlock(habitsWithStatus, vm)
             }
 
             // ─── タスク ────────────────────────────────────────────────────────
@@ -150,15 +149,17 @@ private fun BeliefCard(text: String?, hasMultiple: Boolean, onNext: () -> Unit) 
     }
 }
 
-// ─── 習慣クイックチェック ───────────────────────────────────────────────────
+// ─── 習慣ブロック（クイックチェック + カレンダー） ──────────────────────────
 
 @Composable
-private fun HabitCard(habits: List<HabitUiState>, onCheckIn: (String) -> Unit) {
+private fun HabitsBlock(habits: List<HabitUiState>, vm: DashboardViewModel) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Habit check", style = MaterialTheme.typography.labelMedium,
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // ヘッダー
+            Text("Habits", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(10.dp))
+
+            // クイックチェック
             if (habits.isEmpty()) {
                 Text("設定から習慣を追加してください", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -167,7 +168,7 @@ private fun HabitCard(habits: List<HabitUiState>, onCheckIn: (String) -> Unit) {
                     habits.forEach { state ->
                         FilterChip(
                             selected = state.completedToday,
-                            onClick = { if (!state.completedToday) onCheckIn(state.habit.id) },
+                            onClick = { if (!state.completedToday) vm.checkInHabit(state.habit.id) },
                             label = {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(state.habit.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
@@ -180,77 +181,88 @@ private fun HabitCard(habits: List<HabitUiState>, onCheckIn: (String) -> Unit) {
                         )
                     }
                 }
+
+                // カレンダー（ヒートマップ）
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HabitHeatmapContent(habits)
             }
         }
     }
 }
 
-// ─── 習慣ヒートマップ ────────────────────────────────────────────────────────
+// ─── 習慣ヒートマップ（内部コンテンツのみ） ──────────────────────────────────
 
 @Composable
-private fun HabitHeatmap(habits: List<HabitUiState>, vm: DashboardViewModel) {
-    val today = LocalDate.now()
-    val days = (59 downTo 0).map { today.minusDays(it.toLong()) }
+private fun HabitHeatmapContent(habits: List<HabitUiState>) {
+    val today   = LocalDate.now()
+    val days    = (59 downTo 0).map { today.minusDays(it.toLong()) }
     val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    val cellSize = 12.dp
+    val cellGap  = 2.dp
+    val weekGap  = 4.dp
+    val nameW    = 72.dp
+    val rowGap   = 4.dp
+    // 全行で横スクロールを共有 → 月ラベルと習慣行が連動してスクロール
+    val scrollState = rememberScrollState()
+    LaunchedEffect(scrollState.maxValue) {
+        if (scrollState.maxValue > 0) scrollState.scrollTo(scrollState.maxValue)
+    }
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Text("Habit calendar", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth()) {
-                // 習慣名列
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Spacer(Modifier.height(14.dp)) // month labels row
-                    habits.forEach { state ->
-                        Box(Modifier.height(12.dp).width(72.dp), Alignment.CenterStart) {
-                            Text(state.habit.name, style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1, fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(verticalArrangement = Arrangement.spacedBy(rowGap)) {
+        // 月ラベル行（名前列幅分のオフセット）
+        Row(verticalAlignment = Alignment.Bottom) {
+            Spacer(Modifier.width(nameW + rowGap))
+            Row(Modifier.horizontalScroll(scrollState)) {
+                days.forEachIndexed { i, day ->
+                    if (i > 0 && i % 7 == 0) Spacer(Modifier.width(weekGap))
+                    Box(Modifier.width(cellSize + cellGap)) {
+                        if (day.dayOfMonth == 1) {
+                            Text(
+                                "${day.monthValue}月",
+                                fontSize = 9.sp,
+                                softWrap = false,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.wrapContentWidth(
+                                    align = androidx.compose.ui.Alignment.Start,
+                                    unbounded = true
+                                )
+                            )
                         }
                     }
                 }
-                Spacer(Modifier.width(4.dp))
-                // スクロール可能なセル列
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // 月ラベル
-                        Row {
-                            days.forEachIndexed { i, day ->
-                                val w = if (i > 0 && i % 7 == 0) 4.dp else 0.dp
-                                Spacer(Modifier.width(w))
-                                if (day.dayOfMonth == 1) {
-                                    Text("${day.monthValue}月", fontSize = 9.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.width(14.dp))
-                                } else Spacer(Modifier.width(14.dp))
-                            }
-                        }
-                        // 習慣ごとの行
-                        habits.forEach { state ->
-                            // TODO: ideally load log data per habit — using rough heuristic for now
-                            Row {
-                                days.forEachIndexed { i, day ->
-                                    val dayStr = day.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                    val w = if (i > 0 && i % 7 == 0) 4.dp else 0.dp
-                                    Spacer(Modifier.width(w))
-                                    val isDone = dayStr == todayStr && state.completedToday
-                                    val isToday = dayStr == todayStr
-                                    Box(
-                                        Modifier.size(12.dp)
-                                            .background(
-                                                when {
-                                                    isDone -> Color(0xFF22C55E)
-                                                    else   -> Color(0xFFE2E8F0)
-                                                },
-                                                MaterialTheme.shapes.extraSmall
-                                            )
-                                            .then(if (isToday) Modifier.padding(1.dp) else Modifier)
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                }
-                            }
-                        }
+            }
+        }
+        // 習慣ごとの行：名前テキストが自然な高さを決め、セルを中央揃え
+        habits.forEach { state ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    state.habit.name,
+                    modifier = Modifier.width(nameW),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(rowGap))
+                Row(Modifier.horizontalScroll(scrollState)) {
+                    days.forEachIndexed { i, day ->
+                        if (i > 0 && i % 7 == 0) Spacer(Modifier.width(weekGap))
+                        val dayStr  = day.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        val isDone  = dayStr == todayStr && state.completedToday
+                        val isToday = dayStr == todayStr
+                        Box(
+                            Modifier
+                                .size(cellSize)
+                                .background(
+                                    if (isDone) Color(0xFF22C55E) else Color(0xFFE2E8F0),
+                                    MaterialTheme.shapes.extraSmall
+                                )
+                                .then(if (isToday) Modifier.border(
+                                    1.dp, MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.shapes.extraSmall
+                                ) else Modifier)
+                        )
+                        Spacer(Modifier.width(cellGap))
                     }
                 }
             }
