@@ -23,9 +23,14 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        // Load settings
-        var settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        // Load settings — AppData first (persists across updates), fallback to exe dir
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WinTracker");
+        var appDataSettings = Path.Combine(appDataDir, "appsettings.json");
+        var exeSettings = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
         AppSettings settings;
+        var settingsPath = File.Exists(appDataSettings) ? appDataSettings : exeSettings;
         if (File.Exists(settingsPath))
         {
             var json = File.ReadAllText(settingsPath);
@@ -35,6 +40,14 @@ internal static class Program
         else
         {
             settings = new AppSettings();
+        }
+
+        // On first run, copy default settings to AppData so the user can edit them there
+        if (!File.Exists(appDataSettings))
+        {
+            Directory.CreateDirectory(appDataDir);
+            var defaultJson = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(appDataSettings, defaultJson);
         }
 
         // Load classification rules

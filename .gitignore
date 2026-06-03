@@ -8,3 +8,4 @@
 # .NET build output
 bin/
 obj/
+win-tracker/publish/
