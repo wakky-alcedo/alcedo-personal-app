@@ -29,19 +29,17 @@ class TaskSyncApiClient(
             TaskEntity(
                 id           = obj.getString("id"),
                 title        = obj.optString("title", ""),
-                description  = obj.optString("description").takeIf { it.isNotEmpty() },
+                description  = obj.nullableString("description"),
                 categoryType = obj.optString("categoryType", "short_term"),
                 categoryName = obj.optString("categoryName", "today"),
                 priority     = obj.optString("priority", "medium"),
-                dueAt        = obj.optString("dueAt").takeIf { it.isNotEmpty() },
+                dueAt        = obj.nullableString("dueAt"),
                 status       = obj.optString("status", "todo"),
                 syncStatus   = SyncStatus.SYNCED,
                 deletedAt    = null,
                 updatedAt    = obj.optString("updatedAt", ""),
                 version      = obj.optInt("version", 1),
-                subtasks     = obj.optString("subtasks", "[]").let {
-                    if (it.isEmpty() || it == "null") "[]" else it
-                }
+                subtasks     = obj.nullableString("subtasks") ?: "[]"
             )
         }
     }.getOrNull()
@@ -99,4 +97,10 @@ class TaskSyncApiClient(
         connection.disconnect()
         return ok
     }
+}
+
+/** optString は JSON null を文字列 "null" として返すため、isNull() で先にチェックする */
+private fun JSONObject.nullableString(key: String): String? {
+    if (isNull(key)) return null
+    return optString(key, "").takeIf { it.isNotEmpty() && it != "null" }
 }

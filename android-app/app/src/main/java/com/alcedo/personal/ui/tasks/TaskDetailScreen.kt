@@ -92,9 +92,9 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
     val savedOk  by vm.saved.collectAsStateWithLifecycle()
 
     var title    by remember(task) { mutableStateOf(task?.title ?: "") }
-    var desc     by remember(task) { mutableStateOf(task?.description ?: "") }
+    var desc     by remember(task) { mutableStateOf(task?.description?.takeIf { it != "null" } ?: "") }
     var priority by remember(task) { mutableStateOf(task?.priority ?: "medium") }
-    var dueAt    by remember(task) { mutableStateOf(task?.dueAt?.take(10) ?: "") }
+    var dueAt    by remember(task) { mutableStateOf(task?.dueAt?.takeIf { it != "null" }?.take(10) ?: "") }
 
     LaunchedEffect(savedOk) { if (savedOk) onBack() }
 

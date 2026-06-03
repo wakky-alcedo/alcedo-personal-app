@@ -70,7 +70,8 @@ class HabitSyncApiClient(private val baseUrl: String, private val apiKey: String
     private fun parseHabitObject(obj: JSONObject) = HabitEntity(
         id = obj.getString("id"),
         name = obj.getString("name"),
-        notifyTime = obj.optString("notifyTime").takeIf { it.isNotEmpty() },
+        notifyTime = if (obj.isNull("notifyTime")) null
+                     else obj.optString("notifyTime", "").takeIf { it.isNotEmpty() && it != "null" },
         isActive = obj.optBoolean("isActive", true),
         createdAt = obj.optString("createdAt", ""),
         updatedAt = obj.optString("updatedAt", "")
