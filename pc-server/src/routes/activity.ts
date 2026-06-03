@@ -142,12 +142,12 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   app.get("/activity/logs", async (request) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
     const d = date ?? new Date().toISOString().slice(0, 10);
-    const next = new Date(`${d}T00:00:00`);
-    next.setDate(next.getDate() + 1);
+    const next = new Date(`${d}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
     const nextDay = next.toISOString().slice(0, 10);
 
     let query = `SELECT * FROM activity_logs WHERE startedAt >= ? AND startedAt < ?`;
-    const params: string[] = [`${d}T00:00:00`, `${nextDay}T00:00:00`];
+    const params: string[] = [`${d}T00:00:00Z`, `${nextDay}T00:00:00Z`];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
@@ -164,8 +164,8 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   app.get("/activity/summary", async (request) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
     const d = date ?? new Date().toISOString().slice(0, 10);
-    const next = new Date(`${d}T00:00:00`);
-    next.setDate(next.getDate() + 1);
+    const next = new Date(`${d}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
     const nextDay = next.toISOString().slice(0, 10);
 
     let query = `
@@ -176,7 +176,7 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
       FROM activity_logs
       WHERE startedAt >= ? AND startedAt < ?
     `;
-    const params: string[] = [`${d}T00:00:00`, `${nextDay}T00:00:00`];
+    const params: string[] = [`${d}T00:00:00Z`, `${nextDay}T00:00:00Z`];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
