@@ -25,6 +25,11 @@ header { margin-bottom: 16px; }
 main { display: grid; gap: 16px; }
 .config { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .config input { width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #dbe7ff; }
+.active-tab-banner { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #f0f4ff; border: 1px solid #dbe7ff; border-radius: 10px; font-size: 13px; overflow: hidden; }
+.active-tab-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.active-tab-title { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.active-tab-url { color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; flex-shrink: 0; }
+.active-tab-meta { color: var(--text-muted); font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 .beliefs-panel, .habits-panel, .tasks-panel, .task-list-section { display: grid; gap: var(--gap); }
 .beliefs-panel--compact, .habits-panel--compact { gap: 6px; padding: 12px; border-radius: var(--radius); background: var(--card-bg); border: 1px solid #eef3ff; }
 .compact-panel-btn { border: 0; background: transparent; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 4px; border-radius: 4px; }
@@ -192,17 +197,19 @@ input, textarea, select { font: inherit; }
 .task-list-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
 /* ─── Activity timeline ─────────────────────────────────── */
-.activity-timeline { display: grid; gap: 2px; max-height: 480px; overflow-y: auto; }
-.activity-block { display: flex; gap: 8px; align-items: stretch; min-height: 32px; }
-.activity-block-time { min-width: 72px; font-size: 12px; color: var(--text-muted); padding-top: 6px; font-variant-numeric: tabular-nums; }
-.activity-block-duration { margin-left: 4px; opacity: 0.7; }
-.activity-block-bar { width: 4px; border-radius: 2px; flex-shrink: 0; }
-.activity-block-content { flex: 1; padding: 5px 0; min-width: 0; }
-.activity-block-header { display: flex; gap: 8px; align-items: center; }
-.activity-block-category { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.activity-timeline { display: grid; gap: 1px; max-height: 480px; overflow-y: auto; }
+.activity-block { display: grid; grid-template-columns: 72px 4px 1fr; gap: 8px; align-items: start; padding: 5px 0; border-bottom: 1px solid #f1f5ff; }
+.activity-block-time { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.activity-block-duration { font-size: 11px; opacity: 0.7; }
+.activity-block-bar { width: 4px; border-radius: 2px; align-self: stretch; min-height: 20px; }
+.activity-block-content { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.activity-block-title { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-block-header { display: flex; gap: 6px; align-items: center; min-width: 0; overflow: hidden; }
+.activity-block-category { border: 0; background: transparent; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; }
 .activity-block-category:hover { background: #eef3ff; }
-.activity-block-process { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity-block-media { font-size: 13px; flex-shrink: 0; }
+.activity-block-process { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.activity-block-media { font-size: 12px; flex-shrink: 0; }
+.activity-block-url { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-block-edit { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 
 /* ─── Activity rules panel ──────────────────────────────── */

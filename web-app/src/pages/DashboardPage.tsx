@@ -1,4 +1,5 @@
 import React from 'react'
+import ActiveTabBanner from '../components/ActiveTabBanner.tsx'
 import BeliefsPanel from '../components/BeliefsPanel.tsx'
 import HabitsPanel from '../components/HabitsPanel.tsx'
 import TasksPanel from '../components/TasksPanel.tsx'
@@ -17,6 +18,7 @@ type Props = {
 export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCreateTask, onSaveTask, onDeleteTask }: Props) {
   return (
     <main>
+      <ActiveTabBanner serverUrl={serverUrl} apiKey={apiKey} />
       <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
       <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
       <TasksPanel

@@ -6,7 +6,7 @@ type Props = { serverUrl: string; apiKey: string }
 export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
   const [rules, setRules] = useState<ActivityRule[]>([])
   const [pattern, setPattern] = useState('')
-  const [field, setField] = useState<'processName' | 'windowTitle'>('processName')
+  const [field, setField] = useState<'processName' | 'windowTitle' | 'browserUrl'>('processName')
   const [category, setCategory] = useState('')
   const [priority, setPriority] = useState(0)
 
@@ -51,10 +51,11 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
         <select
           className="sort-select"
           value={field}
-          onChange={e => setField(e.target.value as 'processName' | 'windowTitle')}
+          onChange={e => setField(e.target.value as 'processName' | 'windowTitle' | 'browserUrl')}
         >
           <option value="processName">プロセス名</option>
           <option value="windowTitle">ウィンドウタイトル</option>
+          <option value="browserUrl">ブラウザURL</option>
         </select>
         <input
           className="settings-input"
@@ -79,7 +80,7 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
           {rules.map(rule => (
             <li key={rule.id} className="activity-rule-row">
               <code className="activity-rule-pattern">{rule.pattern}</code>
-              <span className="field-label">{rule.field === 'windowTitle' ? 'タイトル' : 'プロセス'}</span>
+              <span className="field-label">{rule.field === 'windowTitle' ? 'タイトル' : rule.field === 'browserUrl' ? 'URL' : 'プロセス'}</span>
               <span className="activity-rule-cat">{rule.category}</span>
               <span className="field-label">P:{rule.priority}</span>
               <button

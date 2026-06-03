@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   timestamp TEXT NOT NULL,
   processName TEXT NOT NULL,
   windowTitle TEXT NOT NULL,
+  browserUrl TEXT,
   category TEXT NOT NULL DEFAULT '未分類',
   isMediaPlaying INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'win-tracker',
@@ -173,3 +174,9 @@ CREATE TABLE IF NOT EXISTS activity_rules (
   updatedAt TEXT NOT NULL
 );
 `);
+
+// Migration: add browserUrl column to existing activity_logs tables
+const activityCols = db.prepare("PRAGMA table_info(activity_logs)").all() as Array<{ name: string }>;
+if (activityCols.length > 0 && !activityCols.some((c) => c.name === "browserUrl")) {
+  db.exec("ALTER TABLE activity_logs ADD COLUMN browserUrl TEXT");
+}

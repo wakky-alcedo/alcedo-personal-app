@@ -70,6 +70,9 @@ docker compose up --build -d
 
 Zero Trust ダッシュボード → **Tunnels** → Public Hostname に以下を設定：
 
+Select your device’s operating system : `Docker`
+`tunnel run --token eyJhbGciOi...`が表示される．この `eyJhbGciOi...` の長い文字列（トークン）をコピーして `.env` の `CLOUDFLARE_TUNNEL_TOKEN` に貼り付ける．
+
 | Hostname | Service |
 |---|---|
 | `myapp.example.com` | `http://frontend:3000` |

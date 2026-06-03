@@ -7,6 +7,7 @@ type ActivityLogRow = {
   timestamp: string;
   processName: string;
   windowTitle: string;
+  browserUrl: string | null;
   category: string;
   isMediaPlaying: number;
   source: string;
@@ -26,10 +27,14 @@ type ActivityRuleRow = {
 function classifyLog(
   processName: string,
   windowTitle: string,
+  browserUrl: string | null,
   rules: ActivityRuleRow[]
 ): string {
   for (const rule of rules) {
-    const target = rule.field === "windowTitle" ? windowTitle : processName;
+    const target =
+      rule.field === "windowTitle" ? windowTitle :
+      rule.field === "browserUrl" ? (browserUrl ?? "") :
+      processName;
     try {
       if (new RegExp(rule.pattern, "i").test(target)) {
         return rule.category;
@@ -43,8 +48,8 @@ function classifyLog(
 
 const activityRoutes: FastifyPluginAsync = async (app) => {
   const insertLog = db.prepare(`
-    INSERT OR IGNORE INTO activity_logs (id, timestamp, processName, windowTitle, category, isMediaPlaying, source, createdAt)
-    VALUES (@id, @timestamp, @processName, @windowTitle, @category, @isMediaPlaying, @source, @createdAt)
+    INSERT OR IGNORE INTO activity_logs (id, timestamp, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)
+    VALUES (@id, @timestamp, @processName, @windowTitle, @browserUrl, @category, @isMediaPlaying, @source, @createdAt)
   `);
 
   // POST /activity/bulk — batch insert from win-tracker
@@ -54,6 +59,7 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
         timestamp: string;
         processName: string;
         windowTitle: string;
+        browserUrl?: string | null;
         isMediaPlaying?: boolean;
       }>;
     };
@@ -74,12 +80,14 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
       for (const log of logs) {
         if (!log.timestamp || !log.processName) continue;
         const id = randomUUID();
-        const category = classifyLog(log.processName, log.windowTitle ?? "", rules);
+        const browserUrl = log.browserUrl ?? null;
+        const category = classifyLog(log.processName, log.windowTitle ?? "", browserUrl, rules);
         insertLog.run({
           id,
           timestamp: log.timestamp,
           processName: log.processName,
           windowTitle: log.windowTitle ?? "",
+          browserUrl,
           category,
           isMediaPlaying: log.isMediaPlaying ? 1 : 0,
           source: "win-tracker",
@@ -91,6 +99,15 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     tx();
 
     return { inserted: inserted.length };
+  });
+
+  // GET /activity/current — latest single record
+  app.get("/activity/current", async () => {
+    const row = db
+      .prepare("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 1")
+      .get() as ActivityLogRow | undefined;
+    if (!row) return null;
+    return { ...row, isMediaPlaying: Boolean(row.isMediaPlaying) };
   });
 
   // GET /activity/logs?date=YYYY-MM-DD

@@ -22,11 +22,16 @@ public class RuleClassifier
         }
     }
 
-    public string Classify(string processName, string windowTitle)
+    public string Classify(string processName, string windowTitle, string? browserUrl)
     {
         foreach (var rule in _rules)
         {
-            var target = rule.Field == "windowTitle" ? windowTitle : processName;
+            var target = rule.Field switch
+            {
+                "windowTitle" => windowTitle,
+                "browserUrl" => browserUrl ?? "",
+                _ => processName,
+            };
             try
             {
                 if (Regex.IsMatch(target, rule.Pattern, RegexOptions.IgnoreCase))

@@ -1,8 +1,13 @@
 [
+  { "pattern": "youtube\\.com|youtu\\.be", "field": "browserUrl", "category": "娯楽" },
+  { "pattern": "primevideo\\.com|amazon\\.co\\.jp/gp/video", "field": "browserUrl", "category": "娯楽" },
+  { "pattern": "netflix\\.com", "field": "browserUrl", "category": "娯楽" },
+  { "pattern": "crunchyroll\\.com", "field": "browserUrl", "category": "娯楽" },
+  { "pattern": "twitch\\.tv", "field": "browserUrl", "category": "娯楽" },
+  { "pattern": "twitter\\.com|x\\.com", "field": "browserUrl", "category": "SNS" },
+  { "pattern": "github\\.com|stackoverflow\\.com", "field": "browserUrl", "category": "開発" },
   { "pattern": "devenv|Code|rider|idea64", "field": "processName", "category": "開発" },
-  { "pattern": "chrome|firefox|msedge", "field": "processName", "category": "ブラウザ" },
   { "pattern": "Discord|LINE|Slack|Teams", "field": "processName", "category": "コミュニケーション" },
-  { "pattern": "YouTube|Netflix|Crunchyroll|Twitch", "field": "windowTitle", "category": "娯楽" },
-  { "pattern": "Twitter|X\\s*[-–]", "field": "windowTitle", "category": "SNS" },
-  { "pattern": "Anki|Notion|Obsidian", "field": "processName", "category": "学習" }
+  { "pattern": "Anki|Notion|Obsidian", "field": "processName", "category": "学習" },
+  { "pattern": "chrome|firefox|msedge", "field": "processName", "category": "ブラウザ" }
 ]

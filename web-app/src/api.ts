@@ -418,6 +418,7 @@ export type ActivityLog = {
   timestamp: string
   processName: string
   windowTitle: string
+  browserUrl: string | null
   category: string
   isMediaPlaying: boolean
   source: string
@@ -432,11 +433,19 @@ export type ActivitySummary = {
 export type ActivityRule = {
   id: string
   pattern: string
-  field: 'processName' | 'windowTitle'
+  field: 'processName' | 'windowTitle' | 'browserUrl'
   category: string
   priority: number
   createdAt: string
   updatedAt: string
+}
+
+export async function getCurrentActivity(serverUrl: string, apiKey: string): Promise<ActivityLog | null> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/current`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch current activity failed')
+  return res.json()
 }
 
 export async function getActivityLogs(serverUrl: string, apiKey: string, date: string): Promise<ActivityLog[]> {

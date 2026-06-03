@@ -12,8 +12,14 @@ internal static class Program
     private static bool _paused;
 
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
+        if (args.Contains("--diag"))
+        {
+            DiagDump.Run();
+            return;
+        }
+
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 

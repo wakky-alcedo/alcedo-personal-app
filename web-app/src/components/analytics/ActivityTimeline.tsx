@@ -24,6 +24,8 @@ type Block = {
   startTime: string
   endTime: string
   processName: string
+  windowTitle: string
+  browserUrl: string | null
   category: string
   isMediaPlaying: boolean
   count: number
@@ -37,6 +39,8 @@ function mergeIntoBlocks(logs: ActivityLog[]): Block[] {
     startTime: logs[0].timestamp,
     endTime: logs[0].timestamp,
     processName: logs[0].processName,
+    windowTitle: logs[0].windowTitle,
+    browserUrl: logs[0].browserUrl,
     category: logs[0].category,
     isMediaPlaying: logs[0].isMediaPlaying,
     count: 1,
@@ -44,7 +48,12 @@ function mergeIntoBlocks(logs: ActivityLog[]): Block[] {
   }
   for (let i = 1; i < logs.length; i++) {
     const log = logs[i]
-    if (log.processName === current.processName && log.category === current.category) {
+    if (
+      log.processName === current.processName &&
+      log.category === current.category &&
+      log.browserUrl === current.browserUrl &&
+      log.windowTitle === current.windowTitle
+    ) {
       current.endTime = log.timestamp
       current.count++
       current.ids.push(log.id)
@@ -55,6 +64,8 @@ function mergeIntoBlocks(logs: ActivityLog[]): Block[] {
         startTime: log.timestamp,
         endTime: log.timestamp,
         processName: log.processName,
+        windowTitle: log.windowTitle,
+        browserUrl: log.browserUrl,
         category: log.category,
         isMediaPlaying: log.isMediaPlaying,
         count: 1,
@@ -96,11 +107,14 @@ export default function ActivityTimeline({ logs, categories, onUpdateCategory }:
         return (
           <div key={key} className="activity-block">
             <div className="activity-block-time">
-              {formatTime(block.startTime)}
-              {block.count > 1 && <span className="activity-block-duration">({durationMin}m)</span>}
+              <span>{formatTime(block.startTime)}</span>
+              {block.count > 1 && <span className="activity-block-duration">{durationMin}m</span>}
             </div>
             <div className="activity-block-bar" style={{ backgroundColor: colorFor(block.category) }} />
             <div className="activity-block-content">
+              <div className="activity-block-title" title={block.windowTitle}>
+                {block.windowTitle || block.processName}
+              </div>
               <div className="activity-block-header">
                 <button
                   type="button"
@@ -113,6 +127,9 @@ export default function ActivityTimeline({ logs, categories, onUpdateCategory }:
                 <span className="activity-block-process">{block.processName}</span>
                 {block.isMediaPlaying && <span className="activity-block-media" title="メディア再生中">♪</span>}
               </div>
+              {block.browserUrl && (
+                <div className="activity-block-url" title={block.browserUrl}>{block.browserUrl}</div>
+              )}
               {isEditing && (
                 <div className="activity-block-edit">
                   {categories.map(cat => (
