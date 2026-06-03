@@ -18,7 +18,8 @@ Stage and commit changes with the appropriate prefix.
 |---------------|------------------------------------|
 | `[pc-server]` | changes only under `pc-server/`    |
 | `[web-app]`   | changes only under `web-app/`      |
-| `[win-tracker]` | changes only under `win-tracker/` |
+| `[win-tracker]` | changes only under `win-tracker/`  |
+| `[android-app]` | changes only under `android-app/`  |
 | *(omit)*      | cross-cutting or repo-level change |
 
 ## Prefix rules
