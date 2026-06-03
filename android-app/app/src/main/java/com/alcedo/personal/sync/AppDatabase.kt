@@ -17,7 +17,7 @@ class SyncStatusConverters {
 
 @Database(
     entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(SyncStatusConverters::class)
@@ -27,6 +27,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
 
     companion object {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN subtasks TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""

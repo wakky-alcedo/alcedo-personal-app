@@ -8,12 +8,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.alcedo.personal.ui.dashboard.DashboardScreen
+import com.alcedo.personal.ui.settings.BeliefsManagementScreen
+import com.alcedo.personal.ui.settings.HabitsManagementScreen
 import com.alcedo.personal.ui.settings.SettingsScreen
+import com.alcedo.personal.ui.tasks.TaskDetailScreen
 
 private data class NavItem(val route: String, val label: String, val icon: @Composable () -> Unit)
 
@@ -21,36 +26,57 @@ private data class NavItem(val route: String, val label: String, val icon: @Comp
 fun AlcedoApp() {
     val navController = rememberNavController()
 
-    val items = listOf(
-        NavItem("dashboard", "ホーム") { Icon(Icons.Default.Home, contentDescription = "ホーム") },
-        NavItem("settings",  "設定")  { Icon(Icons.Default.Settings, contentDescription = "設定") },
+    val rootItems = listOf(
+        NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home, null) },
+        NavItem("settings",  "設定")    { Icon(Icons.Default.Settings, null) },
     )
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val navBackStack by navController.currentBackStackEntryAsState()
-                val current = navBackStack?.destination
-                items.forEach { item ->
-                    NavigationBarItem(
-                        selected = current?.hierarchy?.any { it.route == item.route } == true,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = item.icon,
-                        label = { Text(item.label) }
-                    )
+            val navBackStack by navController.currentBackStackEntryAsState()
+            val current = navBackStack?.destination
+            val showBar = rootItems.any { current?.hierarchy?.any { d -> d.route == it.route } == true }
+            if (showBar) {
+                NavigationBar {
+                    rootItems.forEach { item ->
+                        NavigationBarItem(
+                            selected = current?.hierarchy?.any { it.route == item.route } == true,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true; restoreState = true
+                                }
+                            },
+                            icon = item.icon,
+                            label = { Text(item.label) }
+                        )
+                    }
                 }
             }
         }
     ) { _ ->
-        NavHost(navController = navController, startDestination = "dashboard") {
-            composable("dashboard") { DashboardScreen() }
-            composable("settings")  { SettingsScreen() }
+        NavHost(navController, startDestination = "dashboard") {
+            composable("dashboard") {
+                DashboardScreen(onNavigateToTask = { taskId -> navController.navigate("tasks/$taskId") })
+            }
+            composable(
+                "tasks/{taskId}",
+                arguments = listOf(navArgument("taskId") { type = NavType.StringType })
+            ) {
+                TaskDetailScreen(onBack = { navController.popBackStack() })
+            }
+            composable("settings") {
+                SettingsScreen(
+                    onNavigateToBeliefs = { navController.navigate("settings/beliefs") },
+                    onNavigateToHabits  = { navController.navigate("settings/habits") }
+                )
+            }
+            composable("settings/beliefs") {
+                BeliefsManagementScreen(onBack = { navController.popBackStack() })
+            }
+            composable("settings/habits") {
+                HabitsManagementScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }

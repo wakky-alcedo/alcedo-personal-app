@@ -3,18 +3,8 @@ package com.alcedo.personal.ui.dashboard
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.alcedo.personal.sync.BeliefEntity
-import com.alcedo.personal.sync.DbProvider
-import com.alcedo.personal.sync.HabitEntity
-import com.alcedo.personal.sync.HabitLogEntity
-import com.alcedo.personal.sync.SyncStatus
-import com.alcedo.personal.sync.TaskEntity
-import com.alcedo.personal.sync.TaskSyncScheduler
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import com.alcedo.personal.sync.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -30,14 +20,16 @@ data class HabitUiState(
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val db = DbProvider.get(app)
     private val taskDao = db.taskDao()
-    private val beliefDao = db.beliefDao()
-    private val habitDao = db.habitDao()
+    private val beliefRepo = BeliefRepository(app, db.beliefDao())
+    private val habitRepo  = HabitRepository(app, db.habitDao())
 
-    private val _beliefIndex = MutableStateFlow(0)
-    private val _showAddTask = MutableStateFlow(false)
-    val showAddTask: StateFlow<Boolean> = _showAddTask
+    private val _beliefIndex  = MutableStateFlow(0)
+    private val _showAddTask  = MutableStateFlow(false)
+    private val _syncing      = MutableStateFlow(false)
+    val showAddTask: StateFlow<Boolean>  = _showAddTask
+    val syncing:     StateFlow<Boolean>  = _syncing
 
-    val beliefs: StateFlow<List<BeliefEntity>> = beliefDao.observeActiveBeliefs()
+    val beliefs: StateFlow<List<BeliefEntity>> = beliefRepo.observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val currentBelief: StateFlow<BeliefEntity?> = beliefs
@@ -51,8 +43,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     val habitsWithStatus: StateFlow<List<HabitUiState>> = _habitsWithStatus
 
     init {
+        viewModelScope.launch { syncAll() }
         viewModelScope.launch {
-            habitDao.observeActiveHabits().collect { habits ->
+            habitRepo.observeActive().collect { habits ->
                 _habitsWithStatus.value = computeHabitStatus(habits)
             }
         }
@@ -60,10 +53,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun computeHabitStatus(habits: List<HabitEntity>): List<HabitUiState> {
         val today = today()
-        val completedIds = habitDao.getCompletedHabitIds(today).toSet()
+        val completedIds = db.habitDao().getCompletedHabitIds(today).toSet()
         val from30 = daysAgo(30)
         return habits.map { habit ->
-            val logs = habitDao.getRecentLogs(habit.id, from30)
+            val logs = db.habitDao().getRecentLogs(habit.id, from30)
             HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today))
         }
     }
@@ -74,28 +67,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleAddTask() { _showAddTask.value = !_showAddTask.value }
-    fun hideAddTask() { _showAddTask.value = false }
+    fun hideAddTask()   { _showAddTask.value = false }
 
     fun createTask(title: String) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val now = Instant.now().toString()
-            taskDao.upsert(
-                TaskEntity(
-                    id = UUID.randomUUID().toString(),
-                    title = title.trim(),
-                    description = null,
-                    categoryType = "short_term",
-                    categoryName = "today",
-                    priority = "medium",
-                    dueAt = null,
-                    status = "todo",
-                    syncStatus = SyncStatus.UNSENT,
-                    deletedAt = null,
-                    updatedAt = now,
-                    version = 1
-                )
-            )
+            taskDao.upsert(TaskEntity(
+                id = UUID.randomUUID().toString(), title = title.trim(),
+                description = null, categoryType = "short_term", categoryName = "today",
+                priority = "medium", dueAt = null, status = "todo",
+                syncStatus = SyncStatus.UNSENT, deletedAt = null, updatedAt = now, version = 1
+            ))
             TaskSyncScheduler.enqueue(getApplication())
             _showAddTask.value = false
         }
@@ -103,15 +86,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleDone(task: TaskEntity) {
         viewModelScope.launch {
-            val nextStatus = if (task.status == "done") "todo" else "done"
-            taskDao.upsert(
-                task.copy(
-                    status = nextStatus,
-                    syncStatus = SyncStatus.UNSENT,
-                    updatedAt = Instant.now().toString(),
-                    version = task.version + 1
-                )
-            )
+            taskDao.upsert(task.copy(
+                status = if (task.status == "done") "todo" else "done",
+                syncStatus = SyncStatus.UNSENT,
+                updatedAt = Instant.now().toString(),
+                version = task.version + 1
+            ))
             TaskSyncScheduler.enqueue(getApplication())
         }
     }
@@ -119,53 +99,67 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteTask(task: TaskEntity) {
         viewModelScope.launch {
             val now = Instant.now().toString()
-            taskDao.upsert(
-                task.copy(
-                    deletedAt = now,
-                    syncStatus = SyncStatus.UNSENT,
-                    updatedAt = now,
-                    version = task.version + 1
-                )
-            )
+            taskDao.upsert(task.copy(
+                deletedAt = now, syncStatus = SyncStatus.UNSENT, updatedAt = now, version = task.version + 1
+            ))
             TaskSyncScheduler.enqueue(getApplication())
         }
     }
 
     fun checkInHabit(habitId: String) {
         viewModelScope.launch {
-            habitDao.insertLog(
-                HabitLogEntity(
-                    habitId = habitId,
-                    doneDate = today(),
-                    createdAt = Instant.now().toString()
-                )
-            )
-            // refresh
-            val habits = habitDao.observeActiveHabits()
-                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()).value
-            _habitsWithStatus.value = computeHabitStatus(habits)
+            habitRepo.checkIn(habitId)
+            // 既存のリストから habit を取得して再計算（新規 StateFlow を作らない）
+            val currentHabits = _habitsWithStatus.value.map { it.habit }
+            _habitsWithStatus.value = computeHabitStatus(currentHabits)
         }
     }
 
-    fun syncNow() {
-        TaskSyncScheduler.enqueue(getApplication())
+    fun syncNow() { viewModelScope.launch { syncAll() } }
+
+    private suspend fun syncAll() {
+        _syncing.value = true
+        try {
+            beliefRepo.syncFromServer()
+            habitRepo.syncFromServer()
+            pullTasksFromServer()
+            TaskSyncScheduler.enqueue(getApplication())
+        } finally {
+            _syncing.value = false
+        }
     }
 
-    // ─── helpers ──────────────────────────────────────────────
+    private suspend fun pullTasksFromServer() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val url = SyncConfig.getServerUrl(getApplication())
+        val key = SyncConfig.getApiKey(getApplication())
+        val pulled = TaskSyncApiClient(url, key).pullTasks() ?: return@withContext
+        for (serverTask in pulled) {
+            val local = taskDao.findById(serverTask.id)
+            // ローカルに未送信の変更がある場合は上書きしない
+            if (local == null || local.syncStatus == SyncStatus.SYNCED) {
+                taskDao.upsert(serverTask)
+            } else if (local.version < serverTask.version) {
+                taskDao.upsert(serverTask)
+            }
+        }
+    }
 
-    private fun today(): String =
-        LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+    // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private fun daysAgo(n: Int): String =
-        LocalDate.now().minusDays(n.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+    private fun today() = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+    private fun daysAgo(n: Int) = LocalDate.now().minusDays(n.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
 
     private fun computeStreak(logs: List<String>, today: String): Int {
         val set = logs.toHashSet()
+        val start = when {
+            set.contains(today) -> LocalDate.parse(today)
+            else -> {
+                val yesterday = LocalDate.parse(today).minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                if (set.contains(yesterday)) LocalDate.parse(yesterday) else return 0
+            }
+        }
         var streak = 0
-        var cursor = LocalDate.parse(if (set.contains(today)) today else {
-            val yesterday = LocalDate.parse(today).minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
-            if (set.contains(yesterday)) yesterday else return 0
-        })
+        var cursor = start
         while (set.contains(cursor.format(DateTimeFormatter.ISO_LOCAL_DATE))) {
             streak++
             cursor = cursor.minusDays(1)

@@ -10,6 +10,42 @@ class TaskSyncApiClient(
     private val baseUrl: String,
     private val apiKey: String
 ) {
+    /** PC サーバーから全タスクを取得する */
+    fun pullTasks(): List<TaskEntity>? = runCatching {
+        val conn = (URL("$baseUrl/api/v1/tasks").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            setRequestProperty("X-Api-Key", apiKey)
+            connectTimeout = 5000; readTimeout = 10000
+        }
+        if (conn.responseCode !in 200..299) return null
+        val json = conn.inputStream.bufferedReader().readText()
+        conn.disconnect()
+        val arr = org.json.JSONArray(
+            if (json.trimStart().startsWith("[")) json
+            else org.json.JSONObject(json).optJSONArray("tasks")?.toString() ?: "[]"
+        )
+        (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            TaskEntity(
+                id           = obj.getString("id"),
+                title        = obj.optString("title", ""),
+                description  = obj.optString("description").takeIf { it.isNotEmpty() },
+                categoryType = obj.optString("categoryType", "short_term"),
+                categoryName = obj.optString("categoryName", "today"),
+                priority     = obj.optString("priority", "medium"),
+                dueAt        = obj.optString("dueAt").takeIf { it.isNotEmpty() },
+                status       = obj.optString("status", "todo"),
+                syncStatus   = SyncStatus.SYNCED,
+                deletedAt    = null,
+                updatedAt    = obj.optString("updatedAt", ""),
+                version      = obj.optInt("version", 1),
+                subtasks     = obj.optString("subtasks", "[]").let {
+                    if (it.isEmpty() || it == "null") "[]" else it
+                }
+            )
+        }
+    }.getOrNull()
+
     fun pushTasks(tasks: List<TaskEntity>): Boolean {
         if (tasks.isEmpty()) return true
 

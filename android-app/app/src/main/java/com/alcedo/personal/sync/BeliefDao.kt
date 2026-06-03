@@ -20,4 +20,13 @@ interface BeliefDao {
 
     @Delete
     suspend fun delete(belief: BeliefEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(beliefs: List<BeliefEntity>)
+
+    @Query("DELETE FROM beliefs WHERE id NOT IN (:ids)")
+    suspend fun deleteNotIn(ids: List<String>)
+
+    @Query("DELETE FROM beliefs")
+    suspend fun deleteAll()
 }

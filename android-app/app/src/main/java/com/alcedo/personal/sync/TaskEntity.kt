@@ -16,5 +16,6 @@ data class TaskEntity(
     val syncStatus: SyncStatus,
     val deletedAt: String?,
     val updatedAt: String,
-    val version: Int
+    val version: Int,
+    val subtasks: String = "[]"
 )

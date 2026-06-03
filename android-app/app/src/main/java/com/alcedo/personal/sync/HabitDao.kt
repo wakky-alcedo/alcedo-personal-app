@@ -29,4 +29,16 @@ interface HabitDao {
 
     @Query("SELECT doneDate FROM habit_logs WHERE habitId = :habitId AND doneDate >= :from ORDER BY doneDate DESC")
     suspend fun getRecentLogs(habitId: String, from: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(habits: List<HabitEntity>)
+
+    @Query("DELETE FROM habits WHERE id NOT IN (:ids)")
+    suspend fun deleteNotIn(ids: List<String>)
+
+    @Query("DELETE FROM habits")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM habit_logs WHERE habitId = :habitId")
+    suspend fun deleteLogsForHabit(habitId: String)
 }
