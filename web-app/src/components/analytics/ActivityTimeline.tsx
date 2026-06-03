@@ -1,19 +1,7 @@
 import React, { useState } from 'react'
 import type { ActivityLog } from '../../api.ts'
-
-const CATEGORY_COLORS: Record<string, string> = {
-  '開発': '#4757ff',
-  'ブラウザ': '#6366f1',
-  'コミュニケーション': '#10b981',
-  '学習': '#0ea5e9',
-  'SNS': '#ef4444',
-  '娯楽': '#f59e0b',
-  '未分類': '#94a3b8',
-}
-
-function colorFor(cat: string) {
-  return CATEGORY_COLORS[cat] ?? '#6b7280'
-}
+import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { colorFor as colorForFn } from '../../categoryColors.ts'
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
@@ -39,6 +27,8 @@ type Props = {
 
 export default function ActivityTimeline({ logs, categories, onUpdateCategory }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { colors } = useCategoryColors()
+  const colorFor = (cat: string) => colorForFn(colors, cat)
 
   if (logs.length === 0) {
     return <div className="analytics-empty">作業記録がありません</div>

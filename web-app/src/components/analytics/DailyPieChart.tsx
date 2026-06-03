@@ -1,18 +1,8 @@
 import React, { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import type { AnalyticsEntry } from '../../api.ts'
-
-export const CATEGORY_COLORS: Record<string, string> = {
-  '学習': '#4757ff',
-  'SNS': '#ef4444',
-  '娯楽': '#f59e0b',
-  '移動': '#10b981',
-  'その他': '#94a3b8',
-}
-
-function colorFor(cat: string) {
-  return CATEGORY_COLORS[cat] ?? '#6b7280'
-}
+import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { colorFor as colorForFn } from '../../categoryColors.ts'
 
 export function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600)
@@ -24,6 +14,9 @@ export function formatDuration(sec: number): string {
 type Props = { entries: AnalyticsEntry[] }
 
 export default function DailyPieChart({ entries }: Props) {
+  const { colors } = useCategoryColors()
+  const colorFor = (cat: string) => colorForFn(colors, cat)
+
   const data = useMemo(() => {
     const map: Record<string, number> = {}
     for (const e of entries) map[e.category] = (map[e.category] ?? 0) + e.durationSec

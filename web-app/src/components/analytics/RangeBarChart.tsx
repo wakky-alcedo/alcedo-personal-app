@@ -3,7 +3,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import type { AnalyticsSummaryDay } from '../../api.ts'
-import { CATEGORY_COLORS, formatDuration } from './DailyPieChart.tsx'
+import { formatDuration } from './DailyPieChart.tsx'
+import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { colorFor as colorForFn } from '../../categoryColors.ts'
 
 const DEFAULT_CATEGORIES = ['学習', 'SNS', '娯楽', '移動', 'その他']
 
@@ -18,6 +20,8 @@ type Props = {
 }
 
 export default function RangeBarChart({ data, range }: Props) {
+  const { colors } = useCategoryColors()
+  const colorFor = (cat: string) => colorForFn(colors, cat)
   const categories = useMemo(() => {
     const used = new Set<string>()
     for (const row of data) {
@@ -50,7 +54,7 @@ export default function RangeBarChart({ data, range }: Props) {
             key={cat}
             dataKey={cat}
             stackId="a"
-            fill={CATEGORY_COLORS[cat] ?? '#6b7280'}
+            fill={colorFor(cat) ?? '#6b7280'}
           />
         ))}
       </BarChart>

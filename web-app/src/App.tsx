@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { getTasks, createTask, updateTask, deleteTask, type Task } from './api.ts'
+import { CategoryColorsProvider } from './CategoryColorsContext.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
@@ -98,6 +99,7 @@ export default function App() {
   }
 
   return (
+    <CategoryColorsProvider>
     <div className="container">
       <header>
         <div className="app-header-row">
@@ -144,5 +146,6 @@ export default function App() {
         />
       )}
     </div>
+    </CategoryColorsProvider>
   )
 }

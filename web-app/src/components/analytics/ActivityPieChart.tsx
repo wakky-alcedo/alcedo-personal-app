@@ -2,24 +2,14 @@ import React, { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import type { ActivitySummary } from '../../api.ts'
 import { formatDuration } from './DailyPieChart.tsx'
-
-const CATEGORY_COLORS: Record<string, string> = {
-  '開発': '#4757ff',
-  'ブラウザ': '#6366f1',
-  'コミュニケーション': '#10b981',
-  '学習': '#0ea5e9',
-  'SNS': '#ef4444',
-  '娯楽': '#f59e0b',
-  '未分類': '#94a3b8',
-}
-
-function colorFor(cat: string) {
-  return CATEGORY_COLORS[cat] ?? '#6b7280'
-}
+import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { colorFor as colorForFn } from '../../categoryColors.ts'
 
 type Props = { summary: ActivitySummary[] }
 
 export default function ActivityPieChart({ summary }: Props) {
+  const { colors } = useCategoryColors()
+  const colorFor = (cat: string) => colorForFn(colors, cat)
   const data = useMemo(() =>
     summary
       .filter(s => s.durationSec > 0)

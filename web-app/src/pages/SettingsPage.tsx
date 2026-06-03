@@ -1,6 +1,7 @@
 import React from 'react'
 import ActivityRulesPanel from '../components/ActivityRulesPanel.tsx'
 import BeliefsPanel from '../components/BeliefsPanel.tsx'
+import CategoryColorsPanel from '../components/CategoryColorsPanel.tsx'
 import HabitsPanel from '../components/HabitsPanel.tsx'
 
 type Props = {
@@ -48,6 +49,7 @@ export default function SettingsPage({ serverUrl, apiKey, loading, onServerUrlCh
       <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} />
       <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} />
       <ActivityRulesPanel serverUrl={serverUrl} apiKey={apiKey} />
+      <CategoryColorsPanel />
     </section>
   )
 }

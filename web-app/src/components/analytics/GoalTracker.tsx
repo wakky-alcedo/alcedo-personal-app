@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import type { AnalyticsEntry } from '../../api.ts'
-import { CATEGORY_COLORS, formatDuration } from './DailyPieChart.tsx'
+import { formatDuration } from './DailyPieChart.tsx'
+import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { colorFor as colorForFn } from '../../categoryColors.ts'
 
 const DEFAULT_CATEGORIES = ['学習', 'SNS', '娯楽', '移動', 'その他']
 const GOALS_KEY = 'alcedo_analytics_goals'
@@ -21,6 +23,8 @@ function saveGoals(goals: Goals) {
 type Props = { entries: AnalyticsEntry[] }
 
 export default function GoalTracker({ entries }: Props) {
+  const { colors } = useCategoryColors()
+  const colorFor = (cat: string) => colorForFn(colors, cat)
   const [goals, setGoals] = useState<Goals>(loadGoals)
   const [editOpen, setEditOpen] = useState(false)
   const [draftGoals, setDraftGoals] = useState<Goals>(loadGoals)
@@ -80,11 +84,11 @@ export default function GoalTracker({ entries }: Props) {
           const over = actual > goal
           return (
             <div key={cat} className="goal-row">
-              <span className="goal-cat" style={{ color: CATEGORY_COLORS[cat] ?? '#333' }}>{cat}</span>
+              <span className="goal-cat" style={{ color: colorFor(cat) ?? '#333' }}>{cat}</span>
               <div className="goal-bar-wrap">
                 <div
                   className={`goal-bar-fill${isSnS && over ? ' sns-over' : ''}`}
-                  style={{ width: `${pct}%`, background: isSnS && over ? '#ef4444' : (CATEGORY_COLORS[cat] ?? '#4757ff') }}
+                  style={{ width: `${pct}%`, background: isSnS && over ? '#ef4444' : (colorFor(cat) ?? '#4757ff') }}
                 />
               </div>
               <span className="goal-label">
@@ -100,7 +104,7 @@ export default function GoalTracker({ entries }: Props) {
         <div className="goal-editor">
           {DEFAULT_CATEGORIES.map(cat => (
             <label key={cat} className="goal-edit-row">
-              <span style={{ color: CATEGORY_COLORS[cat], minWidth: 48 }}>{cat}</span>
+              <span style={{ color: colorFor(cat), minWidth: 48 }}>{cat}</span>
               <input
                 type="number"
                 min="0"
