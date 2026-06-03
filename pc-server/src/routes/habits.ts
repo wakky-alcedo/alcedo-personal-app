@@ -13,15 +13,19 @@ type HabitInput = {
   updatedAt: string;
 };
 
+/** ローカル Date を YYYY-MM-DD に変換。6時未満は前日扱い。 */
 function localDateKey(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  const local = new Date(date.getTime() - offset);
+  // 午前6時未満は前日扱い
+  if (local.getUTCHours() < 6) local.setUTCDate(local.getUTCDate() - 1);
+  return local.toISOString().slice(0, 10);
 }
 
 function previousDateKey(dateKey: string) {
-  const nextDate = new Date(`${dateKey}T00:00:00`);
-  nextDate.setDate(nextDate.getDate() - 1);
-  return localDateKey(nextDate);
+  const d = new Date(`${dateKey}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  return localDateKey(d);
 }
 
 function buildHabitViews() {

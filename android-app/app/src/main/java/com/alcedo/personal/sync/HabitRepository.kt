@@ -3,9 +3,8 @@ package com.alcedo.personal.sync
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.alcedo.personal.ui.util.TimeUtils
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class HabitRepository(private val context: Context, private val dao: HabitDao) {
@@ -45,7 +44,7 @@ class HabitRepository(private val context: Context, private val dao: HabitDao) {
     }
 
     suspend fun checkIn(habitId: String): Boolean = withContext(Dispatchers.IO) {
-        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val today = TimeUtils.effectiveLocalDateStr()
         val client = buildClient()
         // optimistically insert locally
         dao.insertLog(HabitLogEntity(habitId, today, Instant.now().toString()))

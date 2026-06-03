@@ -1,15 +1,17 @@
 import React, { useEffect, useRef } from 'react'
 import type { Habit } from '../api.ts'
+import { effectiveLocalDate, localDateString } from '../timeUtils.ts'
 
 export const HEATMAP_DAYS = 60
 const CELL_W = 14 // 12px cell + 2px gap
 
 export function buildHeatmapDays(): string[] {
-  const today = new Date()
+  const todayStr = effectiveLocalDate()
+  const today = new Date(`${todayStr}T06:00:00`)
   return Array.from({ length: HEATMAP_DAYS }, (_, i) => {
     const d = new Date(today)
     d.setDate(d.getDate() - (HEATMAP_DAYS - 1 - i))
-    return d.toISOString().slice(0, 10)
+    return localDateString(d)
   })
 }
 
@@ -44,7 +46,7 @@ export default function HabitHeatmap({ habits, doneMap }: Props) {
   if (habits.length === 0) return null
 
   const days = buildHeatmapDays()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = effectiveLocalDate()
   const labels = monthLabels(days)
 
   return (

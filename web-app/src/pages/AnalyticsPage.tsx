@@ -11,6 +11,7 @@ import GoalTracker from '../components/analytics/GoalTracker.tsx'
 import AnalyticsEntryForm from '../components/analytics/AnalyticsEntryForm.tsx'
 import ActivityTimeline from '../components/analytics/ActivityTimeline.tsx'
 import ActivityPieChart from '../components/analytics/ActivityPieChart.tsx'
+import { effectiveLocalDate, localDateString } from '../timeUtils.ts'
 
 type Props = { serverUrl: string; apiKey: string }
 
@@ -19,14 +20,12 @@ type DailySub = 'manual' | 'activity'
 
 const DEFAULT_CATEGORIES = ['開発', 'ブラウザ', 'コミュニケーション', '学習', 'SNS', '娯楽', '未分類']
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
+function today() { return effectiveLocalDate() }
 
 function offsetDate(base: string, days: number) {
-  const d = new Date(base)
+  const d = new Date(`${base}T06:00:00`)
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return localDateString(d)
 }
 
 export default function AnalyticsPage({ serverUrl, apiKey }: Props) {

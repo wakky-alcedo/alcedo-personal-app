@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.alcedo.personal.sync.*
+import com.alcedo.personal.ui.util.TimeUtils
+import com.alcedo.personal.ui.util.TimeUtils.toLocalDateStr
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -33,11 +35,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         .map { list -> if (list.isEmpty()) null else list[_beliefIndex.value % list.size] }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    /** 今日が期限かつ todo のタスクのみ */
+    /** 今日が期限かつ todo のタスクのみ（6時閾値・UTC→ローカル変換） */
     val todayTodos: StateFlow<List<TaskEntity>> = taskDao.observeActiveTasks()
         .map { list ->
-            val todayPrefix = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            list.filter { it.status == "todo" && it.dueAt?.startsWith(todayPrefix) == true }
+            val effectiveToday = TimeUtils.effectiveLocalDateStr()
+            list.filter { task ->
+                task.status == "todo" && task.dueAt?.toLocalDateStr() == effectiveToday
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -120,8 +124,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private fun today() = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-    private fun daysAgo(n: Int) = LocalDate.now().minusDays(n.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+    private fun today() = TimeUtils.effectiveLocalDateStr()
+    private fun daysAgo(n: Int) = TimeUtils.effectiveDaysAgo(n)
 
     private fun computeStreak(logs: List<String>, today: String): Int {
         val set = logs.toHashSet()

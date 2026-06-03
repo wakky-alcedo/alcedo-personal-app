@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { getCurrentActivity, type ActivityLog } from '../api.ts'
+import { formatAgo } from '../timeUtils.ts'
 
 type Props = {
   serverUrl: string
@@ -38,12 +39,6 @@ export default function ActiveTabBanner({ serverUrl, apiKey }: Props) {
   )
 }
 
-function formatAgo(timestamp: string): string {
-  const diff = (Date.now() - new Date(timestamp).getTime()) / 1000
-  if (diff < 60) return `${Math.floor(diff)}秒前`
-  if (diff < 3600) return `${Math.floor(diff / 60)}分前`
-  return `${Math.floor(diff / 3600)}時間前`
-}
 
 function truncateUrl(url: string): string {
   try {

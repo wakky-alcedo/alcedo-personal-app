@@ -27,6 +27,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.sync.DbProvider
 import com.alcedo.personal.sync.SyncConfig
+import com.alcedo.personal.ui.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +49,7 @@ data class AppUsage(val appName: String, val packageName: String, val totalSec: 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
-    private val _date = MutableStateFlow(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
+    private val _date = MutableStateFlow(TimeUtils.effectiveLocalDateStr())
     val date: StateFlow<String> = _date
 
     private val _tab = MutableStateFlow(0)
@@ -84,10 +85,11 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun previousDay() { adjustDate(-1) }
     fun nextDay()     { adjustDate(1) }
-    fun today()       { _date.value = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE); refresh() }
+    fun today()       { _date.value = TimeUtils.effectiveLocalDateStr(); refresh() }
 
     private fun adjustDate(days: Long) {
-        _date.value = LocalDate.parse(_date.value).plusDays(days).format(DateTimeFormatter.ISO_LOCAL_DATE)
+        _date.value = java.time.LocalDate.parse(_date.value).plusDays(days)
+            .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
         refresh()
     }
 
@@ -104,10 +106,11 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun loadPhoneUsage() = withContext(Dispatchers.IO) {
         val app: Application = getApplication()
-        val date = LocalDate.parse(_date.value)
+        val date   = _date.value
         val zoneId = ZoneId.systemDefault()
-        val startMs = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val endMs   = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        // 06:00ローカル → 翌日06:00ローカルの範囲
+        val startMs = java.time.LocalDateTime.parse("${date}T06:00:00").atZone(zoneId).toInstant().toEpochMilli()
+        val endMs   = java.time.LocalDateTime.parse("${date}T06:00:00").atZone(zoneId).toInstant().toEpochMilli() + 86400_000L
 
         val usm = app.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startMs, endMs)

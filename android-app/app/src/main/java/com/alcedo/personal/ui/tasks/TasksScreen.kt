@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.alcedo.personal.ui.util.TimeUtils.toLocalDateStr
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -73,7 +74,7 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val now = Instant.now().toString()
             val dueAt = if (dueAtToday)
-                "${LocalDate.now()}T00:00:00.000Z" else null
+                "${com.alcedo.personal.ui.util.TimeUtils.effectiveLocalDateStr()}T00:00:00.000Z" else null
             taskDao.upsert(TaskEntity(
                 id = UUID.randomUUID().toString(), title = title.trim(),
                 description = null, categoryType = "short_term", categoryName = "today",
@@ -272,7 +273,7 @@ fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onDelete: () -> Uni
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     PriorityBadge(task.priority)
                     task.dueAt?.let {
-                        Text(it.take(10), style = MaterialTheme.typography.labelSmall,
+                        Text(it.toLocalDateStr(), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

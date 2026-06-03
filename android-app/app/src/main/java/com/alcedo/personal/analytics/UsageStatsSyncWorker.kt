@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.work.*
 import com.alcedo.personal.sync.SyncConfig
+import com.alcedo.personal.ui.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -25,8 +26,10 @@ class UsageStatsSyncWorker(
         if (!hasUsagePermission(applicationContext)) return@withContext Result.success()
 
         val zoneId   = ZoneId.systemDefault()
-        val today    = LocalDate.now()
-        val fromMs   = today.minusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        // 昨日の06:00〜現在（2日分をカバー）
+        val yesterday = TimeUtils.effectiveLocalDate().minusDays(1).toString()
+        val fromMs   = java.time.LocalDateTime.parse("${yesterday}T06:00:00")
+            .atZone(zoneId).toInstant().toEpochMilli()
         val toMs     = System.currentTimeMillis()
 
         val sessions = UsageSessionBuilder.build(applicationContext, fromMs, toMs)

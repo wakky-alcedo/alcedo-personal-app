@@ -2,6 +2,13 @@ import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { db } from "../db.js";
 
+/** 6時閾値で補正した実効ローカル日付（YYYY-MM-DD） */
+function effectiveLocalDate(): string {
+  const now = new Date();
+  if (now.getHours() < 6) now.setDate(now.getDate() - 1);
+  return [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
+}
+
 type ActivityLogRow = {
   id: string;
   deviceId: string;
@@ -146,13 +153,13 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   // GET /activity/logs?date=YYYY-MM-DD&deviceId=xxx
   app.get("/activity/logs", async (request) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
-    const d = date ?? new Date().toISOString().slice(0, 10);
-    const next = new Date(`${d}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    const nextDay = next.toISOString().slice(0, 10);
+    const d = date ?? effectiveLocalDate();
+    // 「その日」= ローカル06:00 〜 翌日ローカル06:00
+    const startBoundary = new Date(`${d}T06:00:00`).toISOString();
+    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
 
     let query = `SELECT * FROM activity_logs WHERE startedAt >= ? AND startedAt < ?`;
-    const params: string[] = [`${d}T00:00:00Z`, `${nextDay}T00:00:00Z`];
+    const params: string[] = [startBoundary, endBoundary];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
@@ -168,10 +175,9 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   // GET /activity/summary?date=YYYY-MM-DD&deviceId=xxx
   app.get("/activity/summary", async (request) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
-    const d = date ?? new Date().toISOString().slice(0, 10);
-    const next = new Date(`${d}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    const nextDay = next.toISOString().slice(0, 10);
+    const d = date ?? effectiveLocalDate();
+    const startBoundary = new Date(`${d}T06:00:00`).toISOString();
+    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
 
     let query = `
       SELECT category,
@@ -181,7 +187,7 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
       FROM activity_logs
       WHERE startedAt >= ? AND startedAt < ?
     `;
-    const params: string[] = [`${d}T00:00:00Z`, `${nextDay}T00:00:00Z`];
+    const params: string[] = [startBoundary, endBoundary];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
