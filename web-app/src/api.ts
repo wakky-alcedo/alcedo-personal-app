@@ -270,6 +270,14 @@ export async function deleteHabit(serverUrl: string, apiKey: string, habit: Habi
   return res.json()
 }
 
+export async function getHabitLogs(serverUrl: string, apiKey: string, from: string, to: string): Promise<Array<{ habitId: string; doneDate: string }>> {
+  const res = await fetch(`${serverUrl}/api/v1/habits/logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('fetch habit logs failed')
+  return res.json()
+}
+
 export async function checkInHabit(serverUrl: string, apiKey: string, habit: Habit) {
   const res = await fetch(`${serverUrl}/api/v1/habits/${habit.id}/logs`, {
     method: 'POST',

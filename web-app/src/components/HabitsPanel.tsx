@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { checkInHabit, createHabit, deleteHabit, getHabits, updateHabit, type Habit, type HabitInput } from '../api.ts'
+import { checkInHabit, createHabit, deleteHabit, getHabitLogs, getHabits, updateHabit, type Habit, type HabitInput } from '../api.ts'
+import HabitHeatmap, { buildHeatmapDays, HEATMAP_DAYS } from './HabitHeatmap.tsx'
 
 type Props = {
   serverUrl: string
@@ -170,6 +171,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
 
 export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Props) {
   const [habits, setHabits] = useState<Habit[]>([])
+  const [doneMap, setDoneMap] = useState<Record<string, Set<string>>>({})
   const [loading, setLoading] = useState(false)
   const [listOpen, setListOpen] = useState(false)
   const [name, setName] = useState('')
@@ -181,8 +183,18 @@ export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Prop
   async function refresh() {
     setLoading(true)
     try {
-      const nextHabits = await getHabits(serverUrl, apiKey)
+      const days = buildHeatmapDays()
+      const [nextHabits, logs] = await Promise.all([
+        getHabits(serverUrl, apiKey),
+        getHabitLogs(serverUrl, apiKey, days[0], days[HEATMAP_DAYS - 1]),
+      ])
       setHabits(nextHabits)
+      const map: Record<string, Set<string>> = {}
+      for (const { habitId, doneDate } of logs) {
+        if (!map[habitId]) map[habitId] = new Set()
+        map[habitId].add(doneDate)
+      }
+      setDoneMap(map)
     } catch (error) {
       console.error(error)
       setHabits([])
@@ -249,7 +261,7 @@ export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Prop
     return (
       <section className="habits-panel habits-panel--compact">
         <div className="section-header">
-          <h2>Habit check</h2>
+          <h2>Habits</h2>
           <button type="button" className="compact-panel-btn" onClick={refresh} disabled={loading} title="Refresh">↺</button>
         </div>
         <div className="habit-quick-list habit-quick-list--compact">
@@ -272,6 +284,7 @@ export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Prop
             ))
           )}
         </div>
+        <HabitHeatmap habits={habits.filter(h => h.isActive)} doneMap={doneMap} />
       </section>
     )
   }

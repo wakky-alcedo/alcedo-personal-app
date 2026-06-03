@@ -11,8 +11,21 @@ const LS_API_KEY = 'alcedo_api_key'
 
 type Tab = 'dashboard' | 'analytics' | 'settings'
 
+const VALID_TABS: Tab[] = ['dashboard', 'analytics', 'settings']
+
+function readTabFromHash(): Tab {
+  const hash = window.location.hash.slice(1) as Tab
+  return VALID_TABS.includes(hash) ? hash : 'dashboard'
+}
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [tab, setTab] = useState<Tab>(readTabFromHash)
+
+  useEffect(() => {
+    const onHashChange = () => setTab(readTabFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(false)
   const [serverUrl, setServerUrl] = useState(
@@ -99,7 +112,7 @@ export default function App() {
                 key={t}
                 type="button"
                 className={`top-tab-btn${tab === t ? ' active' : ''}`}
-                onClick={() => setTab(t)}
+                onClick={() => { window.location.hash = t }}
               >
                 {label}
               </button>

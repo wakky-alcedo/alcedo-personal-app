@@ -60,6 +60,20 @@ const habitRoutes: FastifyPluginAsync = async (app) => {
     return { habits: buildHabitViews() };
   });
 
+  // GET /habits/logs?from=YYYY-MM-DD&to=YYYY-MM-DD
+  app.get("/habits/logs", async (request) => {
+    const { from, to } = request.query as { from?: string; to?: string };
+    const toDate = to ?? localDateKey();
+    const fromDate = from ?? (() => {
+      const d = new Date(`${toDate}T00:00:00`);
+      d.setDate(d.getDate() - 59);
+      return localDateKey(d);
+    })();
+    return db
+      .prepare("SELECT habitId, doneDate FROM habit_logs WHERE doneDate >= ? AND doneDate <= ? ORDER BY doneDate ASC")
+      .all(fromDate, toDate) as Array<{ habitId: string; doneDate: string }>;
+  });
+
   app.post<{ Body: HabitInput }>("/habits", async (request) => {
     const habit = {
       id: request.body.id ?? randomUUID(),
