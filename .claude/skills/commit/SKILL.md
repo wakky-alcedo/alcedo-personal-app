@@ -18,6 +18,7 @@ Stage and commit changes with the appropriate prefix.
 |---------------|------------------------------------|
 | `[pc-server]` | changes only under `pc-server/`    |
 | `[web-app]`   | changes only under `web-app/`      |
+| `[win-tracker]` | changes only under `win-tracker/` |
 | *(omit)*      | cross-cutting or repo-level change |
 
 ## Prefix rules
@@ -41,17 +42,31 @@ git status
 git diff HEAD
 ```
 
-2. Choose prefix (and scope if applicable) based on the rules above.
+2. **仕様書の差分確認・同期**
 
-3. Write a short Japanese description — one line, no period. Focus on **what changed and why**, not how.
+   `docs/TECH_SPEC.md` を確認し、今回の変更内容が未反映の箇所があれば先に更新する（メインのコミットに含める）。
 
-4. Stage relevant files (prefer explicit paths over `git add .`):
+   確認観点：
+   - スキーマ変更（テーブル追加・カラム追加）→ §6.2 PC (SQLite)
+   - 新規 API エンドポイント → §7.2 エンドポイント
+   - 新規コンポーネント・UI 変更 → §5.2 PC モジュール / §15 Phase1
+   - win-tracker の動作変更 → §4.3
+
+   コードを読めば分かる実装詳細は書かず、**設計上の決定・データモデル・API契約** のみを記載すること。
+
+3. Choose prefix (and scope if applicable) based on the rules above.
+
+4. Write a short Japanese description — one line, no period. Focus on **what changed and why**, not how.
+
+5. Stage relevant files (prefer explicit paths over `git add .`):
 
 ```bash
 git add <files>
+# 仕様書を更新した場合は一緒にステージする
+git add docs/TECH_SPEC.md
 ```
 
-5. Commit:
+6. Commit:
 
 ```bash
 git commit -m "prefix: 説明"
