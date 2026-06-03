@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import type { Habit } from '../api.ts'
 
 export const HEATMAP_DAYS = 60
+const CELL_W = 14 // 12px cell + 2px gap
 
 export function buildHeatmapDays(): string[] {
   const today = new Date()
@@ -31,6 +32,15 @@ type Props = {
 }
 
 export default function HabitHeatmap({ habits, doneMap }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 初期表示で今日（右端）までスクロール
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+    }
+  }, [habits.length])
+
   if (habits.length === 0) return null
 
   const days = buildHeatmapDays()
@@ -38,22 +48,31 @@ export default function HabitHeatmap({ habits, doneMap }: Props) {
   const labels = monthLabels(days)
 
   return (
-    <div className="habit-heatmap-scroll">
-      <div className="habit-heatmap-grid">
-        <div className="habit-heatmap-label" />
-        <div className="habit-heatmap-months">
-          {labels.map(({ label, index }) => (
-            <span key={label} className="habit-heatmap-month" style={{ left: index * 14 }}>
-              {label}
-            </span>
-          ))}
-        </div>
-        {habits.map(habit => {
-          const done = doneMap[habit.id] ?? new Set()
-          return (
-            <React.Fragment key={habit.id}>
-              <div className="habit-heatmap-label" title={habit.name}>{habit.name}</div>
-              <div className="habit-heatmap-row">
+    <div className="habit-heatmap-wrapper">
+      {/* 左列: 習慣名（スクロールに追従しない） */}
+      <div className="habit-heatmap-names">
+        <div className="habit-heatmap-name-spacer" />
+        {habits.map(habit => (
+          <div key={habit.id} className="habit-heatmap-label" title={habit.name}>
+            {habit.name}
+          </div>
+        ))}
+      </div>
+
+      {/* 右列: 月ラベル + セル（横スクロール） */}
+      <div className="habit-heatmap-scroll" ref={scrollRef}>
+        <div className="habit-heatmap-rows">
+          <div className="habit-heatmap-months">
+            {labels.map(({ label, index }) => (
+              <span key={label} className="habit-heatmap-month" style={{ left: index * CELL_W }}>
+                {label}
+              </span>
+            ))}
+          </div>
+          {habits.map(habit => {
+            const done = doneMap[habit.id] ?? new Set()
+            return (
+              <div key={habit.id} className="habit-heatmap-row">
                 {days.map((day, i) => (
                   <span
                     key={day}
@@ -63,9 +82,9 @@ export default function HabitHeatmap({ habits, doneMap }: Props) {
                   />
                 ))}
               </div>
-            </React.Fragment>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -36,6 +36,7 @@ main { display: grid; gap: 16px; }
 .active-tab-meta { color: var(--text-muted); font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 .beliefs-panel, .habits-panel, .tasks-panel, .task-list-section { display: grid; gap: var(--gap); }
 .beliefs-panel--compact, .habits-panel--compact { gap: 6px; padding: 12px; border-radius: var(--radius); background: var(--card-bg); border: 1px solid #eef3ff; }
+.habits-panel--compact > * { min-width: 0; }
 .compact-panel-btn { border: 0; background: transparent; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 4px; border-radius: 4px; }
 .compact-panel-btn:hover { background: #eef3ff; }
 .compact-belief-text { margin: 4px 0 0; font-weight: 600; line-height: 1.5; color: var(--text-primary); }
@@ -255,12 +256,16 @@ input, textarea, select { font: inherit; }
 .task-list-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
 /* ─── Habit heatmap ─────────────────────────────────────── */
-.habit-heatmap-scroll { overflow-x: auto; padding-bottom: 4px; }
-.habit-heatmap-grid { display: grid; grid-template-columns: 80px 1fr; row-gap: 4px; column-gap: 8px; width: max-content; }
-.habit-heatmap-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; max-width: 80px; }
+.habit-heatmap-wrapper { display: flex; gap: 8px; align-items: flex-start; min-width: 0; width: 100%; }
+.habit-heatmap-names { flex-shrink: 0; width: 80px; display: flex; flex-direction: column; gap: 4px; }
+.habit-heatmap-name-spacer { height: 16px; }
+.habit-heatmap-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 12px; line-height: 12px; }
+.habit-heatmap-scroll { overflow-x: auto; padding-bottom: 4px; flex: 1; min-width: 0; width: 0; }
+/* width:0 + flex:1 で flex-shrink が正しく機能し overflow-x:auto がスクロールを生成する */
+.habit-heatmap-rows { display: flex; flex-direction: column; gap: 4px; width: max-content; }
 .habit-heatmap-months { position: relative; height: 16px; }
 .habit-heatmap-month { position: absolute; font-size: 10px; color: var(--text-muted); top: 0; white-space: nowrap; }
-.habit-heatmap-row { display: flex; gap: 2px; align-items: center; }
+.habit-heatmap-row { display: flex; gap: 2px; align-items: center; height: 12px; }
 .habit-heatmap-cell { width: 12px; height: 12px; border-radius: 2px; background: #e2e8f0; flex-shrink: 0; }
 .habit-heatmap-cell.done { background: #22c55e; }
 .habit-heatmap-cell.today { outline: 2px solid var(--accent); outline-offset: 1px; }
