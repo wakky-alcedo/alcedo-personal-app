@@ -45,34 +45,6 @@ import java.time.format.DateTimeFormatter
 data class CategoryDuration(val category: String, val durationSec: Long)
 data class AppUsage(val appName: String, val packageName: String, val totalSec: Long)
 
-// ─── アプリ → カテゴリ マッピング ──────────────────────────────────────────────
-
-private val PACKAGE_CATEGORIES = mapOf(
-    "com.twitter.android" to "SNS", "com.twitter.android.lite" to "SNS",
-    "com.instagram.android" to "SNS", "com.facebook.katana" to "SNS",
-    "com.zhiliaoapp.musically" to "SNS", "com.snapchat.android" to "SNS",
-    "jp.naver.line.android" to "コミュニケーション",
-    "org.telegram.messenger" to "コミュニケーション",
-    "com.discord" to "コミュニケーション", "com.slack" to "コミュニケーション",
-    "com.google.android.gm" to "コミュニケーション",
-    "com.google.android.youtube" to "娯楽",
-    "com.netflix.mediaclient" to "娯楽",
-    "com.amazon.avod.thirdpartyclient" to "娯楽",
-    "com.google.android.apps.chrome" to "ブラウザ",
-    "org.mozilla.firefox" to "ブラウザ",
-    "com.microsoft.edge" to "ブラウザ",
-    "com.android.chrome" to "ブラウザ",
-    "com.anki.flashcards" to "学習", "org.khanacademy.android" to "学習",
-)
-
-private fun packageToCategory(pkg: String): String =
-    PACKAGE_CATEGORIES[pkg] ?: when {
-        pkg.contains("mail", true) || pkg.contains("gmail") -> "コミュニケーション"
-        pkg.contains("browser", true) || pkg.contains("chrome") -> "ブラウザ"
-        pkg.contains("youtube") || pkg.contains("video") || pkg.contains("music") -> "娯楽"
-        else -> "その他"
-    }
-
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
@@ -87,6 +59,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _pcActivity    = MutableStateFlow<List<CategoryDuration>>(emptyList())
     private val _habitStats    = MutableStateFlow<List<Pair<String, Float>>>(emptyList())  // name → completionRate
     private val _loading       = MutableStateFlow(false)
+    private val _syncing       = MutableStateFlow(false)
     private val _hasUsagePerm  = MutableStateFlow(false)
 
     val phoneUsage:   StateFlow<List<CategoryDuration>> = _phoneUsage
@@ -94,9 +67,18 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     val pcActivity:   StateFlow<List<CategoryDuration>> = _pcActivity
     val habitStats:   StateFlow<List<Pair<String, Float>>> = _habitStats
     val loading:      StateFlow<Boolean>                = _loading
+    val syncing:      StateFlow<Boolean>                = _syncing
     val hasUsagePerm: StateFlow<Boolean>                = _hasUsagePerm
 
     init { refresh() }
+
+    fun syncNow() {
+        viewModelScope.launch {
+            _syncing.value = true
+            try { UsageStatsSyncWorker.runNow(getApplication()) }
+            finally { _syncing.value = false }
+        }
+    }
 
     fun setTab(t: Int) { _tab.value = t }
 
@@ -145,7 +127,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         // カテゴリ別に集計
         val catMap = mutableMapOf<String, Long>()
         appList.forEach { a ->
-            val cat = packageToCategory(a.packageName)
+            val cat = CategoryMapper.get(a.packageName)
             catMap[cat] = (catMap[cat] ?: 0L) + a.totalSec
         }
         _phoneUsage.value = catMap.entries
@@ -190,15 +172,6 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-private fun hasUsagePermission(context: Context): Boolean {
-    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    val mode = appOps.checkOpNoThrow(
-        AppOpsManager.OPSTR_GET_USAGE_STATS,
-        android.os.Process.myUid(), context.packageName
-    )
-    return mode == AppOpsManager.MODE_ALLOWED
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -207,6 +180,7 @@ fun AnalyticsScreen(vm: AnalyticsViewModel = viewModel()) {
     val date         by vm.date.collectAsStateWithLifecycle()
     val tab          by vm.tab.collectAsStateWithLifecycle()
     val loading      by vm.loading.collectAsStateWithLifecycle()
+    val syncing      by vm.syncing.collectAsStateWithLifecycle()
     val phoneUsage   by vm.phoneUsage.collectAsStateWithLifecycle()
     val topApps      by vm.topApps.collectAsStateWithLifecycle()
     val pcActivity   by vm.pcActivity.collectAsStateWithLifecycle()
@@ -220,6 +194,11 @@ fun AnalyticsScreen(vm: AnalyticsViewModel = viewModel()) {
                 title = { Text("分析", fontWeight = FontWeight.Bold) },
                 actions = {
                     TextButton(onClick = { vm.today() }) { Text("今日") }
+                    if (syncing) {
+                        CircularProgressIndicator(Modifier.size(20.dp).padding(2.dp), strokeWidth = 2.dp)
+                    } else {
+                        TextButton(onClick = { vm.syncNow() }, enabled = hasUsagePerm) { Text("同期") }
+                    }
                     if (loading) CircularProgressIndicator(Modifier.size(20.dp).padding(2.dp), strokeWidth = 2.dp)
                 }
             )
