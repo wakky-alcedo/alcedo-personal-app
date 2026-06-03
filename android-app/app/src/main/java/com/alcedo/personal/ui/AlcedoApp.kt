@@ -1,12 +1,13 @@
 package com.alcedo.personal.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -30,10 +31,10 @@ fun AlcedoApp() {
     val navController = rememberNavController()
 
     val rootItems = listOf(
-        NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home, null) },
-        NavItem("tasks",     "タスク")  { Text("📋", fontSize = 18.sp) },
-        NavItem("analytics", "分析")    { Text("📊", fontSize = 18.sp) },
-        NavItem("settings",  "設定")    { Icon(Icons.Default.Settings, null) },
+        NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home,        null) },
+        NavItem("tasks",     "タスク")  { Icon(Icons.Default.CheckCircle, null) },
+        NavItem("analytics", "分析")    { Icon(Icons.Default.DateRange,   null) },
+        NavItem("settings",  "設定")    { Icon(Icons.Default.Settings,    null) },
     )
 
     Scaffold(
