@@ -194,14 +194,25 @@ CREATE TABLE IF NOT EXISTS activity_rules (
   }
 
   if (hasTimestamp && !hasStartedAt) {
-    // Copy old rows: timestamp → startedAt, endedAt = NULL, deviceId = 'unknown'
+    // Copy old rows: timestamp → startedAt, endedAt = startedAt+15s (15-second point samples), deviceId = 'unknown'
     db.exec(`
       INSERT OR IGNORE INTO activity_logs
         (id, deviceId, startedAt, endedAt, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)
       SELECT
-        id, 'unknown', timestamp, NULL, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt
+        id, 'unknown', timestamp, datetime(timestamp, '+15 seconds'),
+        processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt
       FROM activity_logs_v1
     `);
     db.exec("DROP TABLE activity_logs_v1");
   }
+
+  // Fix incorrectly migrated 'unknown' device sessions: old point-samples should be 15s each,
+  // not stretched to when the next device connected.
+  db.exec(`
+    UPDATE activity_logs
+    SET endedAt = datetime(startedAt, '+15 seconds')
+    WHERE deviceId = 'unknown'
+      AND endedAt IS NOT NULL
+      AND (julianday(endedAt) - julianday(startedAt)) * 86400 > 60
+  `);
 }
