@@ -502,6 +502,28 @@ export async function createActivityRule(
   return res.json()
 }
 
+export async function updateActivityRule(
+  serverUrl: string, apiKey: string,
+  rule: ActivityRule
+): Promise<ActivityRule> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/rules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify(rule)
+  })
+  if (!res.ok) throw new Error('update activity rule failed')
+  return res.json()
+}
+
+export async function reclassifyActivity(serverUrl: string, apiKey: string): Promise<{ updated: number }> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/reclassify`, {
+    method: 'POST',
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('reclassify failed')
+  return res.json()
+}
+
 export async function deleteActivityRule(serverUrl: string, apiKey: string, id: string): Promise<void> {
   const res = await fetch(`${serverUrl}/api/v1/activity/rules/${encodeURIComponent(id)}`, {
     method: 'DELETE',

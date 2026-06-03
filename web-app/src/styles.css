@@ -224,8 +224,11 @@ input, textarea, select { font: inherit; }
 .activity-block-edit { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 
 /* ─── Activity rules panel ──────────────────────────────── */
+.activity-rules-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.activity-reclassify-msg { font-size: 13px; color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 6px 10px; }
 .activity-rule-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .activity-rule-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
-.activity-rule-row { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: #fff; border: 1px solid #f1f5ff; }
+.activity-rule-row { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: #fff; border: 1px solid #f1f5ff; flex-wrap: wrap; }
 .activity-rule-pattern { font-size: 13px; background: #f1f5ff; padding: 2px 6px; border-radius: 4px; }
 .activity-rule-cat { font-weight: 600; font-size: 13px; }
+.activity-rule-edit-input { padding: 3px 6px; font-size: 12px; }

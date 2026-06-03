@@ -242,6 +242,27 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
       return { deleted: true };
     }
   );
+
+  // POST /activity/reclassify — re-apply current rules to all existing logs
+  app.post("/activity/reclassify", async () => {
+    const rules = db
+      .prepare("SELECT * FROM activity_rules ORDER BY priority DESC")
+      .all() as ActivityRuleRow[];
+    const logs = db
+      .prepare("SELECT id, processName, windowTitle, browserUrl FROM activity_logs")
+      .all() as Array<{ id: string; processName: string; windowTitle: string; browserUrl: string | null }>;
+
+    const update = db.prepare("UPDATE activity_logs SET category = ? WHERE id = ?");
+    const tx = db.transaction(() => {
+      for (const log of logs) {
+        const category = classifyLog(log.processName, log.windowTitle, log.browserUrl, rules);
+        update.run(category, log.id);
+      }
+    });
+    tx();
+
+    return { updated: logs.length };
+  });
 };
 
 export { activityRoutes as registerActivityRoutes };
