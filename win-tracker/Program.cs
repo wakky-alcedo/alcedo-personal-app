@@ -82,6 +82,17 @@ internal static class Program
 
         contextMenu.Items.Add(new ToolStripSeparator());
 
+        var settingsItem = new ToolStripMenuItem("設定");
+        settingsItem.Click += (_, _) =>
+        {
+            using var form = new SettingsForm(appDataSettings, settings);
+            if (form.ShowDialog() == DialogResult.OK)
+                _syncService.FlushToDisk(); // flush before Application.Restart()
+        };
+        contextMenu.Items.Add(settingsItem);
+
+        contextMenu.Items.Add(new ToolStripSeparator());
+
         var exitItem = new ToolStripMenuItem("終了");
         exitItem.Click += (_, _) =>
         {

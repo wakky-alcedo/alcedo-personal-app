@@ -10,6 +10,8 @@ public class AppSettings
         get => string.IsNullOrWhiteSpace(_deviceId) ? Environment.MachineName : _deviceId;
         set => _deviceId = value ?? "";
     }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string RawDeviceId => _deviceId;
     public int SampleIntervalSeconds { get; set; } = 15;
     public int SyncIntervalMinutes { get; set; } = 5;
 }
