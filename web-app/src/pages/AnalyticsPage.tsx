@@ -11,6 +11,7 @@ import GoalTracker from '../components/analytics/GoalTracker.tsx'
 import AnalyticsEntryForm from '../components/analytics/AnalyticsEntryForm.tsx'
 import ActivityTimeline from '../components/analytics/ActivityTimeline.tsx'
 import ActivityPieChart from '../components/analytics/ActivityPieChart.tsx'
+import DayTimeline from '../components/analytics/DayTimeline.tsx'
 import { effectiveLocalDate, localDateString } from '../timeUtils.ts'
 
 type Props = { serverUrl: string; apiKey: string }
@@ -173,6 +174,11 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
                   ))}
                 </div>
               )}
+              <div className="analytics-card">
+                <div className="featured-label">24時間タイムライン</div>
+                <DayTimeline logs={activityLogs} date={date} />
+              </div>
+
               <div className="analytics-card">
                 <div className="featured-label">作業時間配分</div>
                 <div className="analytics-stat">合計: {formatDuration(activityTotalSec)}</div>
