@@ -205,7 +205,7 @@ export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Prop
 
   useEffect(() => { refresh() }, [serverUrl, apiKey])
 
-  const quickHabits = useMemo(() => habits.filter(h => h.isActive).slice(0, 3), [habits])
+  const quickHabits = useMemo(() => habits.filter(h => h.isActive), [habits])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()

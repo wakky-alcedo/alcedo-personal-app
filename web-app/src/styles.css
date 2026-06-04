@@ -41,8 +41,8 @@ main { display: grid; gap: 16px; }
 .compact-panel-btn:hover { background: #eef3ff; }
 .compact-belief-text { margin: 4px 0 0; font-weight: 600; line-height: 1.5; color: var(--text-primary); }
 .compact-empty { color: var(--text-muted); }
-.habit-quick-list--compact { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
-.habit-quick-card--compact { padding: 7px 10px; display: flex; justify-content: space-between; align-items: center; }
+.habit-quick-list--compact { display: flex; flex-wrap: wrap; gap: 6px; }
+.habit-quick-card--compact { padding: 7px 10px; display: flex; justify-content: space-between; align-items: center; flex: 1 1 100px; min-width: 90px; }
 .habit-quick-card--compact .habit-quick-meta { margin-top: 0; margin-left: 6px; white-space: nowrap; }
 .section-header { display:flex; justify-content:space-between; align-items:center; gap: 12px; }
 .featured-card { padding: 16px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #273b6b); color: #fff; box-shadow: var(--shadow-md); }
