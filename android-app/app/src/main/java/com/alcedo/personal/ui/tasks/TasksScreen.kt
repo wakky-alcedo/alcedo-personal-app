@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -290,15 +291,16 @@ fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onDelete: () -> Uni
 @Composable
 private fun dueDateBg(dueAt: String?): Color {
     val surface = MaterialTheme.colorScheme.surface
+    val dark = isSystemInDarkTheme()
     if (dueAt == null) return surface
     return try {
         val due = LocalDate.parse(dueAt.take(10))
-        val diff = ChronoUnit.DAYS.between(LocalDate.now(), due)
+        val diff = ChronoUnit.DAYS.between(com.alcedo.personal.ui.util.TimeUtils.effectiveLocalDate(), due)
         when {
-            diff < 0   -> Color(0xFFF5F5F5)
-            diff == 0L -> Color(0xFFFFE0E0)
-            diff <= 3  -> Color(0xFFFFF3E0)
-            diff <= 7  -> Color(0xFFFFFDE7)
+            diff < 0   -> if (dark) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
+            diff == 0L -> if (dark) Color(0xFF3B1010) else Color(0xFFFFE0E0)
+            diff <= 3  -> if (dark) Color(0xFF2E1A08) else Color(0xFFFFF3E0)
+            diff <= 7  -> if (dark) Color(0xFF252209) else Color(0xFFFFFDE7)
             else       -> surface
         }
     } catch (e: Exception) { surface }
