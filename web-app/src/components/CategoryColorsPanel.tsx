@@ -4,10 +4,10 @@ import { useCategoryColors } from '../CategoryColorsContext.tsx'
 
 export default function CategoryColorsPanel() {
   const { colors, updateColors, addCategory, removeCategory } = useCategoryColors()
-  const [newName, setNewName]     = useState('')
-  const [newColor, setNewColor]   = useState('#6b7280')
-  const [editingName, setEditingName] = useState<string | null>(null)  // 編集中のカテゴリ名
-  const [draftName, setDraftName] = useState('')
+  const [newName, setNewName]   = useState('')
+  const [newColor, setNewColor] = useState('#6b7280')
+  const [editingName, setEditingName] = useState<string | null>(null)
+  const [draftName, setDraftName]     = useState('')
 
   function handleColorChange(cat: string, color: string) {
     updateColors({ ...colors, [cat]: color })
@@ -21,18 +21,14 @@ export default function CategoryColorsPanel() {
   function commitRename(oldName: string) {
     const newN = draftName.trim()
     setEditingName(null)
-    if (!newN || newN === oldName) return
-    if (newN in colors) return  // 重複不可
+    if (!newN || newN === oldName || newN in colors) return
     const next = { ...colors }
     next[newN] = next[oldName]
     delete next[oldName]
     updateColors(next)
   }
 
-  function cancelRename() {
-    setEditingName(null)
-    setDraftName('')
-  }
+  function cancelRename() { setEditingName(null); setDraftName('') }
 
   function handleAdd() {
     const name = newName.trim()
@@ -47,21 +43,45 @@ export default function CategoryColorsPanel() {
     updateColors({ ...DEFAULT_COLORS })
   }
 
-  const categories = Object.entries(colors)
-
   return (
-    <div className="settings-group">
-      <div className="activity-rules-header">
+    <div>
+      {/* ヘッダー */}
+      <div className="activity-rules-header" style={{ marginBottom: 8 }}>
         <span className="featured-label">カテゴリ</span>
         <button type="button" className="btn btn-secondary" onClick={handleReset}>
           デフォルトに戻す
         </button>
       </div>
 
+      {/* 追加フォーム（上部） */}
+      <div className="category-add-form" style={{ marginBottom: 8 }}>
+        <input
+          className="settings-input"
+          placeholder="新しいカテゴリ名"
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          style={{ flex: 1 }}
+        />
+        <input
+          type="color"
+          value={newColor}
+          onChange={e => setNewColor(e.target.value)}
+          className="category-color-picker"
+          title="色を選択"
+        />
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleAdd}
+          disabled={!newName.trim() || newName.trim() in colors}
+        >追加</button>
+      </div>
+
+      {/* カテゴリ一覧 */}
       <ul className="activity-rule-list">
-        {categories.map(([cat, color]) => (
+        {Object.entries(colors).map(([cat, color]) => (
           <li key={cat} className="category-color-row">
-            {/* カテゴリ名（クリックで編集） */}
             {editingName === cat ? (
               <input
                 autoFocus
@@ -85,8 +105,6 @@ export default function CategoryColorsPanel() {
                 {cat}
               </button>
             )}
-
-            {/* 色ピッカー */}
             <input
               type="color"
               value={color}
@@ -95,52 +113,17 @@ export default function CategoryColorsPanel() {
               title="色を変更"
             />
             <span className="category-color-hex">{color}</span>
-
-            {/* デフォルト色に戻す */}
             {color !== DEFAULT_COLORS[cat] && DEFAULT_COLORS[cat] && (
-              <button
-                type="button"
-                className="task-node-menu-button"
+              <button type="button" className="task-node-menu-button"
                 title="デフォルト色に戻す"
-                onClick={() => handleColorChange(cat, DEFAULT_COLORS[cat])}
-              >↺</button>
+                onClick={() => handleColorChange(cat, DEFAULT_COLORS[cat])}>↺</button>
             )}
-
-            {/* 削除 */}
-            <button
-              type="button"
-              className="task-node-menu-button"
+            <button type="button" className="task-node-menu-button"
               style={{ fontSize: 14, marginLeft: 'auto' }}
-              title="削除"
-              onClick={() => removeCategory(cat)}
-            >×</button>
+              title="削除" onClick={() => removeCategory(cat)}>×</button>
           </li>
         ))}
       </ul>
-
-      <div className="category-add-form">
-        <input
-          className="settings-input"
-          placeholder="新しいカテゴリ名"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          style={{ flex: 1 }}
-        />
-        <input
-          type="color"
-          value={newColor}
-          onChange={e => setNewColor(e.target.value)}
-          className="category-color-picker"
-          title="色を選択"
-        />
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleAdd}
-          disabled={!newName.trim() || newName.trim() in colors}
-        >追加</button>
-      </div>
     </div>
   )
 }

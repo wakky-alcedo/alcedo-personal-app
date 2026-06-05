@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   getActivityRules, createActivityRule, updateActivityRule,
-  deleteActivityRule, reclassifyActivity, importActivityRules, type ActivityRule,
+  deleteActivityRule, type ActivityRule,
 } from '../api.ts'
 import { useCategoryColors } from '../CategoryColorsContext.tsx'
+
+export type { ActivityRule }
 
 type Props = { serverUrl: string; apiKey: string }
 
@@ -31,8 +33,9 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editState, setEditState] = useState<EditState | null>(null)
   const [reclassifyMsg, setReclassifyMsg] = useState<string | null>(null)
-  const [importMsg, setImportMsg]         = useState<string | null>(null)
-  const importInputRef = useRef<HTMLInputElement>(null)
+  const editRowRef = useRef<HTMLDivElement>(null)
+  const editStateRef = useRef(editState)
+  editStateRef.current = editState
 
   const refresh = useCallback(async () => {
     try { setRules(await getActivityRules(serverUrl, apiKey)) }
@@ -75,86 +78,11 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
     catch (e) { console.error(e) }
   }
 
-  function handleExport() {
-    const data = {
-      rules: rules.map(({ pattern, field, category, priority }) => ({ pattern, field, category, priority })),
-      categories: colors,
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'activity_rules.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    try {
-      const text = await file.text()
-      const parsed = JSON.parse(text)
-      const importedRules: any[] = parsed.rules ?? []
-      const importedColors: Record<string, string> | null = parsed.categories ?? null
-
-      if (!Array.isArray(importedRules)) throw new Error('rules が配列ではありません')
-
-      const colorNote = importedColors ? `\nカテゴリ色（${Object.keys(importedColors).length}件）も復元されます。` : ''
-      const mode = window.confirm(
-        `${importedRules.length}件のルールを読み込みます。${colorNote}\n\n「OK」→ 既存ルールをすべて置き換え\n「キャンセル」→ 既存ルールに追加`
-      ) ? 'replace' : 'merge'
-
-      const { imported } = await importActivityRules(serverUrl, apiKey, importedRules, mode)
-      await refresh()
-
-      // 既存カテゴリを残したままインポートカテゴリをマージ（上書き可）
-      if (importedColors) updateColors({ ...colors, ...importedColors })
-
-      const label = mode === 'replace' ? '置き換え' : '追加'
-      const colorMsg = importedColors ? `・色 ${Object.keys(importedColors).length}件` : ''
-      setImportMsg(`ルール ${imported}件を${label}${colorMsg}`)
-      setTimeout(() => setImportMsg(null), 4000)
-    } catch (err: any) {
-      setImportMsg(`インポート失敗: ${err.message}`)
-      setTimeout(() => setImportMsg(null), 4000)
-    }
-  }
-
-  async function handleReclassify() {
-    try {
-      const { updated } = await reclassifyActivity(serverUrl, apiKey)
-      setReclassifyMsg(`${updated}件のログを再分類しました`)
-      setTimeout(() => setReclassifyMsg(null), 4000)
-    } catch (e) {
-      setReclassifyMsg('再分類に失敗しました')
-      setTimeout(() => setReclassifyMsg(null), 4000)
-    }
-  }
 
   return (
-    <div className="settings-group">
-      <div className="activity-rules-header">
-        <span className="featured-label">分類ルール</span>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className="btn btn-secondary" onClick={handleExport}
-            disabled={rules.length === 0} title="ルールをJSONファイルにエクスポート">
-            エクスポート
-          </button>
-          <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}
-            title="JSONファイルからルールをインポート">
-            インポート
-            <input ref={importInputRef} type="file" accept=".json" onChange={handleImport}
-              style={{ display: 'none' }} />
-          </label>
-          <button type="button" className="btn btn-secondary" onClick={handleReclassify}>
-            既存ログを再分類
-          </button>
-        </div>
-      </div>
+    <div>
+      <div className="featured-label" style={{ marginBottom: 8 }}>分類ルール</div>
       {reclassifyMsg && <div className="activity-reclassify-msg">{reclassifyMsg}</div>}
-      {importMsg && <div className="activity-reclassify-msg">{importMsg}</div>}
 
       <div className="activity-rule-form">
         <input
@@ -198,11 +126,24 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
           {rules.map(rule => (
             <li key={rule.id} className="activity-rule-row">
               {editingId === rule.id && editState ? (
-                <>
+                <div
+                  ref={editRowRef}
+                  style={{ display: 'contents' }}
+                  onBlur={e => {
+                    // フォーカスが編集行の外に出たら自動保存
+                    setTimeout(() => {
+                      if (!editRowRef.current?.contains(document.activeElement)) {
+                        commitEdit(rule)
+                      }
+                    }, 0)
+                  }}
+                >
                   <input
+                    autoFocus
                     className="settings-input activity-rule-edit-input"
                     value={editState.pattern}
                     onChange={e => setEditState(s => s && ({ ...s, pattern: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Escape') { setEditingId(null); setEditState(null) } }}
                     style={{ maxWidth: 200 }}
                   />
                   <select
@@ -228,9 +169,10 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
                     onChange={e => setEditState(s => s && ({ ...s, priority: Number(e.target.value) }))}
                     style={{ maxWidth: 58 }}
                   />
-                  <button type="button" className="btn btn-primary" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => commitEdit(rule)}>保存</button>
-                  <button type="button" className="task-node-menu-button" onClick={() => { setEditingId(null); setEditState(null) }}>✕</button>
-                </>
+                  <button type="button" className="task-node-menu-button"
+                    onClick={() => { setEditingId(null); setEditState(null) }}
+                    title="キャンセル">✕</button>
+                </div>
               ) : (
                 <>
                   <code className="activity-rule-pattern">{rule.pattern}</code>
