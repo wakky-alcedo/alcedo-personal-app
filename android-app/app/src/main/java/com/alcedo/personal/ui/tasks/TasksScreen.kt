@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import android.content.Context
 import com.alcedo.personal.ui.util.TimeUtils.toLocalDateStr
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,12 +40,13 @@ private fun priorityOrder(p: String) = when (p) { "high" -> 0; "medium" -> 1; el
 class TasksViewModel(app: Application) : AndroidViewModel(app) {
     private val db      = DbProvider.get(app)
     private val taskDao = db.taskDao()
+    private val prefs   = app.getSharedPreferences("tasks_prefs", Context.MODE_PRIVATE)
 
     private val _allTasks = taskDao.observeActiveTasks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _filter      = MutableStateFlow("all")
-    private val _sort        = MutableStateFlow("updatedAt")
+    private val _filter      = MutableStateFlow(prefs.getString("filter", "all") ?: "all")
+    private val _sort        = MutableStateFlow(prefs.getString("sort", "updatedAt") ?: "updatedAt")
     private val _showAddForm = MutableStateFlow(false)
     val filter:      StateFlow<String>  = _filter
     val sort:        StateFlow<String>  = _sort
@@ -65,8 +67,8 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun setFilter(f: String)     { _filter.value = f }
-    fun setSort(s: String)       { _sort.value = s }
+    fun setFilter(f: String) { _filter.value = f; prefs.edit().putString("filter", f).apply() }
+    fun setSort(s: String)   { _sort.value = s;   prefs.edit().putString("sort", s).apply() }
     fun toggleAddForm()          { _showAddForm.value = !_showAddForm.value }
     fun hideAddForm()            { _showAddForm.value = false }
 
