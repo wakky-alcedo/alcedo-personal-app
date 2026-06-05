@@ -304,3 +304,123 @@ input, textarea, select { font: inherit; }
 .activity-rule-pattern { font-size: 13px; background: #f1f5ff; padding: 2px 6px; border-radius: 4px; }
 .activity-rule-cat { font-weight: 600; font-size: 13px; }
 .activity-rule-edit-input { padding: 3px 6px; font-size: 12px; }
+
+/* ─── DayTimeline ────────────────────────────────────────── */
+.dt-now-overlay { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(255,255,255,0.45); pointer-events: none; z-index: 2; }
+.dt-expanded-panel { margin-top: 8px; padding: 8px 10px; background: var(--surface-weak); border: 1px solid #e6edf8; border-radius: 8px; font-size: 12px; }
+.dt-device-badge { font-size: 11px; background: #eef3ff; padding: 1px 4px; border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════════════════
+   ダークモード（端末設定に自動追従）
+   ═══════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  /* ─── CSS 変数上書き ──────────────────────────────────────── */
+  :root {
+    --surface-bg:  linear-gradient(180deg, #0d1117 0%, #111827 100%);
+    --card-bg:     #1a2236;
+    --surface-weak: #1e2640;
+    --text-primary: #e2e8f0;
+    --text-muted:   #94a3b8;
+    --accent:       #818cf8;
+    --shadow-sm:    0 6px 16px rgba(0,0,0,0.35);
+    --shadow-md:    0 12px 32px rgba(0,0,0,0.45);
+  }
+
+  /* ─── 基本要素 ────────────────────────────────────────────── */
+  header, section {
+    background: rgba(26,34,54,0.97);
+    border-color: #2d3748;
+  }
+  input, textarea, select {
+    background: #1e2640;
+    color: var(--text-primary);
+    border-color: #334155;
+    color-scheme: dark;
+  }
+  input::placeholder, textarea::placeholder { color: #64748b; }
+
+  /* ─── ボタン ──────────────────────────────────────────────── */
+  .btn-secondary { background: #1e2640; color: var(--text-primary); border-color: #334155; }
+  .btn-secondary:hover { background: #253252; }
+  .btn-ghost { color: var(--text-primary); }
+  .settings-refresh-btn { background: #1e2640; border-color: #334155; color: var(--text-primary); }
+  .settings-refresh-btn:hover { background: #253252; }
+  .compact-panel-btn:hover { background: #253252; }
+  .collapse-toggle { color: var(--text-muted); }
+  .link-button { color: var(--text-primary); }
+  .task-node-menu-button { background: #1e2640; border-color: #334155; color: var(--text-muted); }
+  .task-node-menu-button:hover { background: #253252; color: var(--text-primary); }
+  .task-node-menu { background: #1a2236; border-color: #334155; }
+  .task-node-menu button:hover { background: #253252; }
+
+  /* ─── フォームインプット ────────────────────────────────────── */
+  .settings-input { background: #1e2640; border-color: #334155; }
+  .sort-select    { background: #1e2640; border-color: #334155; color: var(--text-primary); }
+  .filter-chip    { background: #1e2640; border-color: #334155; color: var(--text-muted); }
+  .filter-chip:hover { background: #253252; }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .date-input { background: #1e2640; border-color: #334155; color: var(--text-primary); }
+  .tab-btn    { background: transparent; border-color: #334155; color: var(--text-muted); }
+  .tab-btn.active { background: var(--accent); }
+
+  /* ─── トップタブ ─────────────────────────────────────────── */
+  .top-tab-btn       { background: #1e2640; border-color: #334155; color: var(--text-muted); }
+  .top-tab-btn.active { background: #1a2236; color: var(--text-primary); border-color: #4b5563; }
+  .top-tab-btn:hover:not(.active) { background: #253252; }
+
+  /* ─── タスクカード ───────────────────────────────────────── */
+  .task-node-card { background: #1a2236; border-color: #2d3748; box-shadow: none; }
+  .task-node-card.due-today { background: linear-gradient(180deg, #3b1010, #2d1010); border-color: #7f1d1d; }
+  .task-node-card.due-soon  { background: linear-gradient(180deg, #2e1a08, #261508); border-color: #78350f; }
+  .task-node-card.due-near  { background: linear-gradient(180deg, #252209, #1e1b07); border-color: #713f12; }
+  .task-node-card.due-overdue { opacity: 0.45; }
+  .task-list li, .belief-row, .habit-row { background: #1a2236; border-color: #2d3748; }
+
+  /* ─── ツールバー・リスト ─────────────────────────────────── */
+  .task-list-toolbar { background: #1e2640; border-color: #2d3748; }
+  .task-node-description-row.task-node-description { color: var(--text-muted); }
+
+  /* ─── 信念・習慣コンパクト ────────────────────────────────── */
+  .beliefs-panel--compact, .habits-panel--compact { background: #1a2236; border-color: #2d3748; }
+  .habit-quick-card { background: #1e2640; color: var(--text-primary); }
+  .habit-quick-card.done { opacity: 0.5; }
+
+  /* ─── 習慣ヒートマップ ──────────────────────────────────── */
+  .habit-heatmap-cell { background: #253252; }
+  .habit-heatmap-cell.done { background: #22c55e; }
+
+  /* ─── アナリティクス ─────────────────────────────────────── */
+  .analytics-card    { background: #1e2640; border-color: #2d3748; }
+  .analytics-entry-row { background: #1a2236; border-color: #2d3748; }
+  .sns-warning       { background: #3b1010; border-color: #7f1d1d; color: #fca5a5; }
+  .goal-editor       { background: #1e2640; border-color: #334155; }
+  .goal-bar-wrap     { background: #334155; }
+  .activity-timeline { border-color: #2d3748; }
+  .activity-block    { border-color: #2d3748; }
+  .device-filter .filter-chip { background: #1e2640; }
+
+  /* ─── 設定 ───────────────────────────────────────────────── */
+  .settings-group  { background: #1e2640; border-color: #2d3748; }
+  .settings-row    { border-color: #334155; }
+  .category-color-row  { background: #1a2236; border-color: #2d3748; }
+  .category-color-row:hover { background: #253252; }
+  .activity-rule-row   { background: #1a2236; border-color: #2d3748; }
+  .activity-rule-pattern { background: #253252; color: var(--text-primary); }
+  .activity-reclassify-msg { background: #052e16; border-color: #166534; color: #86efac; }
+
+  /* ─── アクティブタブバナー ────────────────────────────────── */
+  .active-tab-banner { background: #1e2640; border-color: #334155; }
+
+  /* ─── DayTimeline ────────────────────────────────────────── */
+  .habit-heatmap-panel { background: #1a2236; border-color: #2d3748; }
+  .dt-now-overlay { background: rgba(0,0,0,0.4); }
+  .dt-expanded-panel { border-color: #2d3748; }
+  .dt-device-badge { background: #253252; }
+
+  /* ─── アクティビティタイムライン ─────────────────────────── */
+  .activity-block-device { background: #1e2640; }
+  .activity-block-category:hover { background: #253252; }
+
+  /* ─── リンク ─────────────────────────────────────────────── */
+  .description-url { color: var(--accent); }
+}

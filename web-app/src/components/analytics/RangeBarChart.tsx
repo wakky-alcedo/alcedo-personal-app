@@ -22,6 +22,7 @@ type Props = {
 export default function RangeBarChart({ data, range }: Props) {
   const { colors } = useCategoryColors()
   const colorFor = (cat: string) => colorForFn(colors, cat)
+  const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
   const categories = useMemo(() => {
     const used = new Set<string>()
     for (const row of data) {
@@ -44,7 +45,7 @@ export default function RangeBarChart({ data, range }: Props) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5ff" />
+        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2d3748' : '#f1f5ff'} />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
         <YAxis tickFormatter={(v) => `${Math.floor(v / 3600)}h`} tick={{ fontSize: 11 }} />
         <Tooltip formatter={(v) => formatDuration(Number(v))} />

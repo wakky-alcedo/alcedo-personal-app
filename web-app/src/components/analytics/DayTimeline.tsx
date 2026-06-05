@@ -163,12 +163,10 @@ export default function DayTimeline({ logs, date }: Props) {
 
         {/* 現在時刻以降の半透明オーバーレイ */}
         {nowFraction !== null && (
-          <div style={{
-            position: 'absolute', top: 0, bottom: 0,
-            left: `${nowFraction * 100}%`, right: 0,
-            background: 'rgba(255,255,255,0.45)',
-            pointerEvents: 'none', zIndex: 2,
-          }} />
+          <div
+            className="dt-now-overlay"
+            style={{ left: `${nowFraction * 100}%` }}
+          />
         )}
         {/* 現在時刻の赤い縦線 */}
         {nowFraction !== null && (
@@ -203,7 +201,7 @@ export default function DayTimeline({ logs, date }: Props) {
           return (
             <span key={offset} style={{
               position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)',
-              fontSize: 10, color: '#667085',
+              fontSize: 10, color: 'var(--text-muted)',
             }}>
               {offset === 0 || offset === 24 ? '6' : String(h).padStart(2, '0')}
             </span>
@@ -224,11 +222,8 @@ export default function DayTimeline({ logs, date }: Props) {
 
       {/* クリック時のセッション詳細 */}
       {expandedSeg && expandedSeg.sessions.length > 0 && (
-        <div style={{
-          marginTop: 8, padding: '8px 10px', background: '#f8fbff',
-          border: '1px solid #e6edf8', borderRadius: 8, fontSize: 12,
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, color: '#182235' }}>
+        <div className="dt-expanded-panel">
+          <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>
             {bucketToLabel(expandedSeg.startBucket)}–{bucketToLabel(expandedSeg.startBucket + expandedSeg.bucketCount)}
             &nbsp;
             <span style={{ color: colorFor(expandedSeg.category) }}>{expandedSeg.category}</span>
@@ -237,12 +232,12 @@ export default function DayTimeline({ logs, date }: Props) {
             {expandedSeg.sessions
               .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
               .map((s, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#667085' }}>
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text-muted)' }}>
                   <span>{new Date(s.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.windowTitle || s.processName}
                   </span>
-                  <span style={{ fontSize: 11, background: '#eef3ff', padding: '1px 4px', borderRadius: 3 }}>
+                  <span className="dt-device-badge">
                     {s.deviceId}
                   </span>
                 </div>
@@ -254,7 +249,7 @@ export default function DayTimeline({ logs, date }: Props) {
       {/* 凡例 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
         {Array.from(new Set(segments.map(s => s.category))).map(cat => (
-          <span key={cat} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#667085' }}>
+          <span key={cat} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
             <span style={{ width: 10, height: 10, borderRadius: 2, background: colorFor(cat), display: 'inline-block' }} />
             {cat}
           </span>
