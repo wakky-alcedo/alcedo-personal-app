@@ -109,7 +109,8 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
       const { imported } = await importActivityRules(serverUrl, apiKey, importedRules, mode)
       await refresh()
 
-      if (importedColors) updateColors(importedColors)
+      // 既存カテゴリを残したままインポートカテゴリをマージ（上書き可）
+      if (importedColors) updateColors({ ...colors, ...importedColors })
 
       const label = mode === 'replace' ? '置き換え' : '追加'
       const colorMsg = importedColors ? `・色 ${Object.keys(importedColors).length}件` : ''

@@ -4,11 +4,34 @@ import { useCategoryColors } from '../CategoryColorsContext.tsx'
 
 export default function CategoryColorsPanel() {
   const { colors, updateColors, addCategory, removeCategory } = useCategoryColors()
-  const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState('#6b7280')
+  const [newName, setNewName]     = useState('')
+  const [newColor, setNewColor]   = useState('#6b7280')
+  const [editingName, setEditingName] = useState<string | null>(null)  // 編集中のカテゴリ名
+  const [draftName, setDraftName] = useState('')
 
   function handleColorChange(cat: string, color: string) {
     updateColors({ ...colors, [cat]: color })
+  }
+
+  function startEditName(cat: string) {
+    setEditingName(cat)
+    setDraftName(cat)
+  }
+
+  function commitRename(oldName: string) {
+    const newN = draftName.trim()
+    setEditingName(null)
+    if (!newN || newN === oldName) return
+    if (newN in colors) return  // 重複不可
+    const next = { ...colors }
+    next[newN] = next[oldName]
+    delete next[oldName]
+    updateColors(next)
+  }
+
+  function cancelRename() {
+    setEditingName(null)
+    setDraftName('')
   }
 
   function handleAdd() {
@@ -38,7 +61,32 @@ export default function CategoryColorsPanel() {
       <ul className="activity-rule-list">
         {categories.map(([cat, color]) => (
           <li key={cat} className="category-color-row">
-            <span className="category-color-name">{cat}</span>
+            {/* カテゴリ名（クリックで編集） */}
+            {editingName === cat ? (
+              <input
+                autoFocus
+                className="settings-input"
+                value={draftName}
+                onChange={e => setDraftName(e.target.value)}
+                onBlur={() => commitRename(cat)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitRename(cat) }
+                  if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+                }}
+                style={{ flex: 1, minWidth: 80, fontSize: 13, padding: '2px 6px' }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="link-button category-color-name"
+                title="クリックして名前を編集"
+                onClick={() => startEditName(cat)}
+              >
+                {cat}
+              </button>
+            )}
+
+            {/* 色ピッカー */}
             <input
               type="color"
               value={color}
@@ -47,6 +95,8 @@ export default function CategoryColorsPanel() {
               title="色を変更"
             />
             <span className="category-color-hex">{color}</span>
+
+            {/* デフォルト色に戻す */}
             {color !== DEFAULT_COLORS[cat] && DEFAULT_COLORS[cat] && (
               <button
                 type="button"
@@ -55,6 +105,8 @@ export default function CategoryColorsPanel() {
                 onClick={() => handleColorChange(cat, DEFAULT_COLORS[cat])}
               >↺</button>
             )}
+
+            {/* 削除 */}
             <button
               type="button"
               className="task-node-menu-button"
