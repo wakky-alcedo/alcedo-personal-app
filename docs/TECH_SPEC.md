@@ -348,7 +348,13 @@
 21. POST /api/v1/activity/rules — 分類ルール作成・更新（id 指定で upsert）
 22. DELETE /api/v1/activity/rules/:id — ルール削除
 
-23. POST /api/v1/activity/reclassify — 全既存ログを現在のルールで再分類
+23. POST /api/v1/activity/rules/import — 分類ルールと色設定を一括インポート
+- Body: `{ rules: RuleInput[], categories?: Record<string, string>, mode?: "replace" | "merge" }`
+- `mode=replace`（デフォルト）: 既存ルールを全削除してから挿入。`merge`: 追加のみ
+- カテゴリ色（`categories`）はクライアント localStorage に保存されるためサーバーには保存しない
+- エクスポート形式: `{ rules:[...], categories:{...} }`（設定画面 → エクスポートボタン）
+
+24. POST /api/v1/activity/reclassify — 全既存ログを現在のルールで再分類
 - 用途: ルール変更後に過去ログへ遡及適用
 
 #### Obsidian連携 (Phase2)

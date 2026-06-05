@@ -539,6 +539,20 @@ export async function reclassifyActivity(serverUrl: string, apiKey: string): Pro
   return res.json()
 }
 
+export async function importActivityRules(
+  serverUrl: string, apiKey: string,
+  rules: Array<{ pattern: string; field?: string; category: string; priority?: number }>,
+  mode: 'replace' | 'merge' = 'replace'
+): Promise<{ imported: number; mode: string }> {
+  const res = await fetch(`${serverUrl}/api/v1/activity/rules/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify({ rules, mode })
+  })
+  if (!res.ok) throw new Error('import failed')
+  return res.json()
+}
+
 export async function deleteActivityRule(serverUrl: string, apiKey: string, id: string): Promise<void> {
   const res = await fetch(`${serverUrl}/api/v1/activity/rules/${encodeURIComponent(id)}`, {
     method: 'DELETE',

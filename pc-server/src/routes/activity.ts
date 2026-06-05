@@ -260,6 +260,48 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     return { deleted: true };
   });
 
+  // POST /activity/rules/import — 全ルールを置き換え（エクスポートした JSON を再インポート）
+  app.post<{
+    Body: {
+      rules: Array<{ pattern: string; field?: string; category: string; priority?: number }>;
+      mode?: "replace" | "merge";
+    };
+  }>("/activity/rules/import", async (request, reply) => {
+    const { rules, mode = "replace" } = request.body;
+    if (!Array.isArray(rules)) {
+      return reply.code(400).send({ message: "rules array is required" });
+    }
+    const now = new Date().toISOString();
+    const upsert = db.prepare(`
+      INSERT INTO activity_rules (id, pattern, field, category, priority, createdAt, updatedAt)
+      VALUES (@id, @pattern, @field, @category, @priority, @createdAt, @updatedAt)
+      ON CONFLICT(id) DO UPDATE SET
+        pattern = excluded.pattern, field = excluded.field,
+        category = excluded.category, priority = excluded.priority,
+        updatedAt = excluded.updatedAt
+    `);
+    const tx = db.transaction(() => {
+      if (mode === "replace") {
+        db.prepare("DELETE FROM activity_rules").run();
+      }
+      for (const rule of rules) {
+        if (!rule.pattern || !rule.category) continue;
+        try { new RegExp(rule.pattern); } catch { continue; }
+        upsert.run({
+          id: randomUUID(),
+          pattern: rule.pattern,
+          field: rule.field ?? "processName",
+          category: rule.category,
+          priority: rule.priority ?? 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    });
+    tx();
+    return { imported: rules.length, mode };
+  });
+
   // POST /activity/reclassify — re-apply current rules to all logs
   app.post("/activity/reclassify", async () => {
     const rules = db

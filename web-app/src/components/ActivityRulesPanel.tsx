@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   getActivityRules, createActivityRule, updateActivityRule,
-  deleteActivityRule, reclassifyActivity, type ActivityRule,
+  deleteActivityRule, reclassifyActivity, importActivityRules, type ActivityRule,
 } from '../api.ts'
 import { useCategoryColors } from '../CategoryColorsContext.tsx'
 
@@ -21,7 +21,7 @@ function fieldLabel(field: string) {
 }
 
 export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
-  const { colors } = useCategoryColors()
+  const { colors, updateColors } = useCategoryColors()
   const categoryNames = Object.keys(colors)
   const [rules, setRules] = useState<ActivityRule[]>([])
   const [pattern, setPattern] = useState('')
@@ -31,6 +31,8 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editState, setEditState] = useState<EditState | null>(null)
   const [reclassifyMsg, setReclassifyMsg] = useState<string | null>(null)
+  const [importMsg, setImportMsg]         = useState<string | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try { setRules(await getActivityRules(serverUrl, apiKey)) }
@@ -73,6 +75,52 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
     catch (e) { console.error(e) }
   }
 
+  function handleExport() {
+    const data = {
+      rules: rules.map(({ pattern, field, category, priority }) => ({ pattern, field, category, priority })),
+      categories: colors,
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'activity_rules.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      const importedRules: any[] = parsed.rules ?? []
+      const importedColors: Record<string, string> | null = parsed.categories ?? null
+
+      if (!Array.isArray(importedRules)) throw new Error('rules が配列ではありません')
+
+      const colorNote = importedColors ? `\nカテゴリ色（${Object.keys(importedColors).length}件）も復元されます。` : ''
+      const mode = window.confirm(
+        `${importedRules.length}件のルールを読み込みます。${colorNote}\n\n「OK」→ 既存ルールをすべて置き換え\n「キャンセル」→ 既存ルールに追加`
+      ) ? 'replace' : 'merge'
+
+      const { imported } = await importActivityRules(serverUrl, apiKey, importedRules, mode)
+      await refresh()
+
+      if (importedColors) updateColors(importedColors)
+
+      const label = mode === 'replace' ? '置き換え' : '追加'
+      const colorMsg = importedColors ? `・色 ${Object.keys(importedColors).length}件` : ''
+      setImportMsg(`ルール ${imported}件を${label}${colorMsg}`)
+      setTimeout(() => setImportMsg(null), 4000)
+    } catch (err: any) {
+      setImportMsg(`インポート失敗: ${err.message}`)
+      setTimeout(() => setImportMsg(null), 4000)
+    }
+  }
+
   async function handleReclassify() {
     try {
       const { updated } = await reclassifyActivity(serverUrl, apiKey)
@@ -88,11 +136,24 @@ export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
     <div className="settings-group">
       <div className="activity-rules-header">
         <span className="featured-label">分類ルール</span>
-        <button type="button" className="btn btn-secondary" onClick={handleReclassify}>
-          既存ログを再分類
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="btn btn-secondary" onClick={handleExport}
+            disabled={rules.length === 0} title="ルールをJSONファイルにエクスポート">
+            エクスポート
+          </button>
+          <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}
+            title="JSONファイルからルールをインポート">
+            インポート
+            <input ref={importInputRef} type="file" accept=".json" onChange={handleImport}
+              style={{ display: 'none' }} />
+          </label>
+          <button type="button" className="btn btn-secondary" onClick={handleReclassify}>
+            既存ログを再分類
+          </button>
+        </div>
       </div>
       {reclassifyMsg && <div className="activity-reclassify-msg">{reclassifyMsg}</div>}
+      {importMsg && <div className="activity-reclassify-msg">{importMsg}</div>}
 
       <div className="activity-rule-form">
         <input
