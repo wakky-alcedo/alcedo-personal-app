@@ -9,7 +9,9 @@ internal static class Program
     private static System.Windows.Forms.Timer? _syncTimer;
     private static SyncService? _syncService;
     private static RuleClassifier? _classifier;
+    private static PowerMonitor? _powerMonitor;
     private static bool _paused;
+    private static bool _displayOff;
 
     [STAThread]
     static void Main(string[] args)
@@ -119,7 +121,7 @@ internal static class Program
         };
         _sampleTimer.Tick += (_, _) =>
         {
-            if (_paused) return;
+            if (_paused || _displayOff) return;
             var log = ActivityRecorder.Capture();
             if (log != null)
             {
@@ -141,6 +143,23 @@ internal static class Program
         };
         _syncTimer.Start();
 
+        // ディスプレイオン/オフの監視（statusItem 確定後に登録）
+        _powerMonitor = new PowerMonitor();
+        _powerMonitor.DisplayStateChanged += isOn =>
+        {
+            _displayOff = !isOn;
+            if (!isOn)
+            {
+                _syncService.OnDisplayOff();
+                statusItem.Text = "画面オフ（睡眠）";
+            }
+            else
+            {
+                _syncService.OnDisplayOn();
+                statusItem.Text = "記録中";
+            }
+        };
+
         Application.ApplicationExit += (_, _) =>
         {
             _trayIcon.Visible = false;
@@ -148,6 +167,7 @@ internal static class Program
             _sampleTimer.Dispose();
             _syncTimer.Dispose();
             _syncService.Dispose();
+            _powerMonitor?.Dispose();
         };
 
         Application.Run();

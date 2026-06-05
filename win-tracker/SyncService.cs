@@ -42,6 +42,27 @@ public class SyncService : IDisposable
     }
 
     /// <summary>
+    /// ディスプレイがオフになったとき呼び出す。
+    /// 現在のオープンセッションを終了してバッファに追加し、記録を停止する。
+    /// </summary>
+    public void OnDisplayOff()
+    {
+        lock (_lock)
+        {
+            if (_currentSession == null) return;
+            _currentSession.EndedAt = DateTime.UtcNow.ToString("o");
+            _completed.Add(_currentSession);
+            _currentSession = null;  // ギャップ = 睡眠として DayTimeline が解釈する
+        }
+    }
+
+    /// <summary>
+    /// ディスプレイがオンになったとき呼び出す。
+    /// 次の UpdateActivity 呼び出しで自動的に新セッションが開始される。
+    /// </summary>
+    public void OnDisplayOn() { /* 次回 UpdateActivity が新セッションを開始 */ }
+
+    /// <summary>
     /// Called on each sample tick. Starts, extends, or ends sessions based on whether activity changed.
     /// </summary>
     public void UpdateActivity(ActivityLog snapshot)
