@@ -14,6 +14,31 @@ type HabitInput = {
   updatedAt: string;
 };
 
+const stmtSelectHabits = db.prepare("SELECT * FROM habits ORDER BY updatedAt DESC");
+const stmtSelectHabitLogs = db.prepare("SELECT habitId, doneDate FROM habit_logs ORDER BY doneDate DESC");
+const stmtSelectHabitLogsByDate = db.prepare("SELECT habitId, doneDate FROM habit_logs WHERE doneDate >= ? AND doneDate <= ? ORDER BY doneDate ASC");
+const stmtUpsertHabit = db.prepare(`
+  INSERT INTO habits (
+    id, name, notifyTime, widgetPriorityTimeRangeStart, widgetPriorityTimeRangeEnd, isActive, createdAt, updatedAt
+  ) VALUES (
+    @id, @name, @notifyTime, @widgetPriorityTimeRangeStart, @widgetPriorityTimeRangeEnd, @isActive, @createdAt, @updatedAt
+  )
+  ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    notifyTime = excluded.notifyTime,
+    widgetPriorityTimeRangeStart = excluded.widgetPriorityTimeRangeStart,
+    widgetPriorityTimeRangeEnd = excluded.widgetPriorityTimeRangeEnd,
+    isActive = excluded.isActive,
+    updatedAt = excluded.updatedAt
+`);
+const stmtDeleteHabitLogs = db.prepare("DELETE FROM habit_logs WHERE habitId = ?");
+const stmtDeleteHabit = db.prepare("DELETE FROM habits WHERE id = ?");
+const stmtInsertHabitLog = db.prepare(`
+  INSERT INTO habit_logs (id, habitId, doneDate, createdAt)
+  VALUES (@id, @habitId, @doneDate, @createdAt)
+  ON CONFLICT(habitId, doneDate) DO NOTHING
+`);
+
 function previousDateKey(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`);
   d.setDate(d.getDate() - 1);
@@ -21,8 +46,8 @@ function previousDateKey(dateKey: string) {
 }
 
 function buildHabitViews() {
-  const habits = db.prepare("SELECT * FROM habits ORDER BY updatedAt DESC").all() as Array<Record<string, unknown>>;
-  const logs = db.prepare("SELECT habitId, doneDate FROM habit_logs ORDER BY doneDate DESC").all() as Array<{ habitId: string; doneDate: string }>;
+  const habits = stmtSelectHabits.all() as Array<Record<string, unknown>>;
+  const logs = stmtSelectHabitLogs.all() as Array<{ habitId: string; doneDate: string }>;
   const today = effectiveLocalDate();
 
   return habits.map((habit) => {
@@ -65,9 +90,7 @@ const habitRoutes: FastifyPluginAsync = async (app) => {
       d.setDate(d.getDate() - 59);
       return localDateKey(d);
     })();
-    return db
-      .prepare("SELECT habitId, doneDate FROM habit_logs WHERE doneDate >= ? AND doneDate <= ? ORDER BY doneDate ASC")
-      .all(fromDate, toDate) as Array<{ habitId: string; doneDate: string }>;
+    return stmtSelectHabitLogsByDate.all(fromDate, toDate) as Array<{ habitId: string; doneDate: string }>;
   });
 
   app.post<{ Body: HabitInput }>("/habits", async (request) => {
@@ -82,37 +105,20 @@ const habitRoutes: FastifyPluginAsync = async (app) => {
       updatedAt: request.body.updatedAt ?? new Date().toISOString(),
     };
 
-    db.prepare(`
-      INSERT INTO habits (
-        id, name, notifyTime, widgetPriorityTimeRangeStart, widgetPriorityTimeRangeEnd, isActive, createdAt, updatedAt
-      ) VALUES (
-        @id, @name, @notifyTime, @widgetPriorityTimeRangeStart, @widgetPriorityTimeRangeEnd, @isActive, @createdAt, @updatedAt
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        notifyTime = excluded.notifyTime,
-        widgetPriorityTimeRangeStart = excluded.widgetPriorityTimeRangeStart,
-        widgetPriorityTimeRangeEnd = excluded.widgetPriorityTimeRangeEnd,
-        isActive = excluded.isActive,
-        updatedAt = excluded.updatedAt
-    `).run({ ...habit, isActive: habit.isActive ? 1 : 0 });
+    stmtUpsertHabit.run({ ...habit, isActive: habit.isActive ? 1 : 0 });
 
     return { habit: { ...habit, isActive: Boolean(habit.isActive) } };
   });
 
   app.delete<{ Params: { id: string } }>("/habits/:id", async (request) => {
-    db.prepare("DELETE FROM habit_logs WHERE habitId = ?").run(request.params.id);
-    db.prepare("DELETE FROM habits WHERE id = ?").run(request.params.id);
+    stmtDeleteHabitLogs.run(request.params.id);
+    stmtDeleteHabit.run(request.params.id);
     return { deleted: true };
   });
 
   app.post<{ Params: { id: string }; Body?: { doneDate?: string } }>("/habits/:id/logs", async (request) => {
     const doneDate = request.body?.doneDate ?? effectiveLocalDate();
-    db.prepare(`
-      INSERT INTO habit_logs (id, habitId, doneDate, createdAt)
-      VALUES (@id, @habitId, @doneDate, @createdAt)
-      ON CONFLICT(habitId, doneDate) DO NOTHING
-    `).run({
+    stmtInsertHabitLog.run({
       id: randomUUID(),
       habitId: request.params.id,
       doneDate,

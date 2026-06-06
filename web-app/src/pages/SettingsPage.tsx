@@ -6,13 +6,11 @@ import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
 type Props = {
   loading: boolean
-  onServerUrlChange: (value: string) => void
-  onApiKeyChange: (value: string) => void
   onRefresh: () => void
 }
 
-export default function SettingsPage({ loading, onServerUrlChange, onApiKeyChange, onRefresh }: Props) {
-  const { serverUrl, apiKey } = useAppConfig()
+export default function SettingsPage({ loading, onRefresh }: Props) {
+  const { serverUrl, apiKey, setServerUrl, setApiKey } = useAppConfig()
   return (
     <section className="settings-panel">
       <div className="section-header">
@@ -26,7 +24,7 @@ export default function SettingsPage({ loading, onServerUrlChange, onApiKeyChang
           <input
             className="settings-input"
             value={serverUrl}
-            onChange={e => onServerUrlChange(e.target.value)}
+            onChange={e => setServerUrl(e.target.value)}
             placeholder="http://localhost:8787"
           />
         </label>
@@ -36,7 +34,7 @@ export default function SettingsPage({ loading, onServerUrlChange, onApiKeyChang
             className="settings-input"
             type="password"
             value={apiKey}
-            onChange={e => onApiKeyChange(e.target.value)}
+            onChange={e => setApiKey(e.target.value)}
             placeholder="dev-local-key"
           />
         </label>

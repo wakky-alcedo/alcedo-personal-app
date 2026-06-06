@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { getTasks, createTask, updateTask, deleteTask, type Task } from './api.ts'
 import { CategoryColorsProvider } from './CategoryColorsContext.tsx'
-import { AppConfigContext } from './contexts/AppConfigContext.tsx'
+import { AppConfigProvider, useAppConfig } from './contexts/AppConfigContext.tsx'
 import { ToastProvider } from './contexts/ToastContext.tsx'
 import ToastContainer from './components/ToastContainer.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
-
-const DEFAULT_SERVER = (import.meta.env.VITE_SERVER_URL as string) || 'http://localhost:8787'
-const DEFAULT_API_KEY = 'dev-local-key'
-const LS_SERVER_KEY = 'alcedo_server_url'
-const LS_API_KEY = 'alcedo_api_key'
 
 type Tab = 'dashboard' | 'analytics' | 'settings'
 
@@ -22,7 +17,8 @@ function readTabFromHash(): Tab {
   return VALID_TABS.includes(hash) ? hash : 'dashboard'
 }
 
-export default function App() {
+function AppBody() {
+  const { serverUrl, apiKey } = useAppConfig()
   const [tab, setTab] = useState<Tab>(readTabFromHash)
 
   useEffect(() => {
@@ -30,24 +26,9 @@ export default function App() {
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(false)
-  const [serverUrl, setServerUrl] = useState(
-    () => localStorage.getItem(LS_SERVER_KEY) ?? DEFAULT_SERVER
-  )
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem(LS_API_KEY) ?? DEFAULT_API_KEY
-  )
-
-  function handleServerUrlChange(value: string) {
-    setServerUrl(value)
-    localStorage.setItem(LS_SERVER_KEY, value)
-  }
-
-  function handleApiKeyChange(value: string) {
-    setApiKey(value)
-    localStorage.setItem(LS_API_KEY, value)
-  }
 
   useEffect(() => { refresh() }, [serverUrl, apiKey])
 
@@ -102,9 +83,6 @@ export default function App() {
   }
 
   return (
-    <AppConfigContext.Provider value={{ serverUrl, apiKey }}>
-    <ToastProvider>
-    <CategoryColorsProvider>
     <div className="container">
       <header>
         <div className="app-header-row">
@@ -141,15 +119,22 @@ export default function App() {
       {tab === 'settings' && (
         <SettingsPage
           loading={loading}
-          onServerUrlChange={handleServerUrlChange}
-          onApiKeyChange={handleApiKeyChange}
           onRefresh={refresh}
         />
       )}
       <ToastContainer />
     </div>
-    </CategoryColorsProvider>
-    </ToastProvider>
-    </AppConfigContext.Provider>
+  )
+}
+
+export default function App() {
+  return (
+    <AppConfigProvider>
+      <ToastProvider>
+        <CategoryColorsProvider>
+          <AppBody />
+        </CategoryColorsProvider>
+      </ToastProvider>
+    </AppConfigProvider>
   )
 }

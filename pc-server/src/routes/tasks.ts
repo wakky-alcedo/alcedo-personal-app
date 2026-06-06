@@ -89,6 +89,49 @@ function normalizeTaskRow(row: TaskRow) {
   };
 }
 
+const stmtUpsertTask = db.prepare(`
+  INSERT INTO tasks (
+    id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, parentId, deletedAt, updatedAt, version
+  ) VALUES (
+    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, @parentId, NULL, @updatedAt, @version
+  )
+  ON CONFLICT(id) DO UPDATE SET
+    title = excluded.title,
+    description = excluded.description,
+    categoryType = excluded.categoryType,
+    categoryName = excluded.categoryName,
+    priority = excluded.priority,
+    dueAt = excluded.dueAt,
+    status = excluded.status,
+    subtasks = excluded.subtasks,
+    parentId = excluded.parentId,
+    deletedAt = CASE WHEN excluded.version > tasks.version THEN NULL ELSE tasks.deletedAt END,
+    updatedAt = excluded.updatedAt,
+    version = excluded.version
+  WHERE excluded.version > tasks.version
+     OR (excluded.version = tasks.version AND excluded.updatedAt > tasks.updatedAt)
+`);
+
+const stmtMarkDeleted = db.prepare(`
+  UPDATE tasks
+  SET
+    status = 'done',
+    deletedAt = @updatedAt,
+    updatedAt = @updatedAt,
+    version = @version
+  WHERE id = @id
+    AND (@version > version OR (@version = version AND @updatedAt > updatedAt))
+`);
+
+const stmtInsertDeletedPlaceholder = db.prepare(`
+  INSERT INTO tasks (
+    id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, deletedAt, updatedAt, version
+  ) VALUES (
+    @id, '', NULL, 'short_term', 'deleted', 'low', NULL, 'done', '[]', @updatedAt, @updatedAt, @version
+  )
+  ON CONFLICT(id) DO NOTHING
+`);
+
 const taskRoutes: FastifyPluginAsync = async (app) => {
   app.post<{
     Body: { tasks?: UpsertTaskInput[]; upserts?: UpsertTaskInput[]; deletions?: DeleteTaskInput[] };
@@ -117,57 +160,14 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       version: d.version ?? 1,
     }));
 
-    const upsert = db.prepare(`
-      INSERT INTO tasks (
-        id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, parentId, deletedAt, updatedAt, version
-      ) VALUES (
-        @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, @parentId, NULL, @updatedAt, @version
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        title = excluded.title,
-        description = excluded.description,
-        categoryType = excluded.categoryType,
-        categoryName = excluded.categoryName,
-        priority = excluded.priority,
-        dueAt = excluded.dueAt,
-        status = excluded.status,
-        subtasks = excluded.subtasks,
-        parentId = excluded.parentId,
-        deletedAt = CASE WHEN excluded.version > tasks.version THEN NULL ELSE tasks.deletedAt END,
-        updatedAt = excluded.updatedAt,
-        version = excluded.version
-      WHERE excluded.version > tasks.version
-         OR (excluded.version = tasks.version AND excluded.updatedAt > tasks.updatedAt)
-    `);
-
-    const markDeleted = db.prepare(`
-      UPDATE tasks
-      SET
-        status = 'done',
-        deletedAt = @updatedAt,
-        updatedAt = @updatedAt,
-        version = @version
-      WHERE id = @id
-        AND (@version > version OR (@version = version AND @updatedAt > updatedAt))
-    `);
-
-    const insertDeletedPlaceholder = db.prepare(`
-      INSERT INTO tasks (
-        id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, deletedAt, updatedAt, version
-      ) VALUES (
-        @id, '', NULL, 'short_term', 'deleted', 'low', NULL, 'done', '[]', @updatedAt, @updatedAt, @version
-      )
-      ON CONFLICT(id) DO NOTHING
-    `);
-
     const tx = db.transaction((items: NormalizedUpsertRow[], removed: DeleteTaskInput[]) => {
       for (const task of items) {
-        upsert.run(task);
+        stmtUpsertTask.run(task);
       }
 
       for (const deletion of removed) {
-        insertDeletedPlaceholder.run(deletion);
-        markDeleted.run(deletion);
+        stmtInsertDeletedPlaceholder.run(deletion);
+        stmtMarkDeleted.run(deletion);
       }
     });
 
