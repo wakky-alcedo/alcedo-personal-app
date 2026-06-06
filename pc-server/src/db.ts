@@ -148,6 +148,35 @@ CREATE INDEX IF NOT EXISTS idx_analytics_daily_date ON analytics_daily(targetDat
 CREATE INDEX IF NOT EXISTS idx_analytics_daily_updated ON analytics_daily(updatedAt);
 `);
 
+// Migrate analytics_daily: add time-range columns
+{
+  const analyticsCols = db.prepare("PRAGMA table_info(analytics_daily)").all() as Array<{ name: string }>;
+  if (!analyticsCols.some((c) => c.name === "startedAt")) {
+    db.exec("ALTER TABLE analytics_daily ADD COLUMN startedAt TEXT");
+  }
+  if (!analyticsCols.some((c) => c.name === "endedAt")) {
+    db.exec("ALTER TABLE analytics_daily ADD COLUMN endedAt TEXT");
+  }
+}
+
+// Fix analytics_daily entries where startedAt > endedAt (caused by old toISO bug:
+// times before 6am were stored as next calendar day instead of same day).
+// Correcting by shifting startedAt back 24 hours.
+{
+  const bad = db.prepare(`
+    SELECT id, startedAt, endedAt FROM analytics_daily
+    WHERE startedAt IS NOT NULL AND endedAt IS NOT NULL AND startedAt > endedAt
+  `).all() as Array<{ id: string; startedAt: string; endedAt: string }>;
+  if (bad.length > 0) {
+    const fix = db.prepare("UPDATE analytics_daily SET startedAt = ? WHERE id = ?");
+    for (const row of bad) {
+      const corrected = new Date(new Date(row.startedAt).getTime() - 86400_000).toISOString();
+      fix.run(corrected, row.id);
+    }
+    console.log(`[migration] fixed ${bad.length} analytics_daily entries with inverted startedAt/endedAt`);
+  }
+}
+
 // Activity tracking tables
 db.exec(`
 CREATE TABLE IF NOT EXISTS activity_rules (

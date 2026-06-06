@@ -10,6 +10,8 @@ type AnalyticsRow = {
   source: string;
   category: string;
   durationSec: number;
+  startedAt: string | null;
+  endedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -17,22 +19,32 @@ type AnalyticsRow = {
 const analyticsRoutes: FastifyPluginAsync = async (app) => {
   // POST /analytics/daily — upsert a time entry
   app.post<{
-    Body: { id?: string; targetDate: string; source?: string; category: string; durationSec: number };
+    Body: {
+      id?: string; targetDate: string; source?: string; category: string;
+      durationSec?: number; startedAt?: string | null; endedAt?: string | null;
+    };
   }>("/analytics/daily", async (request, reply) => {
-    const { id, targetDate, source = "manual", category, durationSec } = request.body;
-    if (!targetDate || !category || durationSec == null) {
-      return reply.code(400).send({ message: "targetDate, category, durationSec are required" });
+    const { id, targetDate, source = "manual", category, startedAt = null, endedAt = null } = request.body;
+    if (!targetDate || !category) {
+      return reply.code(400).send({ message: "targetDate and category are required" });
+    }
+    // durationSec: use provided value, or compute from time range, or 0
+    let durationSec = request.body.durationSec ?? 0;
+    if (!durationSec && startedAt && endedAt) {
+      durationSec = Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000);
     }
     const now = new Date().toISOString();
     const entryId = id ?? randomUUID();
     db.prepare(`
-      INSERT INTO analytics_daily (id, targetDate, source, category, durationSec, createdAt, updatedAt)
-      VALUES (@id, @targetDate, @source, @category, @durationSec, @createdAt, @updatedAt)
+      INSERT INTO analytics_daily (id, targetDate, source, category, durationSec, startedAt, endedAt, createdAt, updatedAt)
+      VALUES (@id, @targetDate, @source, @category, @durationSec, @startedAt, @endedAt, @createdAt, @updatedAt)
       ON CONFLICT(id) DO UPDATE SET
         category = excluded.category,
         durationSec = excluded.durationSec,
+        startedAt = excluded.startedAt,
+        endedAt = excluded.endedAt,
         updatedAt = excluded.updatedAt
-    `).run({ id: entryId, targetDate, source, category, durationSec, createdAt: now, updatedAt: now });
+    `).run({ id: entryId, targetDate, source, category, durationSec, startedAt, endedAt, createdAt: now, updatedAt: now });
     return db.prepare("SELECT * FROM analytics_daily WHERE id = ?").get(entryId);
   });
 

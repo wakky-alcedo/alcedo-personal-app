@@ -146,7 +146,9 @@
 6. web_ui
 - ダッシュボード：アクティブタブバナー＋信念（コンパクト）＋習慣（クイックチェック＋カレンダーヒートマップ）＋タスク一覧
 - 分析：日次（作業記録タイムライン＋手動記録）・週次・月次，デバイスフィルタ
-  - 作業時間配分（円グラフ）は `activityUtils.ts` の `buildSegments` + `summaryFromSegments` でクライアント側マージ。5分バケツで複数デバイスの重複を排除した実時間を表示（DayTimeline と同一ロジック）
+  - 作業時間配分（円グラフ）: `buildSegments` でバケツマージ後、不明・睡眠を除いた実活動カテゴリのみ集計。睡眠は別行「睡眠: Xh」で表示
+  - 手動エントリ（startedAt/endedAt付き）はタイムラインを上書き。日付境界をまたぐものは除外（作業配分）/クランプ表示（タイムライン）
+  - DEFAULT_COLORS に「睡眠」カテゴリを追加（#93c5fd）
 - 設定：サーバー接続＋信念フル管理＋習慣フル管理＋分類ルール管理
 - URLハッシュによるタブ状態保持（`#dashboard` / `#analytics` / `#settings`）
 
@@ -251,8 +253,12 @@
 - source: TEXT NOT NULL DEFAULT 'manual'
 - category: TEXT NOT NULL
 - durationSec: INTEGER NOT NULL DEFAULT 0
+- startedAt: TEXT（UTC ISO 8601, NULL=旧形式互換）
+- endedAt: TEXT（UTC ISO 8601, NULL=旧形式互換）
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
+
+制約: startedAt ≤ endedAt。起動時マイグレーションで startedAt > endedAt のレコードは startedAt を 24h 戻して自動修正する（旧 toISO バグ由来データ対策）。
 
 6. activity_logs（win-tracker セッションデータ）
 - id: TEXT PRIMARY KEY (UUID, サーバー生成)
@@ -451,8 +457,14 @@
 - デバイスフィルタ: deviceId ごとに集計可能, 全デバイス合算も可
 
 ### 12.2 手動記録（analytics_daily）
-- Web UI から手動でカテゴリ・時間を記録
+- Web UI から開始時刻・終了時刻・カテゴリを入力して記録。durationSec はサーバー側で自動計算。
+- startedAt/endedAt を持つエントリはタイムライン上で自動ログを上書きする（手動が優先）。
+- 日付境界（6am）をまたぐエントリ（例: 03:00〜10:00）：
+  - DayTimeline: dayStart でクランプして表示
+  - 作業時間配分: 除外（startedAt < dayStart の場合）
+- 睡眠（category='睡眠'）：当日 effective day 内に終わるセッションの durationSec を合算して「睡眠: Xh」表示。cross-boundary 分も含む。
 - SNS使用時間 >= 60分/日 で警告表示
+- 手動記録のインライン編集・削除が可能（AnalyticsEntryEditRow）
 
 ### 12.3 レポート単位
 - 日次: タイムライン表示 + カテゴリ円グラフ（自動）, 手動記録一覧

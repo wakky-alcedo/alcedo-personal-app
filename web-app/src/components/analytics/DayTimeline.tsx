@@ -5,7 +5,7 @@ import { colorFor as colorForFn } from '../../categoryColors.ts'
 import { dayStartUTC } from '../../timeUtils.ts'
 import {
   buildSegments, BUCKET_MINUTES, NUM_BUCKETS, SLEEP_CATEGORY, SLEEP_COLOR, GAP_CATEGORY,
-  type Segment,
+  type Segment, type ManualOverride,
 } from '../../activityUtils.ts'
 
 // ─── 型 ──────────────────────────────────────────────────────────────────────
@@ -34,9 +34,10 @@ function formatDuration(sec: number): string {
 type Props = {
   logs: ActivityLog[]
   date: string   // YYYY-MM-DD（実効ローカル日付）
+  manualOverrides?: ManualOverride[]
 }
 
-export default function DayTimeline({ logs, date }: Props) {
+export default function DayTimeline({ logs, date, manualOverrides = [] }: Props) {
   const { colors } = useCategoryColors()
   const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
   const colorFor = (cat: string) => {
@@ -54,8 +55,8 @@ export default function DayTimeline({ logs, date }: Props) {
   )
 
   const segments = useMemo(
-    () => buildSegments(logs, dayStartMs),
-    [logs, dayStartMs]
+    () => buildSegments(logs, dayStartMs, manualOverrides),
+    [logs, dayStartMs, manualOverrides]
   )
 
   // 現在時刻の位置（当日のみ有効）

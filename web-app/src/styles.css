@@ -111,6 +111,7 @@ main { display: grid; gap: 16px; }
 .btn-primary { background: var(--accent); color: white; box-shadow: 0 6px 14px rgba(71,87,255,0.12); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-primary); }
 .btn-danger { background: transparent; color: var(--danger); border-color: rgba(239,68,68,0.08); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Inputs */
 input, textarea, select { font: inherit; }

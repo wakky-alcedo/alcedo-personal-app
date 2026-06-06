@@ -356,6 +356,8 @@ export type AnalyticsEntry = {
   source: string
   category: string
   durationSec: number
+  startedAt: string | null
+  endedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -387,7 +389,7 @@ export async function getAnalyticsDaily(serverUrl: string, apiKey: string, date:
 
 export async function createAnalyticsEntry(
   serverUrl: string, apiKey: string,
-  body: { targetDate: string; category: string; durationSec: number; source?: string }
+  body: { id?: string; targetDate: string; category: string; durationSec?: number; startedAt?: string; endedAt?: string; source?: string }
 ): Promise<AnalyticsEntry> {
   const res = await fetch(`${serverUrl}/api/v1/analytics/daily`, {
     method: 'POST',

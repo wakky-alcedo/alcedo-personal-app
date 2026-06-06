@@ -13,12 +13,23 @@ export interface Segment {
   sessions: ActivityLog[]
 }
 
+export interface ManualOverride {
+  startedAt: string
+  endedAt: string
+  category: string
+}
+
 /**
  * 複数デバイスのログを5分バケツでマージする。
  * 同一バケツに複数デバイスが競合する場合は startedAt が新しい方を優先。
  * 記録のないバケツは GAP_CATEGORY（不明）で埋める。
+ * manualOverrides は自動ログより後に処理されるため、常に優先される。
  */
-export function buildSegments(logs: ActivityLog[], dayStartMs: number): Segment[] {
+export function buildSegments(
+  logs: ActivityLog[],
+  dayStartMs: number,
+  manualOverrides: ManualOverride[] = []
+): Segment[] {
   const bucketCategory = new Array<string | null>(NUM_BUCKETS).fill(null)
   const bucketSession  = new Array<ActivityLog | null>(NUM_BUCKETS).fill(null)
   const BUCKET_MS = BUCKET_MINUTES * 60 * 1000
@@ -34,6 +45,18 @@ export function buildSegments(logs: ActivityLog[], dayStartMs: number): Segment[
     for (let i = startB; i < endB; i++) {
       bucketCategory[i] = log.category
       bucketSession[i]  = log
+    }
+  }
+
+  // 手動エントリを後処理 → 自動ログより常に優先
+  for (const ov of manualOverrides) {
+    const startMs = new Date(ov.startedAt).getTime()
+    const endMs   = new Date(ov.endedAt).getTime()
+    const startB  = Math.max(0, Math.floor((startMs - dayStartMs) / BUCKET_MS))
+    const endB    = Math.min(NUM_BUCKETS, Math.ceil((endMs - dayStartMs) / BUCKET_MS))
+    for (let i = startB; i < endB; i++) {
+      bucketCategory[i] = ov.category
+      bucketSession[i]  = null
     }
   }
 

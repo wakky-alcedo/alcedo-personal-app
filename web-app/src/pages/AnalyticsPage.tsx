@@ -5,7 +5,7 @@ import {
   type AnalyticsEntry, type AnalyticsSummaryDay,
   type ActivityLog, type ActivitySummary,
 } from '../api.ts'
-import { buildSegments, summaryFromSegments } from '../activityUtils.ts'
+import { buildSegments, summaryFromSegments, SLEEP_CATEGORY, GAP_CATEGORY } from '../activityUtils.ts'
 import { dayStartUTC } from '../timeUtils.ts'
 import DailyPieChart, { formatDuration } from '../components/analytics/DailyPieChart.tsx'
 import RangeBarChart from '../components/analytics/RangeBarChart.tsx'
@@ -14,6 +14,7 @@ import AnalyticsEntryForm from '../components/analytics/AnalyticsEntryForm.tsx'
 import ActivityTimeline from '../components/analytics/ActivityTimeline.tsx'
 import ActivityPieChart from '../components/analytics/ActivityPieChart.tsx'
 import DayTimeline from '../components/analytics/DayTimeline.tsx'
+import AnalyticsEntryEditRow from '../components/analytics/AnalyticsEntryEditRow.tsx'
 import { effectiveLocalDate, localDateString } from '../timeUtils.ts'
 
 type Props = { serverUrl: string; apiKey: string }
@@ -50,6 +51,7 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
   const [deviceFilter, setDeviceFilter] = useState<string>('all')
 
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const refreshDaily = useCallback(async () => {
     setLoading(true)
@@ -103,18 +105,59 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
     } catch (e) { console.error(e) }
   }
 
-  // DayTimeline と同じバケツマージで計算した時間配分（デバイス重複を排除した実時間）
-  const mergedSummary = useMemo(() => {
-    const dayStartMs = new Date(dayStartUTC(date)).getTime()
-    return summaryFromSegments(buildSegments(activityLogs, dayStartMs))
-  }, [activityLogs, date])
+  // startedAt/endedAt を持つ手動エントリ（タイムライン上書き用・全件）
+  const timedEntries = useMemo(
+    () => dailyEntries.filter(
+      (e): e is typeof e & { startedAt: string; endedAt: string } =>
+        e.startedAt != null && e.endedAt != null
+    ),
+    [dailyEntries]
+  )
+
+  // 実効日の開始・終了ms（6:00 AM 〜 翌 6:00 AM）
+  const dayStartMs = useMemo(() => new Date(dayStartUTC(date)).getTime(), [date])
+  const dayEndMs   = useMemo(() => dayStartMs + 24 * 60 * 60 * 1000, [dayStartMs])
+
+  // 日付境界をまたがないエントリのみ（作業時間配分用）
+  const inDayEntries = useMemo(
+    () => timedEntries.filter(e => new Date(e.startedAt).getTime() >= dayStartMs),
+    [timedEntries, dayStartMs]
+  )
+
+  // バケツマージ後の時間配分（inDayEntries のみ → 作業時間配分の円グラフ・合計用）
+  const mergedSummary = useMemo(
+    () => summaryFromSegments(buildSegments(activityLogs, dayStartMs, inDayEntries)),
+    [activityLogs, dayStartMs, inDayEntries]
+  )
+
+  // 不明・睡眠を除いた実活動カテゴリのみ（作業時間配分の円グラフ用）
+  const activitySummaryForChart = useMemo(
+    () => mergedSummary.filter(s => s.category !== GAP_CATEGORY && s.category !== SLEEP_CATEGORY),
+    [mergedSummary]
+  )
+
+  const activityTotalSec = activitySummaryForChart.reduce((s, e) => s + e.durationSec, 0)
+
+  // 睡眠時間: この実効日内に「終わる」手動睡眠エントリの durationSec を合計
+  // （cross-boundary も含め、入力した sleep block 全体を1セットとして表示）
+  const manualSleepSec = useMemo(() =>
+    timedEntries
+      .filter(e => {
+        const endMs = new Date(e.endedAt).getTime()
+        return e.category === SLEEP_CATEGORY && endMs > dayStartMs && endMs <= dayEndMs
+      })
+      .reduce((sum, e) => sum + e.durationSec, 0),
+    [timedEntries, dayStartMs, dayEndMs]
+  )
+  // 手動入力がなければ win-tracker 自動検出（バケツ集計）にフォールバック
+  const sleepSec = manualSleepSec > 0
+    ? manualSleepSec
+    : (mergedSummary.find(s => s.category === SLEEP_CATEGORY)?.durationSec ?? 0)
 
   const categories = Array.from(new Set([
     ...DEFAULT_CATEGORIES,
     ...activitySummary.map(s => s.category),
   ]))
-
-  const activityTotalSec = mergedSummary.reduce((s, e) => s + e.durationSec, 0)
 
   return (
     <section className="analytics-panel">
@@ -184,13 +227,14 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
               )}
               <div className="analytics-card">
                 <div className="featured-label">24時間タイムライン</div>
-                <DayTimeline logs={activityLogs} date={date} />
+                <DayTimeline logs={activityLogs} date={date} manualOverrides={timedEntries} />
               </div>
 
               <div className="analytics-card">
                 <div className="featured-label">作業時間配分</div>
                 <div className="analytics-stat">合計: {formatDuration(activityTotalSec)}</div>
-                <ActivityPieChart summary={mergedSummary} />
+                {sleepSec > 0 && <div className="analytics-stat">睡眠: {formatDuration(sleepSec)}</div>}
+                <ActivityPieChart summary={activitySummaryForChart} />
               </div>
 
               <div className="analytics-card">
@@ -229,22 +273,44 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
                 <div className="analytics-card">
                   <div className="featured-label">本日の記録</div>
                   <ul className="analytics-entry-list">
-                    {dailyEntries.map(e => (
-                      <li key={e.id} className="analytics-entry-row">
-                        <span className="analytics-entry-cat">{e.category}</span>
-                        <span className="analytics-entry-dur">{formatDuration(e.durationSec)}</span>
-                        <span className="field-label">{e.source}</span>
-                        <button
-                          type="button"
-                          className="task-node-menu-button"
-                          style={{ fontSize: 14 }}
-                          onClick={() => handleDelete(e.id)}
-                          aria-label="削除"
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
+                    {dailyEntries.map(e =>
+                      editingId === e.id ? (
+                        <AnalyticsEntryEditRow
+                          key={e.id}
+                          entry={e}
+                          serverUrl={serverUrl}
+                          apiKey={apiKey}
+                          onSaved={() => { setEditingId(null); refreshDaily() }}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      ) : (
+                        <li key={e.id} className="analytics-entry-row">
+                          <span className="analytics-entry-cat">{e.category}</span>
+                          <span className="analytics-entry-dur">{formatDuration(e.durationSec)}</span>
+                          <span className="field-label">
+                            {e.startedAt && e.endedAt
+                              ? `${new Date(e.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}〜${new Date(e.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : e.source}
+                          </span>
+                          <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                            <button
+                              type="button"
+                              className="task-node-menu-button"
+                              style={{ fontSize: 12 }}
+                              onClick={() => setEditingId(e.id)}
+                              aria-label="編集"
+                            >✏</button>
+                            <button
+                              type="button"
+                              className="task-node-menu-button"
+                              style={{ fontSize: 14 }}
+                              onClick={() => handleDelete(e.id)}
+                              aria-label="削除"
+                            >×</button>
+                          </div>
+                        </li>
+                      )
+                    )}
                   </ul>
                 </div>
               )}

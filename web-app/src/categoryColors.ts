@@ -7,6 +7,7 @@ export const DEFAULT_COLORS: Record<string, string> = {
   '娯楽': '#f59e0b',
   '未分類': '#94a3b8',
   '移動': '#8b5cf6',
+  '睡眠': '#93c5fd',
   'その他': '#64748b',
 }
 
