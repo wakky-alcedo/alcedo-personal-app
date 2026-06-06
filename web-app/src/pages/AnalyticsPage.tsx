@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getAnalyticsDaily, getAnalyticsSummary, deleteAnalyticsEntry,
   getActivityLogs, getActivitySummary, getActivityDevices, updateActivityCategory,
   type AnalyticsEntry, type AnalyticsSummaryDay,
   type ActivityLog, type ActivitySummary,
 } from '../api.ts'
+import { buildSegments, summaryFromSegments } from '../activityUtils.ts'
+import { dayStartUTC } from '../timeUtils.ts'
 import DailyPieChart, { formatDuration } from '../components/analytics/DailyPieChart.tsx'
 import RangeBarChart from '../components/analytics/RangeBarChart.tsx'
 import GoalTracker from '../components/analytics/GoalTracker.tsx'
@@ -101,12 +103,18 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
     } catch (e) { console.error(e) }
   }
 
+  // DayTimeline と同じバケツマージで計算した時間配分（デバイス重複を排除した実時間）
+  const mergedSummary = useMemo(() => {
+    const dayStartMs = new Date(dayStartUTC(date)).getTime()
+    return summaryFromSegments(buildSegments(activityLogs, dayStartMs))
+  }, [activityLogs, date])
+
   const categories = Array.from(new Set([
     ...DEFAULT_CATEGORIES,
     ...activitySummary.map(s => s.category),
   ]))
 
-  const activityTotalSec = activitySummary.reduce((s, e) => s + e.durationSec, 0)
+  const activityTotalSec = mergedSummary.reduce((s, e) => s + e.durationSec, 0)
 
   return (
     <section className="analytics-panel">
@@ -182,7 +190,7 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
               <div className="analytics-card">
                 <div className="featured-label">作業時間配分</div>
                 <div className="analytics-stat">合計: {formatDuration(activityTotalSec)}</div>
-                <ActivityPieChart summary={activitySummary} />
+                <ActivityPieChart summary={mergedSummary} />
               </div>
 
               <div className="analytics-card">

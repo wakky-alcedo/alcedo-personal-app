@@ -2,90 +2,18 @@ import React, { useMemo, useState } from 'react'
 import type { ActivityLog } from '../../api.ts'
 import { useCategoryColors } from '../../CategoryColorsContext.tsx'
 import { colorFor as colorForFn } from '../../categoryColors.ts'
-import { effectiveLocalDate, dayStartUTC } from '../../timeUtils.ts'
-
-// ─── 定数 ────────────────────────────────────────────────────────────────────
-
-const BUCKET_MINUTES = 5               // 集約単位（分）
-const NUM_BUCKETS    = 24 * 60 / BUCKET_MINUTES  // 288
-const SLEEP_CATEGORY = '睡眠'
-const SLEEP_COLOR    = '#93c5fd'       // 淡いブルー
-const GAP_COLOR      = '#e2e8f0'       // 未記録グレー
+import { dayStartUTC } from '../../timeUtils.ts'
+import {
+  buildSegments, BUCKET_MINUTES, NUM_BUCKETS, SLEEP_CATEGORY, SLEEP_COLOR,
+  type Segment,
+} from '../../activityUtils.ts'
 
 // ─── 型 ──────────────────────────────────────────────────────────────────────
-
-interface Segment {
-  category: string
-  startBucket: number
-  bucketCount: number
-  sessions: ActivityLog[]     // このセグメントに含まれるセッション
-}
 
 interface TooltipState {
   x: number
   y: number
   segment: Segment
-}
-
-// ─── アルゴリズム ─────────────────────────────────────────────────────────────
-
-function buildSegments(logs: ActivityLog[], dayStartMs: number): Segment[] {
-  // 1. バケツ配列を初期化（null = ギャップ）
-  const bucketCategory = new Array<string | null>(NUM_BUCKETS).fill(null)
-  const bucketSession  = new Array<ActivityLog | null>(NUM_BUCKETS).fill(null)
-
-  const BUCKET_MS = BUCKET_MINUTES * 60 * 1000
-
-  // 2. 各セッションをバケツに割り当て（後のstartedAtが上書き = 直近デバイス優先）
-  const sorted = [...logs].sort(
-    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-  )
-  for (const log of sorted) {
-    const startMs = new Date(log.startedAt).getTime()
-    const endMs   = new Date(log.endedAt ?? new Date().toISOString()).getTime()
-    const startB  = Math.max(0, Math.floor((startMs - dayStartMs) / BUCKET_MS))
-    const endB    = Math.min(NUM_BUCKETS, Math.ceil((endMs - dayStartMs) / BUCKET_MS))
-    for (let i = startB; i < endB; i++) {
-      bucketCategory[i] = log.category
-      bucketSession[i]  = log
-    }
-  }
-
-  // 3. ギャップを睡眠で埋める
-  const filled = bucketCategory.map(c => c ?? SLEEP_CATEGORY)
-
-  // 4. 連続する同カテゴリをまとめてSegmentに
-  const segments: Segment[] = []
-  let cur = { category: filled[0], startBucket: 0, count: 1, sessions: new Set<ActivityLog>() }
-  if (bucketSession[0]) cur.sessions.add(bucketSession[0])
-
-  for (let i = 1; i < NUM_BUCKETS; i++) {
-    if (filled[i] === cur.category) {
-      cur.count++
-      if (bucketSession[i]) cur.sessions.add(bucketSession[i] as ActivityLog)
-    } else {
-      segments.push({
-        category: cur.category,
-        startBucket: cur.startBucket,
-        bucketCount: cur.count,
-        sessions: Array.from(cur.sessions),
-      })
-      cur = {
-        category: filled[i],
-        startBucket: i,
-        count: 1,
-        sessions: new Set<ActivityLog>(bucketSession[i] ? [bucketSession[i] as ActivityLog] : []),
-      }
-    }
-  }
-  segments.push({
-    category: cur.category,
-    startBucket: cur.startBucket,
-    bucketCount: cur.count,
-    sessions: Array.from(cur.sessions),
-  })
-
-  return segments
 }
 
 function bucketToLabel(bucket: number): string {
