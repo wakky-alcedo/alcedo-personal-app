@@ -4,6 +4,9 @@ description: Stage changes and create a git commit with the correct prefix and a
 
 # Commit
 
+> **重要**: このスキルはユーザーが明示的に `/commit` を呼ぶか「コミットして」と指示した場合のみ実行する。
+> 実装完了・ビルド成功のタイミングで自動起動しないこと。
+
 Stage and commit changes with the appropriate prefix.
 
 ## Commit format

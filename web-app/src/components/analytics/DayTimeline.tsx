@@ -4,7 +4,7 @@ import { useCategoryColors } from '../../CategoryColorsContext.tsx'
 import { colorFor as colorForFn } from '../../categoryColors.ts'
 import { dayStartUTC } from '../../timeUtils.ts'
 import {
-  buildSegments, BUCKET_MINUTES, NUM_BUCKETS, SLEEP_CATEGORY, SLEEP_COLOR,
+  buildSegments, BUCKET_MINUTES, NUM_BUCKETS, SLEEP_CATEGORY, SLEEP_COLOR, GAP_CATEGORY,
   type Segment,
 } from '../../activityUtils.ts'
 
@@ -38,8 +38,12 @@ type Props = {
 
 export default function DayTimeline({ logs, date }: Props) {
   const { colors } = useCategoryColors()
-  const colorFor = (cat: string) =>
-    cat === SLEEP_CATEGORY ? SLEEP_COLOR : colorForFn(colors, cat)
+  const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const colorFor = (cat: string) => {
+    if (cat === SLEEP_CATEGORY) return SLEEP_COLOR
+    if (cat === GAP_CATEGORY) return isDark ? '#2d3748' : '#e2e8f0'
+    return colorForFn(colors, cat)
+  }
 
   const [tooltip, setTooltip]         = useState<TooltipState | null>(null)
   const [expandedSeg, setExpandedSeg] = useState<Segment | null>(null)

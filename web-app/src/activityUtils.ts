@@ -4,6 +4,7 @@ export const BUCKET_MINUTES = 5
 export const NUM_BUCKETS    = 24 * 60 / BUCKET_MINUTES  // 288
 export const SLEEP_CATEGORY = '睡眠'
 export const SLEEP_COLOR    = '#93c5fd'
+export const GAP_CATEGORY   = '不明'    // 記録のないバケツに割り当てるラベル
 
 export interface Segment {
   category: string
@@ -15,7 +16,7 @@ export interface Segment {
 /**
  * 複数デバイスのログを5分バケツでマージする。
  * 同一バケツに複数デバイスが競合する場合は startedAt が新しい方を優先。
- * 記録のないバケツは SLEEP_CATEGORY で埋める。
+ * 記録のないバケツは GAP_CATEGORY（不明）で埋める。
  */
 export function buildSegments(logs: ActivityLog[], dayStartMs: number): Segment[] {
   const bucketCategory = new Array<string | null>(NUM_BUCKETS).fill(null)
@@ -36,7 +37,7 @@ export function buildSegments(logs: ActivityLog[], dayStartMs: number): Segment[
     }
   }
 
-  const filled = bucketCategory.map(c => c ?? SLEEP_CATEGORY)
+  const filled = bucketCategory.map(c => c ?? GAP_CATEGORY)
 
   const segments: Segment[] = []
   let cur = { category: filled[0], startBucket: 0, count: 1, sessions: new Set<ActivityLog>() }
