@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import type { TaskInput } from '../api.ts'
+import { useToast } from '../contexts/ToastContext.tsx'
 
 type Props = {
   onCreate: (task: Partial<TaskInput> & { title: string }) => Promise<void>
 }
 
 export default function NewTaskForm({ onCreate }: Props) {
+  const { toast } = useToast()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskInput['priority']>('medium')
   const [dueAt, setDueAt] = useState('')
@@ -27,7 +29,7 @@ export default function NewTaskForm({ onCreate }: Props) {
       setDueAt('')
     } catch (err) {
       console.error(err)
-      alert('Failed to create task')
+      toast.error('タスクの作成に失敗しました')
     } finally {
       setBusy(false)
     }

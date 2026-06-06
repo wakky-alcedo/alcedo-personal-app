@@ -1,36 +1,17 @@
 import React, { useState } from 'react'
 import { createAnalyticsEntry, type AnalyticsEntry } from '../../api.ts'
 import { useCategoryColors } from '../../CategoryColorsContext.tsx'
-
-/** YYYY-MM-DD + HH:MM(:SS) → UTC ISO string（常に同カレンダー日として扱う） */
-function toISO(date: string, time: string): string {
-  const parts = time.split(':').map(Number)
-  const hhmm = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:00`
-  return new Date(`${date}T${hhmm}`).toISOString()
-}
-
-function isoToLocalTime(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function formatDuration(sec: number): string {
-  if (sec <= 0) return ''
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  return h > 0 ? `${h}時間${m}分` : `${m}分`
-}
+import { useAppConfig } from '../../contexts/AppConfigContext.tsx'
+import { toISO, isoToLocalTime, formatDurationJa as formatDuration } from '../../utils/format.ts'
 
 type Props = {
   entry: AnalyticsEntry
-  serverUrl: string
-  apiKey: string
   onSaved: () => void
   onCancel: () => void
 }
 
-export default function AnalyticsEntryEditRow({ entry, serverUrl, apiKey, onSaved, onCancel }: Props) {
+export default function AnalyticsEntryEditRow({ entry, onSaved, onCancel }: Props) {
+  const { serverUrl, apiKey } = useAppConfig()
   const { colors } = useCategoryColors()
   const categories = Object.keys(colors)
 

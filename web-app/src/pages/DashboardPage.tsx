@@ -6,8 +6,6 @@ import TasksPanel from '../components/TasksPanel.tsx'
 import type { Task } from '../api.ts'
 
 type Props = {
-  serverUrl: string
-  apiKey: string
   loading: boolean
   tasks: Task[]
   onCreateTask: (task: Partial<Task> & { title: string }) => Promise<void>
@@ -15,12 +13,12 @@ type Props = {
   onDeleteTask: (task: Task) => Promise<void>
 }
 
-export default function DashboardPage({ serverUrl, apiKey, loading, tasks, onCreateTask, onSaveTask, onDeleteTask }: Props) {
+export default function DashboardPage({ loading, tasks, onCreateTask, onSaveTask, onDeleteTask }: Props) {
   return (
     <main>
-      <ActiveTabBanner serverUrl={serverUrl} apiKey={apiKey} />
-      <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
-      <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} compact />
+      <ActiveTabBanner />
+      <BeliefsPanel compact />
+      <HabitsPanel compact />
       <TasksPanel
         loading={loading}
         tasks={tasks}

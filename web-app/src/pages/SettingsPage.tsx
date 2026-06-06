@@ -2,17 +2,17 @@ import React from 'react'
 import BeliefsPanel from '../components/BeliefsPanel.tsx'
 import ClassificationSection from '../components/ClassificationSection.tsx'
 import HabitsPanel from '../components/HabitsPanel.tsx'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
 type Props = {
-  serverUrl: string
-  apiKey: string
   loading: boolean
   onServerUrlChange: (value: string) => void
   onApiKeyChange: (value: string) => void
   onRefresh: () => void
 }
 
-export default function SettingsPage({ serverUrl, apiKey, loading, onServerUrlChange, onApiKeyChange, onRefresh }: Props) {
+export default function SettingsPage({ loading, onServerUrlChange, onApiKeyChange, onRefresh }: Props) {
+  const { serverUrl, apiKey } = useAppConfig()
   return (
     <section className="settings-panel">
       <div className="section-header">
@@ -45,9 +45,9 @@ export default function SettingsPage({ serverUrl, apiKey, loading, onServerUrlCh
         </button>
       </div>
 
-      <BeliefsPanel serverUrl={serverUrl} apiKey={apiKey} />
-      <HabitsPanel serverUrl={serverUrl} apiKey={apiKey} />
-      <ClassificationSection serverUrl={serverUrl} apiKey={apiKey} />
+      <BeliefsPanel />
+      <HabitsPanel />
+      <ClassificationSection />
     </section>
   )
 }

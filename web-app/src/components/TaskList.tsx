@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { Task, TaskNode } from '../api.ts'
+import { useToast } from '../contexts/ToastContext.tsx'
 
 const URL_RE = /(https?:\/\/[^\s]+)/g
 
@@ -47,6 +48,7 @@ type RowProps = {
 }
 
 function TaskRow({ task, onSave, onDelete }: RowProps) {
+  const { toast } = useToast()
   const [editingDescriptionPath, setEditingDescriptionPath] = useState<string | null>(null)
 
   function pathLabel(path: number[]) {
@@ -241,7 +243,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
     } catch (err) {
       setDraft(prev)
       console.error('reorder failed', err)
-      alert('Failed to reorder tasks')
+      toast.error('タスクの並び替えに失敗しました')
     } finally {
       setBusy(false)
     }
@@ -267,7 +269,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
       // revert on failure
       setDraft(prev)
       console.error('save failed', err)
-      alert('Save failed')
+      toast.error('保存に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -280,7 +282,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
       await onDelete(draft)
     } catch (err) {
       console.error('delete failed', err)
-      alert('Delete failed')
+      toast.error('削除に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -298,7 +300,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
       // revert on failure
       setDraft(prev)
       console.error('toggle root done failed', err)
-      alert('Failed to update task status')
+      toast.error('タスクステータスの更新に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -318,7 +320,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
     } catch (err) {
       setDraft(prev)
       console.error('toggle node done failed', err)
-      alert('Failed to toggle child done')
+      toast.error('サブタスクの更新に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -344,7 +346,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
     } catch (err) {
       setDraft(prev)
       console.error('delete node failed', err)
-      alert('Failed to delete child')
+      toast.error('サブタスクの削除に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -388,7 +390,7 @@ function TaskRow({ task, onSave, onDelete }: RowProps) {
     } catch (err) {
       setDraft(prev)
       console.error('commit failed', err)
-      alert('Save failed')
+      toast.error('保存に失敗しました')
     } finally {
       setBusy(false)
     }

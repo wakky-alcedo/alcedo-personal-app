@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { getTasks, createTask, updateTask, deleteTask, type Task } from './api.ts'
 import { CategoryColorsProvider } from './CategoryColorsContext.tsx'
+import { AppConfigContext } from './contexts/AppConfigContext.tsx'
+import { ToastProvider } from './contexts/ToastContext.tsx'
+import ToastContainer from './components/ToastContainer.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
@@ -99,6 +102,8 @@ export default function App() {
   }
 
   return (
+    <AppConfigContext.Provider value={{ serverUrl, apiKey }}>
+    <ToastProvider>
     <CategoryColorsProvider>
     <div className="container">
       <header>
@@ -125,8 +130,6 @@ export default function App() {
 
       {tab === 'dashboard' && (
         <DashboardPage
-          serverUrl={serverUrl}
-          apiKey={apiKey}
           loading={loading}
           tasks={tasks}
           onCreateTask={handleCreate}
@@ -134,18 +137,19 @@ export default function App() {
           onDeleteTask={handleDelete}
         />
       )}
-      {tab === 'analytics' && <AnalyticsPage serverUrl={serverUrl} apiKey={apiKey} />}
+      {tab === 'analytics' && <AnalyticsPage />}
       {tab === 'settings' && (
         <SettingsPage
-          serverUrl={serverUrl}
-          apiKey={apiKey}
           loading={loading}
           onServerUrlChange={handleServerUrlChange}
           onApiKeyChange={handleApiKeyChange}
           onRefresh={refresh}
         />
       )}
+      <ToastContainer />
     </div>
     </CategoryColorsProvider>
+    </ToastProvider>
+    </AppConfigContext.Provider>
   )
 }

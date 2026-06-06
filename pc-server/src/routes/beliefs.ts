@@ -14,9 +14,20 @@ type DeleteBeliefInput = {
   id: string;
 };
 
+type BeliefDbRow = Omit<BeliefInput, 'isActive'> & { isActive: number }
+
+const upsertBelief = db.prepare(`
+  INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
+  VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
+  ON CONFLICT(id) DO UPDATE SET
+    text = excluded.text,
+    isActive = excluded.isActive,
+    updatedAt = excluded.updatedAt
+`);
+
 const beliefRoutes: FastifyPluginAsync = async (app) => {
   app.get("/beliefs", async () => {
-    const beliefs = db.prepare("SELECT * FROM beliefs ORDER BY updatedAt DESC").all().map((belief: any) => ({
+    const beliefs = (db.prepare("SELECT * FROM beliefs ORDER BY updatedAt DESC").all() as BeliefDbRow[]).map(belief => ({
       ...belief,
       isActive: Boolean(belief.isActive),
     }));
@@ -29,7 +40,7 @@ const beliefRoutes: FastifyPluginAsync = async (app) => {
     const upserts = request.body.upserts ?? request.body.beliefs ?? [];
     const deletions = request.body.deletions ?? [];
 
-    const normalizedUpserts = upserts.map((item: any) => ({
+    const normalizedUpserts = upserts.map((item: BeliefInput) => ({
       id: item.id ?? randomUUID(),
       text: item.text ?? "",
       isActive: item.isActive ?? true,
@@ -37,22 +48,12 @@ const beliefRoutes: FastifyPluginAsync = async (app) => {
       updatedAt: item.updatedAt ?? new Date().toISOString(),
     }));
 
-    const insertBelief = db.prepare(`
-      INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
-      VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
-      ON CONFLICT(id) DO UPDATE SET
-        text = excluded.text,
-        isActive = excluded.isActive,
-        updatedAt = excluded.updatedAt
-    `);
-
     const deleteBelief = db.prepare("DELETE FROM beliefs WHERE id = ?");
 
     const tx = db.transaction((items: BeliefInput[], removed: DeleteBeliefInput[]) => {
       for (const belief of items) {
-        insertBelief.run({ ...belief, isActive: belief.isActive ? 1 : 0 });
+        upsertBelief.run({ ...belief, isActive: belief.isActive ? 1 : 0 });
       }
-
       for (const deletion of removed) {
         deleteBelief.run(deletion.id);
       }
@@ -72,16 +73,7 @@ const beliefRoutes: FastifyPluginAsync = async (app) => {
       createdAt: request.body.createdAt ?? new Date().toISOString(),
       updatedAt: request.body.updatedAt ?? new Date().toISOString(),
     };
-
-    db.prepare(`
-      INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
-      VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
-      ON CONFLICT(id) DO UPDATE SET
-        text = excluded.text,
-        isActive = excluded.isActive,
-        updatedAt = excluded.updatedAt
-    `).run({ ...belief, isActive: belief.isActive ? 1 : 0 });
-
+    upsertBelief.run({ ...belief, isActive: belief.isActive ? 1 : 0 });
     return { belief };
   });
 

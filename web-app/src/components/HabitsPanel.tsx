@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { checkInHabit, createHabit, deleteHabit, getHabitLogs, getHabits, updateHabit, type Habit, type HabitInput } from '../api.ts'
 import HabitHeatmap, { buildHeatmapDays, HEATMAP_DAYS } from './HabitHeatmap.tsx'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
+import { useEditableRow } from '../hooks/useEditableRow.ts'
 
 type Props = {
-  serverUrl: string
-  apiKey: string
   compact?: boolean
 }
 
@@ -14,26 +14,14 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
   onDelete: (habit: Habit) => Promise<void>
   onCheckIn: (habit: Habit) => Promise<void>
 }) {
-  const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const { editing, setEditing, busy, setBusy, menuOpen, setMenuOpen, rowRef } = useEditableRow()
   const [name, setName] = useState(habit.name)
   const [notifyTime, setNotifyTime] = useState(habit.notifyTime ?? '')
   const [priorityStart, setPriorityStart] = useState(habit.widgetPriorityTimeRangeStart ?? '')
   const [priorityEnd, setPriorityEnd] = useState(habit.widgetPriorityTimeRangeEnd ?? '')
   const [isActive, setIsActive] = useState(habit.isActive)
-  const rowRef = useRef<HTMLLIElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const cancelledRef = useRef(false)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    function handlePointerDown(e: PointerEvent) {
-      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [menuOpen])
 
   function cancel() {
     cancelledRef.current = true
@@ -169,7 +157,8 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
   )
 }
 
-export default function HabitsPanel({ serverUrl, apiKey, compact = false }: Props) {
+export default function HabitsPanel({ compact = false }: Props) {
+  const { serverUrl, apiKey } = useAppConfig()
   const [habits, setHabits] = useState<Habit[]>([])
   const [doneMap, setDoneMap] = useState<Record<string, Set<string>>>({})
   const [loading, setLoading] = useState(false)

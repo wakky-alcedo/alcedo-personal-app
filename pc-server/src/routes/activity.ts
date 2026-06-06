@@ -1,13 +1,7 @@
 import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { db } from "../db.js";
-
-/** 6時閾値で補正した実効ローカル日付（YYYY-MM-DD）。JST固定（UTC+9）。 */
-function effectiveLocalDate(): string {
-  const jst = new Date(Date.now() + 9 * 3600_000);
-  if (jst.getUTCHours() < 6) jst.setUTCDate(jst.getUTCDate() - 1);
-  return [jst.getUTCFullYear(), String(jst.getUTCMonth()+1).padStart(2,'0'), String(jst.getUTCDate()).padStart(2,'0')].join('-');
-}
+import { effectiveLocalDate } from "../utils/date.js";
 
 type ActivityLogRow = {
   id: string;

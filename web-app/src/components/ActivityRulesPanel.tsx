@@ -4,10 +4,9 @@ import {
   deleteActivityRule, type ActivityRule,
 } from '../api.ts'
 import { useCategoryColors } from '../CategoryColorsContext.tsx'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
 export type { ActivityRule }
-
-type Props = { serverUrl: string; apiKey: string }
 
 type EditState = {
   pattern: string
@@ -22,7 +21,8 @@ function fieldLabel(field: string) {
   return 'プロセス'
 }
 
-export default function ActivityRulesPanel({ serverUrl, apiKey }: Props) {
+export default function ActivityRulesPanel() {
+  const { serverUrl, apiKey } = useAppConfig()
   const { colors, updateColors } = useCategoryColors()
   const categoryNames = Object.keys(colors)
   const [rules, setRules] = useState<ActivityRule[]>([])

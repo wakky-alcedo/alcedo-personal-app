@@ -1,13 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  getAnalyticsDaily, getAnalyticsSummary, deleteAnalyticsEntry,
-  getActivityLogs, getActivitySummary, getActivityDevices, updateActivityCategory,
-  type AnalyticsEntry, type AnalyticsSummaryDay,
-  type ActivityLog, type ActivitySummary,
-} from '../api.ts'
-import { buildSegments, summaryFromSegments, SLEEP_CATEGORY, GAP_CATEGORY } from '../activityUtils.ts'
-import { dayStartUTC } from '../timeUtils.ts'
-import DailyPieChart, { formatDuration } from '../components/analytics/DailyPieChart.tsx'
+import React from 'react'
+import DailyPieChart from '../components/analytics/DailyPieChart.tsx'
+import { formatDuration } from '../utils/format.ts'
 import RangeBarChart from '../components/analytics/RangeBarChart.tsx'
 import GoalTracker from '../components/analytics/GoalTracker.tsx'
 import AnalyticsEntryForm from '../components/analytics/AnalyticsEntryForm.tsx'
@@ -15,144 +8,24 @@ import ActivityTimeline from '../components/analytics/ActivityTimeline.tsx'
 import ActivityPieChart from '../components/analytics/ActivityPieChart.tsx'
 import DayTimeline from '../components/analytics/DayTimeline.tsx'
 import AnalyticsEntryEditRow from '../components/analytics/AnalyticsEntryEditRow.tsx'
-import { effectiveLocalDate, localDateString } from '../timeUtils.ts'
-
-type Props = { serverUrl: string; apiKey: string }
-
-type SummaryRange = 'weekly' | 'monthly'
-type DailySub = 'manual' | 'activity'
+import { useAnalytics, offsetDate } from '../hooks/useAnalytics.ts'
+import { effectiveLocalDate } from '../timeUtils.ts'
 
 const DEFAULT_CATEGORIES = ['開発', 'ブラウザ', 'コミュニケーション', '学習', 'SNS', '娯楽', '未分類']
 
 function today() { return effectiveLocalDate() }
 
-function offsetDate(base: string, days: number) {
-  const d = new Date(`${base}T06:00:00`)
-  d.setDate(d.getDate() + days)
-  return localDateString(d)
-}
-
-export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
-  const [tab, setTab] = useState<'daily' | SummaryRange>('daily')
-  const [dailySub, setDailySub] = useState<DailySub>('activity')
-  const [date, setDate] = useState(today)
-  const [summaryAnchor, setSummaryAnchor] = useState(today)
-
-  // Manual analytics state
-  const [dailyEntries, setDailyEntries] = useState<AnalyticsEntry[]>([])
-  const [dailyTotal, setDailyTotal] = useState(0)
-  const [snsWarning, setSnsWarning] = useState(false)
-  const [summaryData, setSummaryData] = useState<AnalyticsSummaryDay[]>([])
-
-  // Activity tracking state
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
-  const [activitySummary, setActivitySummary] = useState<ActivitySummary[]>([])
-  const [devices, setDevices] = useState<string[]>([])
-  const [deviceFilter, setDeviceFilter] = useState<string>('all')
-
-  const [loading, setLoading] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-
-  const refreshDaily = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await getAnalyticsDaily(serverUrl, apiKey, date)
-      setDailyEntries(res.entries)
-      setDailyTotal(res.totalSec)
-      setSnsWarning(res.snsWarning)
-    } catch (e) { console.error(e) } finally { setLoading(false) }
-  }, [serverUrl, apiKey, date])
-
-  const refreshActivity = useCallback(async () => {
-    const device = deviceFilter === 'all' ? undefined : deviceFilter
-    try {
-      const [logs, summary, devList] = await Promise.all([
-        getActivityLogs(serverUrl, apiKey, date, device),
-        getActivitySummary(serverUrl, apiKey, date, device),
-        getActivityDevices(serverUrl, apiKey),
-      ])
-      setActivityLogs(logs)
-      setActivitySummary(summary)
-      setDevices(devList)
-    } catch (e) { console.error(e) }
-  }, [serverUrl, apiKey, date, deviceFilter])
-
-  const refreshSummary = useCallback(async () => {
-    if (tab === 'daily') return
-    setLoading(true)
-    try {
-      const res = await getAnalyticsSummary(serverUrl, apiKey, tab, summaryAnchor)
-      setSummaryData(res.data)
-    } catch (e) { console.error(e) } finally { setLoading(false) }
-  }, [serverUrl, apiKey, tab, summaryAnchor])
-
-  useEffect(() => { refreshDaily() }, [refreshDaily])
-  useEffect(() => { refreshActivity() }, [refreshActivity])
-  useEffect(() => { refreshSummary() }, [refreshSummary])
-
-  async function handleDelete(id: string) {
-    await deleteAnalyticsEntry(serverUrl, apiKey, id)
-    await refreshDaily()
-  }
-
-  async function handleUpdateCategory(id: string, category: string) {
-    try {
-      await updateActivityCategory(serverUrl, apiKey, id, category)
-      setActivityLogs(prev => prev.map(l => l.id === id ? { ...l, category } : l))
-      // Refresh summary after category changes
-      const summary = await getActivitySummary(serverUrl, apiKey, date)
-      setActivitySummary(summary)
-    } catch (e) { console.error(e) }
-  }
-
-  // startedAt/endedAt を持つ手動エントリ（タイムライン上書き用・全件）
-  const timedEntries = useMemo(
-    () => dailyEntries.filter(
-      (e): e is typeof e & { startedAt: string; endedAt: string } =>
-        e.startedAt != null && e.endedAt != null
-    ),
-    [dailyEntries]
-  )
-
-  // 実効日の開始・終了ms（6:00 AM 〜 翌 6:00 AM）
-  const dayStartMs = useMemo(() => new Date(dayStartUTC(date)).getTime(), [date])
-  const dayEndMs   = useMemo(() => dayStartMs + 24 * 60 * 60 * 1000, [dayStartMs])
-
-  // 日付境界をまたがないエントリのみ（作業時間配分用）
-  const inDayEntries = useMemo(
-    () => timedEntries.filter(e => new Date(e.startedAt).getTime() >= dayStartMs),
-    [timedEntries, dayStartMs]
-  )
-
-  // バケツマージ後の時間配分（inDayEntries のみ → 作業時間配分の円グラフ・合計用）
-  const mergedSummary = useMemo(
-    () => summaryFromSegments(buildSegments(activityLogs, dayStartMs, inDayEntries)),
-    [activityLogs, dayStartMs, inDayEntries]
-  )
-
-  // 不明・睡眠を除いた実活動カテゴリのみ（作業時間配分の円グラフ用）
-  const activitySummaryForChart = useMemo(
-    () => mergedSummary.filter(s => s.category !== GAP_CATEGORY && s.category !== SLEEP_CATEGORY),
-    [mergedSummary]
-  )
-
-  const activityTotalSec = activitySummaryForChart.reduce((s, e) => s + e.durationSec, 0)
-
-  // 睡眠時間: この実効日内に「終わる」手動睡眠エントリの durationSec を合計
-  // （cross-boundary も含め、入力した sleep block 全体を1セットとして表示）
-  const manualSleepSec = useMemo(() =>
-    timedEntries
-      .filter(e => {
-        const endMs = new Date(e.endedAt).getTime()
-        return e.category === SLEEP_CATEGORY && endMs > dayStartMs && endMs <= dayEndMs
-      })
-      .reduce((sum, e) => sum + e.durationSec, 0),
-    [timedEntries, dayStartMs, dayEndMs]
-  )
-  // 手動入力がなければ win-tracker 自動検出（バケツ集計）にフォールバック
-  const sleepSec = manualSleepSec > 0
-    ? manualSleepSec
-    : (mergedSummary.find(s => s.category === SLEEP_CATEGORY)?.durationSec ?? 0)
+export default function AnalyticsPage() {
+  const {
+    tab, setTab, dailySub, setDailySub, date, setDate,
+    summaryAnchor, setSummaryAnchor,
+    dailyEntries, dailyTotal, snsWarning, summaryData,
+    activityLogs, activitySummary, devices, deviceFilter, setDeviceFilter,
+    timedEntries, inDayEntries,
+    activitySummaryForChart, activityTotalSec, sleepSec,
+    loading, editingId, setEditingId,
+    refreshDaily, handleDelete, handleUpdateCategory,
+  } = useAnalytics()
 
   const categories = Array.from(new Set([
     ...DEFAULT_CATEGORIES,
@@ -193,16 +66,12 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
               type="button"
               className={`tab-btn${dailySub === 'activity' ? ' active' : ''}`}
               onClick={() => setDailySub('activity')}
-            >
-              作業記録
-            </button>
+            >作業記録</button>
             <button
               type="button"
               className={`tab-btn${dailySub === 'manual' ? ' active' : ''}`}
               onClick={() => setDailySub('manual')}
-            >
-              手動記録
-            </button>
+            >手動記録</button>
           </div>
 
           {dailySub === 'activity' && (
@@ -266,7 +135,7 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
 
               <div className="analytics-card">
                 <div className="featured-label">記録を追加</div>
-                <AnalyticsEntryForm serverUrl={serverUrl} apiKey={apiKey} date={date} onCreated={refreshDaily} />
+                <AnalyticsEntryForm date={date} onCreated={refreshDaily} />
               </div>
 
               {dailyEntries.length > 0 && (
@@ -278,8 +147,6 @@ export default function AnalyticsPage({ serverUrl, apiKey }: Props) {
                         <AnalyticsEntryEditRow
                           key={e.id}
                           entry={e}
-                          serverUrl={serverUrl}
-                          apiKey={apiKey}
                           onSaved={() => { setEditingId(null); refreshDaily() }}
                           onCancel={() => setEditingId(null)}
                         />

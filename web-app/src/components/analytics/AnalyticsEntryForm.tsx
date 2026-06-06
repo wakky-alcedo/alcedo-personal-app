@@ -1,29 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { createAnalyticsEntry } from '../../api.ts'
 import { useCategoryColors } from '../../CategoryColorsContext.tsx'
+import { useAppConfig } from '../../contexts/AppConfigContext.tsx'
+import { toISO, formatDurationJa as formatDuration } from '../../utils/format.ts'
 
 type Props = {
-  serverUrl: string
-  apiKey: string
   date: string
   onCreated: () => void
 }
 
-/** YYYY-MM-DD + HH:MM(:SS) → UTC ISO string（常に同カレンダー日として扱う） */
-function toISO(date: string, time: string): string {
-  const parts = time.split(':').map(Number)
-  const hhmm = `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}:00`
-  return new Date(`${date}T${hhmm}`).toISOString()
-}
-
-function formatDuration(sec: number): string {
-  if (sec <= 0) return ''
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  return h > 0 ? `${h}時間${m}分` : `${m}分`
-}
-
-export default function AnalyticsEntryForm({ serverUrl, apiKey, date, onCreated }: Props) {
+export default function AnalyticsEntryForm({ date, onCreated }: Props) {
+  const { serverUrl, apiKey } = useAppConfig()
   const { colors } = useCategoryColors()
   const categories = Object.keys(colors)
 

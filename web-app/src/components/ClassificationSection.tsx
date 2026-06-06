@@ -5,10 +5,10 @@ import {
 import { useCategoryColors } from '../CategoryColorsContext.tsx'
 import ActivityRulesPanel from './ActivityRulesPanel.tsx'
 import CategoryColorsPanel from './CategoryColorsPanel.tsx'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
-type Props = { serverUrl: string; apiKey: string }
-
-export default function ClassificationSection({ serverUrl, apiKey }: Props) {
+export default function ClassificationSection() {
+  const { serverUrl, apiKey } = useAppConfig()
   const { colors, updateColors } = useCategoryColors()
   const [rules, setRules]     = useState<ActivityRule[]>([])
   const [msg, setMsg]         = useState<string | null>(null)
@@ -112,7 +112,7 @@ export default function ClassificationSection({ serverUrl, apiKey }: Props) {
       <CategoryColorsPanel />
 
       {/* 分類ルール */}
-      <ActivityRulesPanel key={rulesKey} serverUrl={serverUrl} apiKey={apiKey} />
+      <ActivityRulesPanel key={rulesKey} />
     </div>
   )
 }

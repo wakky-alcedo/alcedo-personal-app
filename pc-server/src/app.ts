@@ -34,5 +34,12 @@ export async function createApp() {
   app.register(registerActivityRoutes, { prefix: "/api/v1" });
   app.register(registerEventRoutes, { prefix: "/api/v1" });
 
+  app.setErrorHandler((error, _request, reply) => {
+    app.log.error(error);
+    const err = error as Error & { statusCode?: number };
+    const statusCode = err.statusCode ?? 500;
+    reply.code(statusCode).send({ statusCode, message: err.message });
+  });
+
   return app;
 }

@@ -120,6 +120,11 @@
 - リトライ/重複防止
 
 ### 5.2 PC モジュール
+0. shared/ (HTTPワイヤー型)
+- `shared/types.ts`: Task, Belief, Habit, AnalyticsEntry など HTTP 経由で交換する型を定義
+- `shared/api-errors.ts`: StandardError 型
+- pc-server・web-app 双方からインポート可能。DBレイヤー内部型（TaskRow等）は pc-server 側に残す
+
 1. api
 - Android 受信用エンドポイント
 - Web UI 向け参照エンドポイント
@@ -206,7 +211,7 @@
 - duration_sec: int
 
 ### 6.2 PC (SQLite)
-スキーマ定義: `pc-server/src/db.ts`
+スキーマ定義: `pc-server/src/migrations/` (番号付きファイルで管理, `db.ts` から `runMigrations()` 呼び出し)
 
 1. tasks
 - id: TEXT PRIMARY KEY (UUID)

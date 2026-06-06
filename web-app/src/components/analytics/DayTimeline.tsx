@@ -7,6 +7,7 @@ import {
   buildSegments, BUCKET_MINUTES, NUM_BUCKETS, SLEEP_CATEGORY, SLEEP_COLOR, GAP_CATEGORY,
   type Segment, type ManualOverride,
 } from '../../activityUtils.ts'
+import { formatDuration } from '../../utils/format.ts'
 
 // ─── 型 ──────────────────────────────────────────────────────────────────────
 
@@ -21,12 +22,6 @@ function bucketToLabel(bucket: number): string {
   const h = Math.floor(totalMin / 60 + 6) % 24
   const m = totalMin % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  return h > 0 ? `${h}h${m}m` : `${m}m`
 }
 
 // ─── コンポーネント ───────────────────────────────────────────────────────────

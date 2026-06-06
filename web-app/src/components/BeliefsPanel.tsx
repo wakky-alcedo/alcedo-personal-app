@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createBelief, deleteBelief, getBeliefs, updateBelief, type Belief } from '../api.ts'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
+import { useEditableRow } from '../hooks/useEditableRow.ts'
 
 type Props = {
-  serverUrl: string
-  apiKey: string
   compact?: boolean
 }
 
@@ -12,21 +12,9 @@ function BeliefRow({ belief, onSave, onDelete }: {
   onSave: (belief: Belief) => Promise<void>
   onDelete: (belief: Belief) => Promise<void>
 }) {
-  const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const { editing, setEditing, busy, setBusy, menuOpen, setMenuOpen, rowRef } = useEditableRow()
   const [text, setText] = useState(belief.text)
   const [isActive, setIsActive] = useState(belief.isActive)
-  const rowRef = useRef<HTMLLIElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    function handlePointerDown(e: PointerEvent) {
-      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [menuOpen])
 
   async function save() {
     setBusy(true)
@@ -96,7 +84,8 @@ function BeliefRow({ belief, onSave, onDelete }: {
   )
 }
 
-export default function BeliefsPanel({ serverUrl, apiKey, compact = false }: Props) {
+export default function BeliefsPanel({ compact = false }: Props) {
+  const { serverUrl, apiKey } = useAppConfig()
   const [beliefs, setBeliefs] = useState<Belief[]>([])
   const [loading, setLoading] = useState(false)
   const [listOpen, setListOpen] = useState(false)

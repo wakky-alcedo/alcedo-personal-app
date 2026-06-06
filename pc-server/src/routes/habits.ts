@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
 import { db } from "../db.js";
+import { localDateKey, effectiveLocalDate } from "../utils/date.js";
 
 type HabitInput = {
   id: string;
@@ -13,15 +14,6 @@ type HabitInput = {
   updatedAt: string;
 };
 
-/** ローカル Date を YYYY-MM-DD に変換。6時未満は前日扱い。 */
-function localDateKey(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60000;
-  const local = new Date(date.getTime() - offset);
-  // 午前6時未満は前日扱い
-  if (local.getUTCHours() < 6) local.setUTCDate(local.getUTCDate() - 1);
-  return local.toISOString().slice(0, 10);
-}
-
 function previousDateKey(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`);
   d.setDate(d.getDate() - 1);
@@ -31,7 +23,7 @@ function previousDateKey(dateKey: string) {
 function buildHabitViews() {
   const habits = db.prepare("SELECT * FROM habits ORDER BY updatedAt DESC").all() as Array<Record<string, unknown>>;
   const logs = db.prepare("SELECT habitId, doneDate FROM habit_logs ORDER BY doneDate DESC").all() as Array<{ habitId: string; doneDate: string }>;
-  const today = localDateKey();
+  const today = effectiveLocalDate();
 
   return habits.map((habit) => {
     const habitId = String(habit.id);
@@ -67,7 +59,7 @@ const habitRoutes: FastifyPluginAsync = async (app) => {
   // GET /habits/logs?from=YYYY-MM-DD&to=YYYY-MM-DD
   app.get("/habits/logs", async (request) => {
     const { from, to } = request.query as { from?: string; to?: string };
-    const toDate = to ?? localDateKey();
+    const toDate = to ?? effectiveLocalDate();
     const fromDate = from ?? (() => {
       const d = new Date(`${toDate}T00:00:00`);
       d.setDate(d.getDate() - 59);
@@ -115,7 +107,7 @@ const habitRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<{ Params: { id: string }; Body?: { doneDate?: string } }>("/habits/:id/logs", async (request) => {
-    const doneDate = request.body?.doneDate ?? localDateKey();
+    const doneDate = request.body?.doneDate ?? effectiveLocalDate();
     db.prepare(`
       INSERT INTO habit_logs (id, habitId, doneDate, createdAt)
       VALUES (@id, @habitId, @doneDate, @createdAt)

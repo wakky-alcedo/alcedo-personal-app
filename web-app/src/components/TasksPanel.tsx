@@ -1,7 +1,7 @@
 import React from 'react'
 import { type Task } from '../api.ts'
 import NewTaskForm from './NewTaskForm.tsx'
-import TaskList from './TaskList.tsx'
+import TaskList from './tasks/TaskList.tsx'
 
 type Props = {
   loading: boolean

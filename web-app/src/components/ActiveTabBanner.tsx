@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { getCurrentActivity, type ActivityLog } from '../api.ts'
 import { formatAgo } from '../timeUtils.ts'
+import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
-type Props = {
-  serverUrl: string
-  apiKey: string
-}
-
-export default function ActiveTabBanner({ serverUrl, apiKey }: Props) {
+export default function ActiveTabBanner() {
+  const { serverUrl, apiKey } = useAppConfig()
   const [log, setLog] = useState<ActivityLog | null>(null)
 
   async function fetchCurrent() {

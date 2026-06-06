@@ -3,13 +3,8 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import type { AnalyticsEntry } from '../../api.ts'
 import { useCategoryColors } from '../../CategoryColorsContext.tsx'
 import { colorFor as colorForFn } from '../../categoryColors.ts'
-
-export function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  if (h === 0) return `${m}m`
-  return m === 0 ? `${h}h` : `${h}h ${m}m`
-}
+export { formatDuration } from '../../utils/format.ts'
+import { formatDuration } from '../../utils/format.ts'
 
 type Props = { entries: AnalyticsEntry[] }
 
