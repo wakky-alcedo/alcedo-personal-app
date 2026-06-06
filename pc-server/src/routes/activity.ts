@@ -2,11 +2,11 @@ import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { db } from "../db.js";
 
-/** 6時閾値で補正した実効ローカル日付（YYYY-MM-DD） */
+/** 6時閾値で補正した実効ローカル日付（YYYY-MM-DD）。JST固定（UTC+9）。 */
 function effectiveLocalDate(): string {
-  const now = new Date();
-  if (now.getHours() < 6) now.setDate(now.getDate() - 1);
-  return [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
+  const jst = new Date(Date.now() + 9 * 3600_000);
+  if (jst.getUTCHours() < 6) jst.setUTCDate(jst.getUTCDate() - 1);
+  return [jst.getUTCFullYear(), String(jst.getUTCMonth()+1).padStart(2,'0'), String(jst.getUTCDate()).padStart(2,'0')].join('-');
 }
 
 type ActivityLogRow = {
@@ -155,11 +155,13 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
     const d = date ?? effectiveLocalDate();
     // 「その日」= ローカル06:00 〜 翌日ローカル06:00
-    const startBoundary = new Date(`${d}T06:00:00`).toISOString();
-    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
+    const startBoundary = new Date(`${d}T06:00:00+09:00`).toISOString();
+    const endBoundary   = new Date(`${d}T06:00:00+09:00`);
+    endBoundary.setUTCDate(endBoundary.getUTCDate() + 1);
+    const endBoundaryStr = endBoundary.toISOString();
 
     let query = `SELECT * FROM activity_logs WHERE startedAt >= ? AND startedAt < ?`;
-    const params: string[] = [startBoundary, endBoundary];
+    const params: string[] = [startBoundary, endBoundaryStr];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
@@ -176,8 +178,8 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   app.get("/activity/summary", async (request) => {
     const { date, deviceId } = request.query as { date?: string; deviceId?: string };
     const d = date ?? effectiveLocalDate();
-    const startBoundary = new Date(`${d}T06:00:00`).toISOString();
-    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
+    const startBoundary = new Date(`${d}T06:00:00+09:00`).toISOString();
+    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00+09:00`); e.setUTCDate(e.getUTCDate() + 1); return e.toISOString(); })();
 
     let query = `
       SELECT category,
@@ -202,8 +204,8 @@ const activityRoutes: FastifyPluginAsync = async (app) => {
   app.get("/activity/devices", async (request) => {
     const { date } = request.query as { date?: string };
     if (date) {
-      const startBoundary = new Date(`${date}T06:00:00`).toISOString();
-      const endBoundary   = (() => { const e = new Date(`${date}T06:00:00`); e.setDate(e.getDate() + 1); return e.toISOString(); })();
+      const startBoundary = new Date(`${date}T06:00:00+09:00`).toISOString();
+      const endBoundary   = (() => { const e = new Date(`${date}T06:00:00+09:00`); e.setUTCDate(e.getUTCDate() + 1); return e.toISOString(); })();
       return db
         .prepare("SELECT DISTINCT deviceId FROM activity_logs WHERE startedAt >= ? AND startedAt < ? ORDER BY deviceId")
         .all(startBoundary, endBoundary) as Array<{ deviceId: string }>;
