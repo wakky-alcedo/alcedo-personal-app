@@ -1,9 +1,7 @@
 package com.alcedo.personal.ui.share
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,7 +22,9 @@ class ShareHandlerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val (sourceUrl, sourceTitle) = parseShareIntent(intent)
+        // EXTRA_TEXT = 共有URL（フルパス）, EXTRA_SUBJECT = ページタイトル
+        val sourceUrl   = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotBlank() }
+        val sourceTitle = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim()?.takeIf { it.isNotBlank() }
 
         setContent {
             AlcedoTheme {
@@ -44,33 +44,5 @@ class ShareHandlerActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun parseShareIntent(intent: Intent): Pair<String?, String?> {
-        val rawText = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: ""
-        val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)
-
-        // text がそのままURLなら正規表現を介さず使う（Patterns.WEB_URL がパスを切り落とすことがあるため）
-        val url = if (rawText.startsWith("http://") || rawText.startsWith("https://")) {
-            rawText
-        } else {
-            val matcher = Patterns.WEB_URL.matcher(rawText)
-            if (matcher.find()) matcher.group() else null
-        }
-
-        val title = subject?.takeIf { it.isNotBlank() }
-            ?: url?.let { u ->
-                // URLのパスセグメントから人が読める文字列を生成（例: "my-article-title" → "My Article Title"）
-                runCatching {
-                    val segments = Uri.parse(u).pathSegments
-                    segments.lastOrNull { seg -> seg.isNotBlank() && !seg.all(Char::isDigit) }
-                        ?.replace(Regex("[-_]"), " ")
-                        ?.split(" ")
-                        ?.joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
-                        ?.takeIf { it.length > 3 }
-                }.getOrNull() ?: runCatching { Uri.parse(u).host }.getOrNull()
-            }
-
-        return Pair(url, title)
     }
 }
