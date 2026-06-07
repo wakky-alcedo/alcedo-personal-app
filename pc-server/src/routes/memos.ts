@@ -48,14 +48,14 @@ function rowToWire(row: MemoRow): MemoWire {
   };
 }
 
-const stmtListActive = db.prepare<[number, string], MemoRow>(`
+const stmtListActive = db.prepare<[number, number], MemoRow>(`
   SELECT * FROM memos
   WHERE deleted_at IS NULL
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `);
 
-const stmtListSince = db.prepare<[string, number, string], MemoRow>(`
+const stmtListSince = db.prepare<[string, string, number], MemoRow>(`
   SELECT * FROM memos
   WHERE updated_at > ? AND (deleted_at IS NULL OR deleted_at > ?)
   ORDER BY updated_at ASC
