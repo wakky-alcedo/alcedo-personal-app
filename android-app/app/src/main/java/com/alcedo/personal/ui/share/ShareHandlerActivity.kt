@@ -47,13 +47,29 @@ class ShareHandlerActivity : ComponentActivity() {
     }
 
     private fun parseShareIntent(intent: Intent): Pair<String?, String?> {
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+        val rawText = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: ""
         val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)
 
-        val matcher = Patterns.WEB_URL.matcher(text)
-        val url = if (matcher.find()) matcher.group() else null
+        // text がそのままURLなら正規表現を介さず使う（Patterns.WEB_URL がパスを切り落とすことがあるため）
+        val url = if (rawText.startsWith("http://") || rawText.startsWith("https://")) {
+            rawText
+        } else {
+            val matcher = Patterns.WEB_URL.matcher(rawText)
+            if (matcher.find()) matcher.group() else null
+        }
+
         val title = subject?.takeIf { it.isNotBlank() }
-            ?: url?.let { runCatching { Uri.parse(it).host }.getOrNull() }
+            ?: url?.let { u ->
+                // URLのパスセグメントから人が読める文字列を生成（例: "my-article-title" → "My Article Title"）
+                runCatching {
+                    val segments = Uri.parse(u).pathSegments
+                    segments.lastOrNull { seg -> seg.isNotBlank() && !seg.all(Char::isDigit) }
+                        ?.replace(Regex("[-_]"), " ")
+                        ?.split(" ")
+                        ?.joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+                        ?.takeIf { it.length > 3 }
+                }.getOrNull() ?: runCatching { Uri.parse(u).host }.getOrNull()
+            }
 
         return Pair(url, title)
     }
