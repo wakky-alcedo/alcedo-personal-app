@@ -43,19 +43,18 @@ fun MemoComposeSheet(
     var body by remember { mutableStateOf(initialBody) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        modifier = Modifier.imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
+                .imePadding()
                 .navigationBarsPadding()
         ) {
+            LaunchedEffect(Unit) { focusRequester.requestFocus() }
             Text(
                 text = if (isEdit) "メモを編集" else "記事にメモを追加",
                 style = MaterialTheme.typography.titleMedium
