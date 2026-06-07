@@ -2,6 +2,7 @@ package com.alcedo.personal.ui.share
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,9 +23,7 @@ class ShareHandlerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // EXTRA_TEXT = 共有URL（フルパス）, EXTRA_SUBJECT = ページタイトル
-        val sourceUrl   = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotBlank() }
-        val sourceTitle = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim()?.takeIf { it.isNotBlank() }
+        val (sourceUrl, sourceTitle) = parseShareIntent(intent)
 
         setContent {
             AlcedoTheme {
@@ -44,5 +43,34 @@ class ShareHandlerActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun parseShareIntent(intent: Intent): Pair<String?, String?> {
+        val rawText = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: ""
+        val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim()?.takeIf { it.isNotBlank() }
+
+        val url: String?
+        val prefixTitle: String?
+
+        if (rawText.startsWith("http://") || rawText.startsWith("https://")) {
+            // EXTRA_TEXT がそのまま URL（ブラウザからの標準的な共有）
+            url = rawText
+            prefixTitle = null
+        } else {
+            // テキスト中に URL が埋め込まれている場合（例: "タイトル https://..."）
+            val matcher = Patterns.WEB_URL.matcher(rawText)
+            if (matcher.find()) {
+                url = matcher.group()
+                prefixTitle = rawText.substring(0, matcher.start()).trim().takeIf { it.isNotBlank() }
+            } else {
+                url = null
+                prefixTitle = null
+            }
+        }
+
+        // SUBJECT 優先 → URL より前のテキスト → null
+        val title = subject ?: prefixTitle
+
+        return Pair(url, title)
     }
 }
