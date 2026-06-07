@@ -112,6 +112,8 @@ main { display: grid; gap: 16px; }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-primary); }
 .btn-danger { background: transparent; color: var(--danger); border-color: rgba(239,68,68,0.08); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-secondary { background: #fff; color: var(--text-primary); border-color: #e6edf8; }
+.btn-secondary:hover { background: var(--surface-weak); }
 
 /* Inputs */
 input, textarea, select { font: inherit; }
@@ -341,7 +343,10 @@ input, textarea, select { font: inherit; }
   border-radius: 8px;
   padding: 8px 10px;
   margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
 }
+a.memo-link-preview:hover { background: #eaeef4; }
 .memo-link-icon { font-size: 0.85rem; flex-shrink: 0; margin-top: 1px; }
 .memo-link-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .memo-link-domain { font-size: 0.72rem; color: #667085; }
@@ -355,6 +360,15 @@ input, textarea, select { font: inherit; }
 }
 .memo-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .memo-date { font-size: 0.6875rem; color: #667085; }
+.memo-card-header { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+.memo-copy-btn {
+  background: none; border: none; color: #cbd5e1;
+  cursor: pointer; padding: 3px; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+.memo-copy-btn:hover { color: var(--accent); background: #eef3ff; }
+.memo-card--editing { box-shadow: 0 0 0 2px var(--accent); border-color: var(--accent); }
 .memo-delete-btn {
   background: none; border: none; color: #cbd5e1;
   cursor: pointer; font-size: 0.75rem; padding: 2px 4px;
@@ -367,13 +381,14 @@ input, textarea, select { font: inherit; }
 .memo-form-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.4);
-  display: flex; align-items: flex-end;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
   z-index: 200;
 }
 .memo-form {
-  background: #fff; border-radius: 16px 16px 0 0;
-  padding: 24px 20px 32px;
-  width: 100%; max-width: 640px; margin: 0 auto;
+  background: #fff; border-radius: 16px;
+  padding: 24px 20px;
+  width: 100%; max-width: 560px;
 }
 .memo-form h3 { margin: 0 0 16px; font-size: 1rem; font-weight: 600; }
 .memo-textarea {
@@ -502,9 +517,12 @@ input, textarea, select { font: inherit; }
   /* ─── メモ ダークモード ──────────────────────────────────── */
   .memo-card { background: #1e2640; border-color: #2d3748; }
   .memo-link-preview { background: #253252; }
+  a.memo-link-preview:hover { background: #2d3c5e; }
   .memo-form-overlay { background: rgba(0,0,0,0.6); }
   .memo-form { background: #1e2640; }
   .memo-textarea { background: #111827; border-color: #334155; color: #e2e8f0; }
   .memo-delete-btn { color: #475569; }
   .memo-delete-btn:hover { background: #3b1010; color: #ef4444; }
+  .memo-copy-btn { color: #475569; }
+  .memo-copy-btn:hover { color: var(--accent); background: #253252; }
 }
