@@ -6,11 +6,12 @@ import { ToastProvider } from './contexts/ToastContext.tsx'
 import ToastContainer from './components/ToastContainer.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
+import MemosPage from './pages/MemosPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 
-type Tab = 'dashboard' | 'analytics' | 'settings'
+type Tab = 'dashboard' | 'memos' | 'analytics' | 'settings'
 
-const VALID_TABS: Tab[] = ['dashboard', 'analytics', 'settings']
+const VALID_TABS: Tab[] = ['dashboard', 'memos', 'analytics', 'settings']
 
 function readTabFromHash(): Tab {
   const hash = window.location.hash.slice(1) as Tab
@@ -90,6 +91,7 @@ function AppBody() {
           <nav className="top-tab-nav">
             {([
               ['dashboard', 'ダッシュボード'],
+              ['memos', 'メモ'],
               ['analytics', '分析'],
               ['settings', '設定'],
             ] as [Tab, string][]).map(([t, label]) => (
@@ -115,6 +117,7 @@ function AppBody() {
           onDeleteTask={handleDelete}
         />
       )}
+      {tab === 'memos' && <MemosPage />}
       {tab === 'analytics' && <AnalyticsPage />}
       {tab === 'settings' && (
         <SettingsPage

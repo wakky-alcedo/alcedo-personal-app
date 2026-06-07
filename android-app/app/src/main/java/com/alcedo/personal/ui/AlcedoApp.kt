@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,6 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alcedo.personal.analytics.AnalyticsScreen
 import com.alcedo.personal.ui.dashboard.DashboardScreen
+import com.alcedo.personal.ui.memos.MemosScreen
 import com.alcedo.personal.ui.tasks.TasksScreen
 import com.alcedo.personal.ui.settings.BeliefsManagementScreen
 import com.alcedo.personal.ui.settings.HabitsManagementScreen
@@ -31,10 +33,11 @@ fun AlcedoApp() {
     val navController = rememberNavController()
 
     val rootItems = listOf(
-        NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home,        null) },
-        NavItem("tasks",     "タスク")  { Icon(Icons.Default.CheckCircle, null) },
-        NavItem("analytics", "分析")    { Icon(Icons.Default.DateRange,   null) },
-        NavItem("settings",  "設定")    { Icon(Icons.Default.Settings,    null) },
+        NavItem("dashboard", "ホーム")  { Icon(Icons.Default.Home,          null) },
+        NavItem("tasks",     "タスク")  { Icon(Icons.Default.CheckCircle,   null) },
+        NavItem("memos",     "メモ")    { Icon(Icons.Default.Edit,          null) },
+        NavItem("analytics", "分析")    { Icon(Icons.Default.DateRange,     null) },
+        NavItem("settings",  "設定")    { Icon(Icons.Default.Settings,      null) },
     )
 
     Scaffold(
@@ -68,6 +71,7 @@ fun AlcedoApp() {
             composable("tasks") {
                 TasksScreen(onNavigateToDetail = { taskId -> navController.navigate("tasks/$taskId") })
             }
+            composable("memos") { MemosScreen() }
             composable("analytics") { AnalyticsScreen() }
             composable(
                 "tasks/{taskId}",

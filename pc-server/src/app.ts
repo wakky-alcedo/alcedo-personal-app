@@ -5,6 +5,7 @@ import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerBeliefRoutes } from "./routes/beliefs.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerHabitRoutes } from "./routes/habits.js";
+import { registerMemoRoutes } from "./routes/memos.js";
 import { registerTaskRoutes } from "./routes/tasks.js";
 
 export async function createApp() {
@@ -13,7 +14,7 @@ export async function createApp() {
 
   await app.register(cors, {
     origin: "*",
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "X-Api-Key"],
   });
 
@@ -33,6 +34,7 @@ export async function createApp() {
   app.register(registerAnalyticsRoutes, { prefix: "/api/v1" });
   app.register(registerActivityRoutes, { prefix: "/api/v1" });
   app.register(registerEventRoutes, { prefix: "/api/v1" });
+  app.register(registerMemoRoutes, { prefix: "/api/v1" });
 
   app.setErrorHandler((error, _request, reply) => {
     app.log.error(error);

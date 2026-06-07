@@ -104,7 +104,12 @@
 - ストリーク計算
 - 習慣通知スケジューラ
 
-4. obsidian_buffer
+4. memo
+- Shared Intent 受領（ACTION_SEND / text/plain）
+- メモ一覧・作成・編集・削除
+- Push/Pull 双方向同期（WorkManager）
+
+5. obsidian_buffer（Phase2）
 - Shared Intent 受領
 - バッファ編集
 - 送信状態管理（未送信/送信中/送信済/失敗/再試行中）
@@ -287,9 +292,20 @@
 - priority: INTEGER NOT NULL DEFAULT 0（高い値が優先）
 - createdAt, updatedAt: TEXT NOT NULL
 
-8. sync_inbox (Phase2)
-9. obsidian_append_logs (Phase2)
-10. git_commit_logs (Phase2)
+8. memos（migration 004）
+- id: TEXT PRIMARY KEY (UUID)
+- body: TEXT NOT NULL
+- source_url: TEXT?（共有元URL）
+- source_title: TEXT?（記事タイトル，Intentから取得）
+- version: INTEGER NOT NULL（楽観的排他制御）
+- created_at: TEXT NOT NULL（時系列ソートキー）
+- updated_at: TEXT NOT NULL
+- deleted_at: TEXT?（ソフトデリート）
+- インデックス: idx_memos_updated(updated_at), idx_memos_created(created_at)
+
+9. sync_inbox (Phase2)
+10. obsidian_append_logs (Phase2)
+11. git_commit_logs (Phase2)
 
 ## 7. API 仕様（PC Local API）
 ### 7.1 認証
@@ -370,8 +386,26 @@
 24. POST /api/v1/activity/reclassify — 全既存ログを現在のルールで再分類
 - 用途: ルール変更後に過去ログへ遡及適用
 
+#### メモ (実装済み: `pc-server/src/routes/memos.ts`)
+24. GET /api/v1/memos?since=ISO8601&limit=50&cursor=updatedAt
+- 用途: 一覧取得（since省略時は全件，指定時はPull差分取得）
+- 競合解決: version-based（Taskと同方式）
+- Response: { memos: Memo[], nextCursor: string | null }
+
+25. POST /api/v1/sync/memos
+- 用途: Android → PC Push upsert/削除
+- Request: { upserts?: MemoInput[], deletions?: {id}[] }
+- 競合解決: incoming.version > stored.version のみ上書き（同versionはupdatedAt比較）
+
+26. PATCH /api/v1/memos/:id
+- 用途: Web App からの本文編集
+- Request: { body: string }
+- Response: { memo: Memo }
+
+27. DELETE /api/v1/memos/:id — ソフトデリート（deletedAt セット）
+
 #### Obsidian連携 (Phase2)
-24. POST /api/v1/sync/obsidian-buffer
+28. POST /api/v1/sync/obsidian-buffer
 - 用途: Android バッファ一括送信
 - Request: items[]（mobile_item_id, title, body, tags, created_at, dedupe_hash）
 - Response: accepted_ids[], rejected_ids[]

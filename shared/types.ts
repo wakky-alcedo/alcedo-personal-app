@@ -106,3 +106,14 @@ export type ActivityRule = {
   createdAt: string
   updatedAt: string
 }
+
+export type Memo = {
+  id: string
+  body: string
+  sourceUrl?: string | null
+  sourceTitle?: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+  deletedAt?: string | null
+}

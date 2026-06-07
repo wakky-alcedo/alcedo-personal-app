@@ -16,8 +16,8 @@ class SyncStatusConverters {
 }
 
 @Database(
-    entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class],
-    version = 3,
+    entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class, MemoEntity::class],
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(SyncStatusConverters::class)
@@ -25,8 +25,28 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun beliefDao(): BeliefDao
     abstract fun habitDao(): HabitDao
+    abstract fun memoDao(): MemoDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `memos` (
+                        `id` TEXT NOT NULL,
+                        `body` TEXT NOT NULL,
+                        `sourceUrl` TEXT,
+                        `sourceTitle` TEXT,
+                        `version` INTEGER NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'UNSENT',
+                        `createdAt` TEXT NOT NULL,
+                        `updatedAt` TEXT NOT NULL,
+                        `deletedAt` TEXT,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN subtasks TEXT NOT NULL DEFAULT '[]'")

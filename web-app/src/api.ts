@@ -1,5 +1,5 @@
-export type { Task, TaskNode, Belief, Habit, AnalyticsEntry, AnalyticsDailyResponse, AnalyticsSummaryDay, AnalyticsSummaryResponse, ActivityLog, ActivitySummary, ActivityRule } from '@shared/types'
-import type { Task, TaskNode, Belief, Habit, AnalyticsEntry, AnalyticsDailyResponse, AnalyticsSummaryDay, AnalyticsSummaryResponse, ActivityLog, ActivitySummary, ActivityRule } from '@shared/types'
+export type { Task, TaskNode, Belief, Habit, AnalyticsEntry, AnalyticsDailyResponse, AnalyticsSummaryDay, AnalyticsSummaryResponse, ActivityLog, ActivitySummary, ActivityRule, Memo } from '@shared/types'
+import type { Task, TaskNode, Belief, Habit, AnalyticsEntry, AnalyticsDailyResponse, AnalyticsSummaryDay, AnalyticsSummaryResponse, ActivityLog, ActivitySummary, ActivityRule, Memo } from '@shared/types'
 
 export type BeliefInput = Partial<Belief> & { text: string }
 
@@ -458,4 +458,58 @@ export async function deleteActivityRule(serverUrl: string, apiKey: string, id: 
     headers: { 'X-Api-Key': apiKey }
   })
   if (!res.ok) throw new Error('delete activity rule failed')
+}
+
+export async function getMemos(serverUrl: string, apiKey: string, since?: string): Promise<Memo[]> {
+  const url = since
+    ? `${serverUrl}/api/v1/memos?since=${encodeURIComponent(since)}&limit=200`
+    : `${serverUrl}/api/v1/memos?limit=200`
+  const res = await fetch(url, { headers: { 'X-Api-Key': apiKey } })
+  if (!res.ok) throw new Error('fetch memos failed')
+  const payload = await res.json()
+  return (payload.memos ?? []) as Memo[]
+}
+
+export async function createMemo(
+  serverUrl: string,
+  apiKey: string,
+  body: string,
+  sourceUrl?: string,
+  sourceTitle?: string
+): Promise<void> {
+  const now = new Date().toISOString()
+  const res = await fetch(`${serverUrl}/api/v1/sync/memos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify({
+      upserts: [{
+        id: crypto.randomUUID(),
+        body,
+        sourceUrl: sourceUrl ?? null,
+        sourceTitle: sourceTitle ?? null,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      }],
+      deletions: []
+    })
+  })
+  if (!res.ok) throw new Error('create memo failed')
+}
+
+export async function updateMemo(serverUrl: string, apiKey: string, id: string, body: string): Promise<void> {
+  const res = await fetch(`${serverUrl}/api/v1/memos/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify({ body })
+  })
+  if (!res.ok) throw new Error('update memo failed')
+}
+
+export async function deleteMemo(serverUrl: string, apiKey: string, id: string): Promise<void> {
+  const res = await fetch(`${serverUrl}/api/v1/memos/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'X-Api-Key': apiKey }
+  })
+  if (!res.ok) throw new Error('delete memo failed')
 }
