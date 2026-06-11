@@ -13,9 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -49,15 +49,17 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("メモ") }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showCompose = true },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("新規メモ") }
+        topBar = {
+            TopAppBar(
+                title = { Text("メモ") },
+                actions = {
+                    IconButton(onClick = { showCompose = true }) {
+                        Icon(Icons.Default.Add, "メモを追加")
+                    }
+                }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (memos.isEmpty()) {
             EmptyMemosState(
@@ -72,7 +74,7 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp
+                    start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp
                 )
             ) {
                 items(memos, key = { it.id }) { memo ->
