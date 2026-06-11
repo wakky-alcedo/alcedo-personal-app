@@ -12,8 +12,16 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.alcedo.personal.sync.MemoEntity
 import java.time.Instant
@@ -41,8 +49,12 @@ fun MemoCard(
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            val linkColor = MaterialTheme.colorScheme.primary
+            val annotatedBody = remember(memo.body, linkColor) {
+                buildLinkedText(memo.body, linkColor)
+            }
             Text(
-                text = memo.body,
+                text = annotatedBody,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -68,6 +80,26 @@ fun MemoCard(
 private val urlRegex = Regex("""https?://\S+[^\s.,;!?)'"]+""")
 
 fun extractUrl(text: String): String? = urlRegex.find(text)?.value
+
+/** 本文中のURLをタップ可能なリンクに変換する */
+private fun buildLinkedText(body: String, linkColor: Color) = buildAnnotatedString {
+    var lastIndex = 0
+    for (match in urlRegex.findAll(body)) {
+        append(body.substring(lastIndex, match.range.first))
+        withLink(
+            LinkAnnotation.Url(
+                url = match.value,
+                styles = TextLinkStyles(
+                    style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+                )
+            )
+        ) {
+            append(match.value)
+        }
+        lastIndex = match.range.last + 1
+    }
+    append(body.substring(lastIndex))
+}
 
 private fun formatDate(iso: String): String = runCatching {
     dateFormatter.format(Instant.parse(iso))

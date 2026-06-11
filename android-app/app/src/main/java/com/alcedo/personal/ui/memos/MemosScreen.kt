@@ -1,7 +1,6 @@
 package com.alcedo.personal.ui.memos
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
@@ -24,11 +22,8 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,43 +79,26 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
                     val deletedBody    = memo.body
                     val deletedUrl     = memo.sourceUrl
                     val deletedTitle   = memo.sourceTitle
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                vm.softDelete(memo.id)
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "削除しました",
-                                        actionLabel = "元に戻す",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        vm.create(deletedBody, deletedUrl, deletedTitle)
-                                    }
-                                }
-                                true
-                            } else false
-                        }
-                    )
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(end = 16.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                    SwipeToRevealDelete(
+                        onDelete = {
+                            vm.softDelete(memo.id)
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "削除しました",
+                                    actionLabel = "元に戻す",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    vm.create(deletedBody, deletedUrl, deletedTitle)
+                                }
                             }
-                        }
+                        },
+                        modifier = Modifier.padding(vertical = 6.dp)
                     ) {
                         MemoCard(
                             memo = memo,
-                            onClick = { editingMemo = memo },
-                            modifier = Modifier.padding(vertical = 6.dp)
+                            onClick = { editingMemo = memo }
                         )
                     }
                 }
