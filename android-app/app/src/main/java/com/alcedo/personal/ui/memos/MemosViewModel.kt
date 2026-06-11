@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.alcedo.personal.sync.DbProvider
 import com.alcedo.personal.sync.MemoEntity
 import com.alcedo.personal.sync.MemoRepository
+import com.alcedo.personal.sync.MemoSyncScheduler
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -17,6 +19,9 @@ class MemosViewModel(app: Application) : AndroidViewModel(app) {
 
     val memos: StateFlow<List<MemoEntity>> = repo.observeActiveMemos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
 
     fun create(body: String, sourceUrl: String? = null, sourceTitle: String? = null) {
         if (body.isBlank()) return
@@ -30,5 +35,17 @@ class MemosViewModel(app: Application) : AndroidViewModel(app) {
 
     fun softDelete(id: String) {
         viewModelScope.launch { repo.softDelete(id) }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _refreshing.value = true
+            try {
+                repo.syncFromServer()
+                MemoSyncScheduler.enqueuePush(getApplication())
+            } finally {
+                _refreshing.value = false
+            }
+        }
     }
 }

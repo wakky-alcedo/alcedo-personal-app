@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,46 +59,52 @@ fun DashboardScreen(onNavigateToTask: (String) -> Unit = {}, vm: DashboardViewMo
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+        PullToRefreshBox(
+            isRefreshing = syncing,
+            onRefresh = { vm.syncNow() },
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            // ─── 信念 ──────────────────────────────────────────────────────────
-            item {
-                BeliefCard(
-                    text = currentBelief?.text,
-                    hasMultiple = beliefs.size > 1,
-                    onNext = { vm.nextBelief() }
-                )
-            }
-
-            // ─── 習慣（クイックチェック + カレンダー） ──────────────────────────
-            item {
-                HabitsBlock(habitsWithStatus, vm)
-            }
-
-            // ─── 今日のタスク ──────────────────────────────────────────────────
-            item {
-                Text("今日のタスク", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            if (todayTodos.isEmpty()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                // ─── 信念 ──────────────────────────────────────────────────────────
                 item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Box(Modifier.fillMaxWidth().padding(20.dp), Alignment.Center) {
-                            Text("今日が期限のタスクはありません",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyMedium)
+                    BeliefCard(
+                        text = currentBelief?.text,
+                        hasMultiple = beliefs.size > 1,
+                        onNext = { vm.nextBelief() }
+                    )
+                }
+
+                // ─── 習慣（クイックチェック + カレンダー） ──────────────────────────
+                item {
+                    HabitsBlock(habitsWithStatus, vm)
+                }
+
+                // ─── 今日のタスク ──────────────────────────────────────────────────
+                item {
+                    Text("今日のタスク", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                if (todayTodos.isEmpty()) {
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            Box(Modifier.fillMaxWidth().padding(20.dp), Alignment.Center) {
+                                Text("今日が期限のタスクはありません",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                     }
                 }
+                items(todayTodos, key = { it.id }) { task ->
+                    TaskCard(task, onToggleDone = { vm.toggleDone(task) },
+                        onDelete = {}, // Dashboard では削除しない
+                        onTap = { onNavigateToTask(task.id) })
+                }
+                item { Spacer(Modifier.height(16.dp)) }
             }
-            items(todayTodos, key = { it.id }) { task ->
-                TaskCard(task, onToggleDone = { vm.toggleDone(task) },
-                    onDelete = {}, // Dashboard では削除しない
-                    onTap = { onNavigateToTask(task.id) })
-            }
-            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 }

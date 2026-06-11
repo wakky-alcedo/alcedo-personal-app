@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ private fun priorityOrder(p: String) = when (p) { "high" -> 0; "medium" -> 1; el
 class TasksViewModel(app: Application) : AndroidViewModel(app) {
     private val db      = DbProvider.get(app)
     private val taskDao = db.taskDao()
+    private val taskRepo = TaskRepository(app, taskDao)
     private val prefs   = app.getSharedPreferences("tasks_prefs", Context.MODE_PRIVATE)
 
     private val _allTasks = taskDao.observeActiveTasks()
@@ -48,9 +50,11 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
     private val _filter      = MutableStateFlow(prefs.getString("filter", "all") ?: "all")
     private val _sort        = MutableStateFlow(prefs.getString("sort", "updatedAt") ?: "updatedAt")
     private val _showAddForm = MutableStateFlow(false)
+    private val _refreshing  = MutableStateFlow(false)
     val filter:      StateFlow<String>  = _filter
     val sort:        StateFlow<String>  = _sort
     val showAddForm: StateFlow<Boolean> = _showAddForm
+    val refreshing:  StateFlow<Boolean> = _refreshing
 
     val tasks: StateFlow<List<TaskEntity>> = combine(_allTasks, _filter, _sort) { list, f, s ->
         val filtered = when (f) {
@@ -110,6 +114,18 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
             TaskSyncScheduler.enqueue(getApplication())
         }
     }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _refreshing.value = true
+            try {
+                taskRepo.syncFromServer()
+                TaskSyncScheduler.enqueue(getApplication())
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -124,6 +140,7 @@ fun TasksScreen(
     val filter      by vm.filter.collectAsStateWithLifecycle()
     val sort        by vm.sort.collectAsStateWithLifecycle()
     val showAddForm by vm.showAddForm.collectAsStateWithLifecycle()
+    val refreshing  by vm.refreshing.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -137,50 +154,56 @@ fun TasksScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { vm.refresh() },
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            // 追加フォーム
-            if (showAddForm) {
-                item { AddTaskForm(onAdd = { vm.createTask(it) }, onDismiss = { vm.hideAddForm() }) }
-            }
-
-            // フィルター + ソート
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf("all" to "All", "todo" to "Todo", "doing" to "Doing", "done" to "Done")
-                            .forEachIndexed { idx, (v, label) ->
-                                SegmentedButton(
-                                    selected = filter == v, onClick = { vm.setFilter(v) },
-                                    shape = SegmentedButtonDefaults.itemShape(idx, 4),
-                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                                )
-                            }
-                    }
-                    SortDropdown(sort) { vm.setSort(it) }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                // 追加フォーム
+                if (showAddForm) {
+                    item { AddTaskForm(onAdd = { vm.createTask(it) }, onDismiss = { vm.hideAddForm() }) }
                 }
-            }
 
-            if (tasks.isEmpty()) {
+                // フィルター + ソート
                 item {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
-                        Text("タスクがありません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf("all" to "All", "todo" to "Todo", "doing" to "Doing", "done" to "Done")
+                                .forEachIndexed { idx, (v, label) ->
+                                    SegmentedButton(
+                                        selected = filter == v, onClick = { vm.setFilter(v) },
+                                        shape = SegmentedButtonDefaults.itemShape(idx, 4),
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                    )
+                                }
+                        }
+                        SortDropdown(sort) { vm.setSort(it) }
                     }
                 }
-            }
 
-            items(tasks, key = { it.id }) { task ->
-                TaskListCard(
-                    task = task,
-                    onToggleDone = { vm.toggleDone(task) },
-                    onDelete = { vm.delete(task) },
-                    onTap = { onNavigateToDetail(task.id) }
-                )
+                if (tasks.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
+                            Text("タスクがありません", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                items(tasks, key = { it.id }) { task ->
+                    TaskListCard(
+                        task = task,
+                        onToggleDone = { vm.toggleDone(task) },
+                        onDelete = { vm.delete(task) },
+                        onTap = { onNavigateToDetail(task.id) }
+                    )
+                }
+                item { Spacer(Modifier.height(16.dp)) }
             }
-            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 }

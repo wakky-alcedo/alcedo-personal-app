@@ -23,6 +23,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val taskDao = db.taskDao()
     private val beliefRepo = BeliefRepository(app, db.beliefDao())
     private val habitRepo  = HabitRepository(app, db.habitDao())
+    private val taskRepo   = TaskRepository(app, taskDao)
 
     private val _beliefIndex = MutableStateFlow(0)
     private val _syncing     = MutableStateFlow(false)
@@ -100,25 +101,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         try {
             beliefRepo.syncFromServer()
             habitRepo.syncFromServer()
-            pullTasksFromServer()
+            taskRepo.syncFromServer()
             TaskSyncScheduler.enqueue(getApplication())
         } finally {
             _syncing.value = false
-        }
-    }
-
-    private suspend fun pullTasksFromServer() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val url = SyncConfig.getServerUrl(getApplication())
-        val key = SyncConfig.getApiKey(getApplication())
-        val pulled = TaskSyncApiClient(url, key).pullTasks() ?: return@withContext
-        for (serverTask in pulled) {
-            val local = taskDao.findById(serverTask.id)
-            // ローカルに未送信の変更がある場合は上書きしない
-            if (local == null || local.syncStatus == SyncStatus.SYNCED) {
-                taskDao.upsert(serverTask)
-            } else if (local.version < serverTask.version) {
-                taskDao.upsert(serverTask)
-            }
         }
     }
 

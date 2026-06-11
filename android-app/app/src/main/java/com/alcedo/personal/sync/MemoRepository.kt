@@ -1,8 +1,11 @@
 package com.alcedo.personal.sync
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class MemoRepository(
@@ -52,5 +55,23 @@ class MemoRepository(
         )
         dao.upsert(updated)
         MemoSyncScheduler.enqueuePush(context)
+    }
+
+    /** PC サーバーから直近24時間に更新されたメモを取得し、新しい方を採用してマージする。取得に失敗した場合は false を返す */
+    suspend fun syncFromServer(): Boolean = withContext(Dispatchers.IO) {
+        val since = Instant.now().minus(24, ChronoUnit.HOURS).toString()
+        val client = MemoSyncApiClient(
+            baseUrl = SyncConfig.getServerUrl(context),
+            apiKey = SyncConfig.getApiKey(context)
+        )
+        val pulled = client.pullMemos(since) ?: return@withContext false
+        for (remote in pulled) {
+            val local = dao.findById(remote.id)
+            if (local == null || remote.version > local.version ||
+                (remote.version == local.version && remote.updatedAt > local.updatedAt)) {
+                dao.upsert(remote.copy(syncStatus = SyncStatus.SYNCED))
+            }
+        }
+        true
     }
 }

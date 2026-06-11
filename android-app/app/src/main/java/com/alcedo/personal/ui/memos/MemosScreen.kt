@@ -24,6 +24,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MemosScreen(vm: MemosViewModel = viewModel()) {
     val memos by vm.memos.collectAsStateWithLifecycle()
+    val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     var showCompose by remember { mutableStateOf(false) }
     var editingMemo by remember { mutableStateOf<MemoEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -61,47 +63,51 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        if (memos.isEmpty()) {
-            EmptyMemosState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                onAdd = { showCompose = true }
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { vm.refresh() },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (memos.isEmpty()) {
+                EmptyMemosState(
+                    modifier = Modifier.fillMaxSize(),
+                    onAdd = { showCompose = true }
                 )
-            ) {
-                items(memos, key = { it.id }) { memo ->
-                    val deletedBody    = memo.body
-                    val deletedUrl     = memo.sourceUrl
-                    val deletedTitle   = memo.sourceTitle
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp
+                    )
+                ) {
+                    items(memos, key = { it.id }) { memo ->
+                        val deletedBody    = memo.body
+                        val deletedUrl     = memo.sourceUrl
+                        val deletedTitle   = memo.sourceTitle
 
-                    SwipeToRevealDelete(
-                        onDelete = {
-                            vm.softDelete(memo.id)
-                            scope.launch {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = "削除しました",
-                                    actionLabel = "元に戻す",
-                                    duration = SnackbarDuration.Short
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    vm.create(deletedBody, deletedUrl, deletedTitle)
+                        SwipeToRevealDelete(
+                            onDelete = {
+                                vm.softDelete(memo.id)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "削除しました",
+                                        actionLabel = "元に戻す",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        vm.create(deletedBody, deletedUrl, deletedTitle)
+                                    }
                                 }
-                            }
-                        },
-                        modifier = Modifier.padding(vertical = 6.dp)
-                    ) {
-                        MemoCard(
-                            memo = memo,
-                            onClick = { editingMemo = memo }
-                        )
+                            },
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        ) {
+                            MemoCard(
+                                memo = memo,
+                                onClick = { editingMemo = memo }
+                            )
+                        }
                     }
                 }
             }
