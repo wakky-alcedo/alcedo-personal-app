@@ -1,4 +1,4 @@
-package com.alcedo.personal.ui.memos
+package com.alcedo.personal.ui.common
 
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween

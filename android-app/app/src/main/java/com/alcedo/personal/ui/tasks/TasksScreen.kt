@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import android.content.Context
+import com.alcedo.personal.ui.common.SwipeToRevealDelete
 import com.alcedo.personal.ui.util.TimeUtils.toLocalDateStr
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -115,6 +115,17 @@ class TasksViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** [delete] の取り消し。削除前のスナップショットを deletedAt=null で復元する。 */
+    fun restore(task: TaskEntity) {
+        viewModelScope.launch {
+            val now = Instant.now().toString()
+            taskDao.upsert(task.copy(
+                deletedAt = null, syncStatus = SyncStatus.UNSENT, updatedAt = now, version = task.version + 2
+            ))
+            TaskSyncScheduler.enqueue(getApplication())
+        }
+    }
+
     fun refresh() {
         viewModelScope.launch {
             _refreshing.value = true
@@ -141,6 +152,8 @@ fun TasksScreen(
     val sort        by vm.sort.collectAsStateWithLifecycle()
     val showAddForm by vm.showAddForm.collectAsStateWithLifecycle()
     val refreshing  by vm.refreshing.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -152,7 +165,8 @@ fun TasksScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = refreshing,
@@ -195,12 +209,27 @@ fun TasksScreen(
                 }
 
                 items(tasks, key = { it.id }) { task ->
-                    TaskListCard(
-                        task = task,
-                        onToggleDone = { vm.toggleDone(task) },
-                        onDelete = { vm.delete(task) },
-                        onTap = { onNavigateToDetail(task.id) }
-                    )
+                    SwipeToRevealDelete(
+                        onDelete = {
+                            vm.delete(task)
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "削除しました",
+                                    actionLabel = "元に戻す",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    vm.restore(task)
+                                }
+                            }
+                        }
+                    ) {
+                        TaskListCard(
+                            task = task,
+                            onToggleDone = { vm.toggleDone(task) },
+                            onTap = { onNavigateToDetail(task.id) }
+                        )
+                    }
                 }
                 item { Spacer(Modifier.height(16.dp)) }
             }
@@ -273,7 +302,7 @@ private fun SortDropdown(current: String, onSelect: (String) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onDelete: () -> Unit, onTap: () -> Unit) {
+fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onTap: () -> Unit) {
     val isDone = task.status == "done"
     Card(
         onClick = onTap, modifier = Modifier.fillMaxWidth(),
@@ -303,11 +332,6 @@ fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onDelete: () -> Uni
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, null,
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp))
             }
         }
     }

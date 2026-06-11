@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.sync.MemoEntity
+import com.alcedo.personal.ui.common.SwipeToRevealDelete
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
