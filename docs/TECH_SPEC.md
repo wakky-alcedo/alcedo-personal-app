@@ -478,6 +478,13 @@
 3. 通知制御
 - ユーザー設定で全体ON/OFF
 
+4. Web UI タスク期限通知（実装済み: `web-app/src/hooks/useDueTaskNotifications.ts`）
+- 対象: `dueAt`・`dueTime` 両方設定済み、`status !== 'done'`、未削除のタスク
+- タイミング: 期限が `(now, now + reminderMinutes]` の範囲に入った時点で1回のみ（期限切れタスクは対象外）
+- 通知方法: ブラウザ Notification API が許可済みならOS通知、未許可/拒否時はアプリ内トースト (`toast.info`) にフォールバック
+- 設定: 全体ON/OFF（デフォルトOFF）、`reminderMinutes`（デフォルト30分）。いずれも `localStorage` に保存（`contexts/NotificationSettingsContext.tsx`）
+- チェック間隔: 60秒。通知済みタスクは `localStorage`（`alcedo_notif_notified_keys`）にキー（`taskId:dueAt:dueTime`）を記録し再通知を防止。期限編集で再通知される
+
 ## 11. ウィジェット仕様
 1. 表示内容
 - 信念ランダム1件
@@ -573,7 +580,7 @@
 0.5 双方向同期時の競合解決ポリシー（last-write-wins / version-based merge / manual resolve）の確定
 1. Google マップ履歴連携方式（公式API制約の精査が必要）
 2. HomeAssistant 連携方法（Webhook/API token運用方針）
-3. Web Push 採用有無（PC Webの通知設計）
+3. Service Worker による Web Push 採用有無（タブを閉じている間も通知したい場合に必要。現状は §10-4 の通り、タブを開いている間のみのNotification API/トースト通知で対応済み）
 4. X投稿代行のMVPでの表示/非表示方針（後回し）
 
 ## 17. 公式リファレンス

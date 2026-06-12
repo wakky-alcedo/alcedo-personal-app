@@ -3,11 +3,13 @@ import { getTasks, createTask, updateTask, deleteTask, type Task } from './api.t
 import { CategoryColorsProvider } from './CategoryColorsContext.tsx'
 import { AppConfigProvider, useAppConfig } from './contexts/AppConfigContext.tsx'
 import { ToastProvider } from './contexts/ToastContext.tsx'
+import { NotificationSettingsProvider } from './contexts/NotificationSettingsContext.tsx'
 import ToastContainer from './components/ToastContainer.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import MemosPage from './pages/MemosPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
+import { useDueTaskNotifications } from './hooks/useDueTaskNotifications.ts'
 
 type Tab = 'dashboard' | 'memos' | 'analytics' | 'settings'
 
@@ -43,6 +45,8 @@ function AppBody() {
     }
     return () => es.close()
   }, [serverUrl, apiKey])
+
+  useDueTaskNotifications(tasks)
 
   async function refresh() {
     setLoading(true)
@@ -134,9 +138,11 @@ export default function App() {
   return (
     <AppConfigProvider>
       <ToastProvider>
-        <CategoryColorsProvider>
-          <AppBody />
-        </CategoryColorsProvider>
+        <NotificationSettingsProvider>
+          <CategoryColorsProvider>
+            <AppBody />
+          </CategoryColorsProvider>
+        </NotificationSettingsProvider>
       </ToastProvider>
     </AppConfigProvider>
   )

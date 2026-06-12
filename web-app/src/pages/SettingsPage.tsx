@@ -2,6 +2,7 @@ import React from 'react'
 import BeliefsPanel from '../components/BeliefsPanel.tsx'
 import ClassificationSection from '../components/ClassificationSection.tsx'
 import HabitsPanel from '../components/HabitsPanel.tsx'
+import NotificationSettingsPanel from '../components/NotificationSettingsPanel.tsx'
 import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 
 type Props = {
@@ -46,6 +47,7 @@ export default function SettingsPage({ loading, onRefresh }: Props) {
       <BeliefsPanel />
       <HabitsPanel />
       <ClassificationSection />
+      <NotificationSettingsPanel />
     </section>
   )
 }
