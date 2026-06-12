@@ -11,6 +11,7 @@ export default function NewTaskForm({ onCreate }: Props) {
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskInput['priority']>('medium')
   const [dueAt, setDueAt] = useState('')
+  const [dueTime, setDueTime] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function submit(e?: React.FormEvent) {
@@ -22,11 +23,13 @@ export default function NewTaskForm({ onCreate }: Props) {
         title: title.trim(),
         priority,
         dueAt: dueAt ? new Date(`${dueAt}T00:00:00`).toISOString() : null,
+        dueTime: dueTime || null,
         subtasks: [],
       })
       setTitle('')
       setPriority('low')
       setDueAt('')
+      setDueTime('')
     } catch (err) {
       console.error(err)
       toast.error('タスクの作成に失敗しました')
@@ -43,7 +46,18 @@ export default function NewTaskForm({ onCreate }: Props) {
         <option value="medium">medium</option>
         <option value="high">high</option>
       </select>
-      <input type="date" value={dueAt} onChange={e => setDueAt(e.target.value)} />
+      <input type="date" value={dueAt} onChange={e => {
+        const next = e.target.value
+        setDueAt(next)
+        if (!next) setDueTime('')
+      }} />
+      <input
+        type="time"
+        value={dueTime}
+        onChange={e => setDueTime(e.target.value)}
+        disabled={!dueAt}
+        aria-label="Due time"
+      />
       <button type="submit" disabled={busy}>Add Task</button>
     </form>
   )

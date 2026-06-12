@@ -90,8 +90,9 @@ main { display: grid; gap: 16px; }
 .inline-editor input { width: 100%; padding: 2px 6px; border-radius: 6px; border: 1px solid #dbe7ff; font: inherit; }
 .priority-select { flex-shrink: 0; }
 .priority-select select { padding: 2px 4px; border-radius: 6px; border: 1px solid #e6edf8; font: inherit; font-size: 12px; }
-.task-due { flex-shrink: 0; }
-.task-due input[type="date"] { padding: 2px 6px; border-radius: 6px; border: 1px solid #e6edf8; font: inherit; font-size: 12px; }
+.task-due { flex-shrink: 0; display: flex; gap: 4px; }
+.task-due input[type="date"], .task-due input[type="time"] { padding: 2px 6px; border-radius: 6px; border: 1px solid #e6edf8; font: inherit; font-size: 12px; }
+.task-due input[type="time"]:disabled { opacity: 0.5; }
 .task-node-description-row { display: block; width: 100%; padding: 0 0 0 40px; }
 /* width:100% + padding-left で margin-left と異なりoverflowしない (box-sizing:border-box 前提) */
 .task-node-description-row.task-node-description { font: inherit; text-align: left; color: var(--text-muted); }

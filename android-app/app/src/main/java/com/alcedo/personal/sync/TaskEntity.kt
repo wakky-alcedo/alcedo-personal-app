@@ -12,6 +12,7 @@ data class TaskEntity(
     val categoryName: String,
     val priority: String,
     val dueAt: String?,
+    val dueTime: String? = null,
     val status: String,
     val syncStatus: SyncStatus,
     val deletedAt: String?,

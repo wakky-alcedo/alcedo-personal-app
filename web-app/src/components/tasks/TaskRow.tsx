@@ -314,10 +314,25 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
                 el.showPicker?.()
               }}
               onChange={e => {
-                const nextTask = { ...draft, dueAt: e.target.value ? `${e.target.value}T00:00:00.000Z` : null }
+                const nextDueAt = e.target.value ? `${e.target.value}T00:00:00.000Z` : null
+                const nextTask = { ...draft, dueAt: nextDueAt, dueTime: nextDueAt ? draft.dueTime : null }
                 void saveTask(nextTask)
               }}
               aria-label={`Due date: ${dueLabel}`}
+            />
+            <input
+              type="time"
+              value={draft.dueTime ?? ''}
+              disabled={!draft.dueAt}
+              onClick={e => {
+                const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
+                el.showPicker?.()
+              }}
+              onChange={e => {
+                const nextTask = { ...draft, dueTime: e.target.value || null }
+                void saveTask(nextTask)
+              }}
+              aria-label={`Due time: ${draft.dueTime ?? 'Not set'}`}
             />
           </div>
           <button

@@ -11,6 +11,7 @@ type UpsertTaskInput = {
   categoryName: string;
   priority: "low" | "medium" | "high";
   dueAt?: string;
+  dueTime?: string | null;
   status: "todo" | "doing" | "done";
   // optional legacy nested subtasks or flat parentId model
   subtasks?: Array<{ id: string; title: string; done: boolean; dueAt?: string | null; priority?: 'low' | 'medium' | 'high'; subtasks?: unknown }>;
@@ -49,6 +50,7 @@ type NormalizedUpsertRow = {
   categoryName: string;
   priority: "low" | "medium" | "high";
   dueAt: string | null;
+  dueTime: string | null;
   status: "todo" | "doing" | "done";
   subtasks: string;
   parentId: string | null;
@@ -91,9 +93,9 @@ function normalizeTaskRow(row: TaskRow) {
 
 const stmtUpsertTask = db.prepare(`
   INSERT INTO tasks (
-    id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, parentId, deletedAt, updatedAt, version
+    id, title, description, categoryType, categoryName, priority, dueAt, dueTime, status, subtasks, parentId, deletedAt, updatedAt, version
   ) VALUES (
-    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, @parentId, NULL, @updatedAt, @version
+    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @dueTime, @status, @subtasks, @parentId, NULL, @updatedAt, @version
   )
   ON CONFLICT(id) DO UPDATE SET
     title = excluded.title,
@@ -102,6 +104,7 @@ const stmtUpsertTask = db.prepare(`
     categoryName = excluded.categoryName,
     priority = excluded.priority,
     dueAt = excluded.dueAt,
+    dueTime = excluded.dueTime,
     status = excluded.status,
     subtasks = excluded.subtasks,
     parentId = excluded.parentId,
@@ -147,6 +150,7 @@ const taskRoutes: FastifyPluginAsync = async (app) => {
       categoryName: item.categoryName ?? "default",
       priority: item.priority ?? "medium",
       dueAt: item.dueAt ?? null,
+      dueTime: item.dueTime ?? null,
       status: item.status ?? "todo",
       subtasks: JSON.stringify(normalizeSubtasks(item.subtasks)),
       parentId: item.parentId ?? null,

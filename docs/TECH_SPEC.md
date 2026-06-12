@@ -179,6 +179,7 @@
 - category_name: string
 - priority: enum(low, medium, high)
 - due_at: datetime?
+- due_time: string? (HH:mm, JSTローカル想定)
 - status: enum(todo, doing, done)
 - created_at, updated_at
 
@@ -226,6 +227,7 @@
 - categoryName: TEXT NOT NULL
 - priority: TEXT NOT NULL (low | medium | high)
 - dueAt: TEXT? (ISO 8601, UTC midnight `YYYY-MM-DDT00:00:00.000Z`)
+- dueTime: TEXT? (`HH:mm`, JSTローカル想定。dueAt未設定時はnull)
 - status: TEXT NOT NULL (todo | doing | done)
 - subtasks: TEXT NOT NULL DEFAULT '[]' (JSON, 再帰的ツリー構造)
 - parentId: TEXT? (フラットモデル用, subtasks JSONと共存)

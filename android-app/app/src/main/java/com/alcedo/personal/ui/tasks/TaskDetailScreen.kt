@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -50,7 +51,7 @@ class TaskDetailViewModel(app: Application, saved: SavedStateHandle) : AndroidVi
         }
     }
 
-    fun save(title: String, description: String, priority: String, dueAt: String?) {
+    fun save(title: String, description: String, priority: String, dueAt: String?, dueTime: String?) {
         val current = _task.value ?: return
         viewModelScope.launch {
             val updated = current.copy(
@@ -58,6 +59,7 @@ class TaskDetailViewModel(app: Application, saved: SavedStateHandle) : AndroidVi
                 description = description.trim().takeIf { it.isNotEmpty() },
                 priority = priority,
                 dueAt = dueAt?.takeIf { it.isNotEmpty() },
+                dueTime = dueTime?.takeIf { it.isNotEmpty() },
                 subtasks = _subtasks.value.filter { it.title.isNotBlank() }.toJsonString(),
                 syncStatus = SyncStatus.UNSENT,
                 updatedAt = Instant.now().toString(),
@@ -105,6 +107,9 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
                 ?.let { com.alcedo.personal.ui.util.TimeUtils.run { it.toLocalDateStr() } } ?: ""
         )
     }
+    var dueTime by remember(task) {
+        mutableStateOf(task?.dueTime?.takeIf { it != "null" } ?: "")
+    }
 
     LaunchedEffect(savedOk) { if (savedOk) onBack() }
 
@@ -114,7 +119,13 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
                 title = { Text("タスク詳細", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
                 actions = {
-                    TextButton(onClick = { vm.save(title, desc, priority, dueAt.takeIf { it.isNotEmpty() }?.let { "${it}T00:00:00.000Z" }) }) {
+                    TextButton(onClick = {
+                        vm.save(
+                            title, desc, priority,
+                            dueAt.takeIf { it.isNotEmpty() }?.let { "${it}T00:00:00.000Z" },
+                            dueTime.takeIf { it.isNotEmpty() }
+                        )
+                    }) {
                         Text("保存")
                     }
                 }
@@ -147,7 +158,13 @@ fun TaskDetailScreen(onBack: () -> Unit, vm: TaskDetailViewModel = viewModel()) 
                 }
             }
             item {
-                DueDateField(dueAt) { dueAt = it }
+                DueDateField(dueAt) {
+                    dueAt = it
+                    if (it.isEmpty()) dueTime = ""
+                }
+            }
+            item {
+                DueTimeField(dueTime, enabled = dueAt.isNotEmpty()) { dueTime = it }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -228,6 +245,67 @@ private fun DueDateField(dueAt: String, onChange: (String) -> Unit) {
             }
         ) {
             DatePicker(state = pickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DueTimeField(dueTime: String, enabled: Boolean, onChange: (String) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    val (initialHour, initialMinute) = remember(dueTime) {
+        dueTime.split(":").let { parts ->
+            if (parts.size == 2) {
+                val h = parts[0].toIntOrNull()
+                val m = parts[1].toIntOrNull()
+                if (h != null && m != null) h to m else 0 to 0
+            } else 0 to 0
+        }
+    }
+    val pickerState = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
+
+    Box(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = if (dueTime.isEmpty()) "未設定" else dueTime,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("時刻") },
+            enabled = enabled,
+            readOnly = true,
+            trailingIcon = {
+                if (dueTime.isNotEmpty()) {
+                    IconButton(onClick = { onChange("") }) {
+                        Icon(Icons.Default.Close, "クリア", Modifier.size(18.dp))
+                    }
+                }
+            }
+        )
+        if (enabled) {
+            // TextField上に透明なクリック領域を重ねて時刻ピッカーを開く
+            Box(Modifier.matchParentSize().clickable { showPicker = true })
+        }
+    }
+
+    if (showPicker) {
+        Dialog(onDismissRequest = { showPicker = false }) {
+            Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp) {
+                Column(
+                    Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    TimePicker(state = pickerState)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showPicker = false }) { Text("キャンセル") }
+                        TextButton(onClick = {
+                            val h = pickerState.hour.toString().padStart(2, '0')
+                            val m = pickerState.minute.toString().padStart(2, '0')
+                            onChange("$h:$m")
+                            showPicker = false
+                        }) { Text("OK") }
+                    }
+                }
+            }
         }
     }
 }

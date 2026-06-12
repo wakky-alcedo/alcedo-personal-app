@@ -17,7 +17,7 @@ class SyncStatusConverters {
 
 @Database(
     entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class, MemoEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(SyncStatusConverters::class)
@@ -28,6 +28,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memoDao(): MemoDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN dueTime TEXT")
+            }
+        }
+
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""

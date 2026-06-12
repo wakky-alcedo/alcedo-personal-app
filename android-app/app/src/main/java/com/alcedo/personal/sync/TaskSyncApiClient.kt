@@ -42,6 +42,7 @@ class TaskSyncApiClient(
                 categoryName = obj.optString("categoryName", "today"),
                 priority     = obj.optString("priority", "medium"),
                 dueAt        = obj.nullableString("dueAt"),
+                dueTime      = obj.nullableString("dueTime"),
                 status       = obj.optString("status", "todo"),
                 syncStatus   = SyncStatus.SYNCED,
                 deletedAt    = null,
@@ -91,6 +92,7 @@ class TaskSyncApiClient(
                             .put("categoryName", task.categoryName)
                             .put("priority", task.priority)
                             .put("dueAt", task.dueAt)
+                            .put("dueTime", task.dueTime)
                             .put("status", task.status)
                             .put("updatedAt", task.updatedAt)
                             .put("version", task.version)

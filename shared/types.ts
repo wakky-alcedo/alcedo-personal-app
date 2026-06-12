@@ -9,6 +9,7 @@ export type Task = {
   categoryName: string
   priority: 'low' | 'medium' | 'high'
   dueAt?: string | null
+  dueTime?: string | null
   status: 'todo' | 'doing' | 'done'
   deletedAt?: string | null
   updatedAt: string

@@ -13,9 +13,9 @@ function makeTestDb(): Db {
 
 const UPSERT_SQL = `
   INSERT INTO tasks (
-    id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, parentId, deletedAt, updatedAt, version
+    id, title, description, categoryType, categoryName, priority, dueAt, dueTime, status, subtasks, parentId, deletedAt, updatedAt, version
   ) VALUES (
-    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @status, @subtasks, @parentId, NULL, @updatedAt, @version
+    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @dueTime, @status, @subtasks, @parentId, NULL, @updatedAt, @version
   )
   ON CONFLICT(id) DO UPDATE SET
     title = excluded.title,
@@ -24,6 +24,7 @@ const UPSERT_SQL = `
     categoryName = excluded.categoryName,
     priority = excluded.priority,
     dueAt = excluded.dueAt,
+    dueTime = excluded.dueTime,
     status = excluded.status,
     subtasks = excluded.subtasks,
     parentId = excluded.parentId,
@@ -53,6 +54,7 @@ const BASE = {
   categoryName: 'dev',
   priority: 'medium',
   dueAt: null,
+  dueTime: null,
   status: 'todo',
   subtasks: '[]',
   parentId: null,
@@ -75,6 +77,18 @@ describe('upsert conflict resolution', () => {
     const row = getTask(db)
     expect(row?.title).toBe('Test Task')
     expect(row?.version).toBe(1)
+  })
+
+  it('stores and retrieves dueTime independently of dueAt', () => {
+    upsert(db, { dueAt: '2024-01-20T00:00:00.000Z', dueTime: '09:30', updatedAt: '2024-01-15T10:00:00.000Z', version: 1 })
+    const row = getTask(db)
+    expect(row?.dueAt).toBe('2024-01-20T00:00:00.000Z')
+    expect(row?.dueTime).toBe('09:30')
+  })
+
+  it('dueTime defaults to null when not provided', () => {
+    upsert(db, { updatedAt: '2024-01-15T10:00:00.000Z', version: 1 })
+    expect(getTask(db)?.dueTime).toBeNull()
   })
 
   it('higher version overwrites stored task', () => {

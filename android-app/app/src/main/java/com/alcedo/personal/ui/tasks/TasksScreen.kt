@@ -328,7 +328,8 @@ fun TaskListCard(task: TaskEntity, onToggleDone: () -> Unit, onTap: () -> Unit) 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     PriorityBadge(task.priority)
                     task.dueAt?.let {
-                        Text(it.toLocalDateStr(), style = MaterialTheme.typography.labelSmall,
+                        val label = it.toLocalDateStr() + (task.dueTime?.let { t -> " $t" } ?: "")
+                        Text(label, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
