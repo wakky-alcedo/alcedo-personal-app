@@ -179,8 +179,8 @@ private fun HabitsBlock(habits: List<HabitUiState>, vm: DashboardViewModel) {
 
 @Composable
 private fun HabitHeatmapContent(habits: List<HabitUiState>) {
-    val today   = LocalDate.now()
-    val days    = (59 downTo 0).map { today.minusDays(it.toLong()) }
+    val today   = com.alcedo.personal.ui.util.TimeUtils.effectiveLocalDate()
+    val days    = (DashboardViewModel.HEATMAP_DAYS - 1 downTo 0).map { today.minusDays(it.toLong()) }
     val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
     val cellSize = 12.dp
     val cellGap  = 2.dp
@@ -233,7 +233,7 @@ private fun HabitHeatmapContent(habits: List<HabitUiState>) {
                     days.forEachIndexed { i, day ->
                         if (i > 0 && i % 7 == 0) Spacer(Modifier.width(weekGap))
                         val dayStr  = day.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                        val isDone  = dayStr == todayStr && state.completedToday
+                        val isDone  = dayStr in state.completedDates
                         val isToday = dayStr == todayStr
                         Box(
                             Modifier

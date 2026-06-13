@@ -15,10 +15,16 @@ import java.time.format.DateTimeFormatter
 data class HabitUiState(
     val habit: HabitEntity,
     val completedToday: Boolean,
-    val streakDays: Int
+    val streakDays: Int,
+    val completedDates: Set<String>
 )
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
+    companion object {
+        /** 習慣ヒートマップ（HabitHeatmapContent）に表示する日数 */
+        const val HEATMAP_DAYS = 60
+    }
+
     private val db = DbProvider.get(app)
     private val taskDao = db.taskDao()
     private val beliefRepo = BeliefRepository(app, db.beliefDao())
@@ -61,10 +67,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun computeHabitStatus(habits: List<HabitEntity>): List<HabitUiState> {
         val today = today()
         val completedIds = db.habitDao().getCompletedHabitIds(today).toSet()
-        val from30 = daysAgo(30)
+        // ヒートマップ表示日数（HabitHeatmapContent の60日分）に合わせて取得
+        val fromHeatmap = daysAgo(HEATMAP_DAYS)
         return habits.map { habit ->
-            val logs = db.habitDao().getRecentLogs(habit.id, from30)
-            HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today))
+            val logs = db.habitDao().getRecentLogs(habit.id, fromHeatmap)
+            HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today), logs.toSet())
         }
     }
 
