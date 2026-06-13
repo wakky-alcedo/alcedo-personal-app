@@ -1,6 +1,13 @@
 package com.alcedo.personal.ui.settings
 
+import android.Manifest
 import android.app.Application
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
@@ -8,18 +15,30 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alcedo.personal.notifications.NotificationPrefs
+import com.alcedo.personal.notifications.TaskAlarmScheduler
+import com.alcedo.personal.notifications.TaskNotificationScheduler
 import com.alcedo.personal.sync.SyncConfig
 import com.alcedo.personal.sync.TaskSyncScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
@@ -32,6 +51,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved
 
+    val notificationsEnabled: StateFlow<Boolean> = NotificationPrefs.notificationsEnabled(app)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val alarmEnabled: StateFlow<Boolean> = NotificationPrefs.alarmEnabled(app)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val reminderMinutes: StateFlow<Int> = NotificationPrefs.reminderMinutes(app)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NotificationPrefs.DEFAULT_REMINDER_MINUTES)
+
     fun setServerUrl(v: String) { _serverUrl.value = v; _saved.value = false }
     fun setApiKey(v: String)    { _apiKey.value = v;    _saved.value = false }
 
@@ -43,6 +69,24 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun syncNow() { TaskSyncScheduler.enqueue(getApplication()) }
+
+    fun setNotificationsEnabled(value: Boolean) {
+        viewModelScope.launch {
+            NotificationPrefs.setNotificationsEnabled(getApplication(), value)
+            if (value) TaskNotificationScheduler.runOnce(getApplication())
+        }
+    }
+
+    fun setAlarmEnabled(value: Boolean) {
+        viewModelScope.launch { NotificationPrefs.setAlarmEnabled(getApplication(), value) }
+    }
+
+    fun setReminderMinutes(value: Int) {
+        viewModelScope.launch {
+            NotificationPrefs.setReminderMinutes(getApplication(), value)
+            TaskNotificationScheduler.runOnce(getApplication())
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +100,10 @@ fun SettingsScreen(
     val apiKey    by vm.apiKey.collectAsStateWithLifecycle()
     val saved     by vm.saved.collectAsStateWithLifecycle()
     var showKey   by remember { mutableStateOf(false) }
+
+    val notificationsEnabled by vm.notificationsEnabled.collectAsStateWithLifecycle()
+    val alarmEnabled         by vm.alarmEnabled.collectAsStateWithLifecycle()
+    val reminderMinutes      by vm.reminderMinutes.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("設定", fontWeight = FontWeight.Bold) }) }
@@ -85,6 +133,18 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
+            // ─── タスク期限通知 ───────────────────────────────────────────────
+            NotificationSettingsSection(
+                enabled = notificationsEnabled,
+                onEnabledChange = vm::setNotificationsEnabled,
+                alarmEnabled = alarmEnabled,
+                onAlarmEnabledChange = vm::setAlarmEnabled,
+                reminderMinutes = reminderMinutes,
+                onReminderMinutesChange = vm::setReminderMinutes,
+            )
+
+            HorizontalDivider()
+
             // ─── データ管理 ────────────────────────────────────────────────────
             Text("データ管理", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
@@ -101,6 +161,95 @@ private fun NavRow(label: String, onClick: () -> Unit) {
             Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
             Icon(Icons.Default.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun NotificationSettingsSection(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    alarmEnabled: Boolean,
+    onAlarmEnabledChange: (Boolean) -> Unit,
+    reminderMinutes: Int,
+    onReminderMinutesChange: (Int) -> Unit,
+) {
+    val context = LocalContext.current
+    var permissionGranted by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> permissionGranted = granted }
+
+    var exactAlarmGranted by remember { mutableStateOf(TaskAlarmScheduler.canScheduleExactAlarms(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                exactAlarmGranted = TaskAlarmScheduler.canScheduleExactAlarms(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    var reminderText by remember(reminderMinutes) { mutableStateOf(reminderMinutes.toString()) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("タスク期限通知", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("通知を有効化", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enabled, onCheckedChange = onEnabledChange)
+        }
+
+        OutlinedTextField(
+            value = reminderText,
+            onValueChange = { text ->
+                reminderText = text
+                val n = text.toIntOrNull()
+                if (n != null && n > 0) onReminderMinutesChange(n)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("何分前に通知") },
+            supportingText = { Text("${NotificationPrefs.MIN_REMINDER_MINUTES}分以上を指定してください(期限チェックは15分間隔のため)") },
+            enabled = enabled,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("アラーム音を鳴らす", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = alarmEnabled, onCheckedChange = onAlarmEnabledChange, enabled = enabled)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && enabled && !permissionGranted) {
+            Text(
+                "通知を表示するには許可が必要です。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            OutlinedButton(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
+                Text("通知を許可する")
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && enabled && !exactAlarmGranted) {
+            Text(
+                "誤差1分程度で通知するには「アラームとリマインダー」の許可が必要です。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            OutlinedButton(onClick = {
+                context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+            }) {
+                Text("アラームを許可する")
+            }
         }
     }
 }

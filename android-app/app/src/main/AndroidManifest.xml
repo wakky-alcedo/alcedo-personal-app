@@ -7,6 +7,12 @@
     <!-- スマホ使用時間取得（特別アクセス許可が必要） -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- タスク期限通知（Android 13+） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- タスク期限通知を誤差1分程度で表示するための正確なアラーム（Android 12+、ユーザー許可が必要） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 再起動後に期限アラームを再登録するため -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".AlcedoApplication"
@@ -40,6 +46,18 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".notifications.TaskDueAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".notifications.BootCompletedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

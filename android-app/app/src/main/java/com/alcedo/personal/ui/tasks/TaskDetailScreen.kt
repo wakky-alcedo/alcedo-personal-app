@@ -26,6 +26,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alcedo.personal.notifications.TaskNotificationScheduler
 import com.alcedo.personal.sync.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -67,6 +68,7 @@ class TaskDetailViewModel(app: Application, saved: SavedStateHandle) : AndroidVi
             )
             dao.upsert(updated)
             TaskSyncScheduler.enqueue(getApplication())
+            TaskNotificationScheduler.runOnce(getApplication())
             _task.value = updated
             _saved.value = true
         }

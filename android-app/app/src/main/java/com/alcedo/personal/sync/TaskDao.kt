@@ -35,4 +35,7 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY updatedAt DESC")
     fun observeActiveTasks(): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE deletedAt IS NULL AND status != 'done' AND dueAt IS NOT NULL AND dueTime IS NOT NULL")
+    suspend fun findTasksWithDueDate(): List<TaskEntity>
 }
