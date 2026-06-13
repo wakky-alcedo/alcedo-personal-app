@@ -95,10 +95,16 @@ class TaskDueCheckWorker(
             PackageManager.PERMISSION_GRANTED
     }
 
-    @SuppressLint("MissingPermission")
     private fun showNotification(task: TaskEntity, alarmEnabled: Boolean) {
-        val channelId = if (alarmEnabled) TaskNotificationChannels.CHANNEL_ALARM else TaskNotificationChannels.CHANNEL_REMINDER
+        if (alarmEnabled) {
+            AlarmRingingService.start(applicationContext, task.id, task.title, task.dueTime)
+            return
+        }
+        showReminderNotification(task)
+    }
 
+    @SuppressLint("MissingPermission")
+    private fun showReminderNotification(task: TaskEntity) {
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -107,11 +113,11 @@ class TaskDueCheckWorker(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, channelId)
+        val notification = NotificationCompat.Builder(applicationContext, TaskNotificationChannels.CHANNEL_REMINDER)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("タスク期限通知")
             .setContentText("「${task.title}」の期限が近づいています(${task.dueTime})")
-            .setPriority(if (alarmEnabled) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()

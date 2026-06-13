@@ -1,5 +1,6 @@
 package com.alcedo.personal.notifications
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -25,8 +26,10 @@ object TaskNotificationChannels {
         val alarm = NotificationChannel(
             CHANNEL_ALARM, "タスク期限アラーム", NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "タスクの期限が近づいたときのアラーム通知（音・バイブ）"
-            enableVibration(true)
+            description = "タスクの期限が近づいたときの全画面アラーム通知（音・バイブはサービスが再生）"
+            setSound(null, null)
+            enableVibration(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
         manager.createNotificationChannel(reminder)

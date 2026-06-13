@@ -2,8 +2,10 @@ package com.alcedo.personal.ui.settings
 
 import android.Manifest
 import android.app.Application
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -187,11 +189,13 @@ private fun NotificationSettingsSection(
     ) { granted -> permissionGranted = granted }
 
     var exactAlarmGranted by remember { mutableStateOf(TaskAlarmScheduler.canScheduleExactAlarms(context)) }
+    var fullScreenIntentGranted by remember { mutableStateOf(canUseFullScreenIntent(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 exactAlarmGranted = TaskAlarmScheduler.canScheduleExactAlarms(context)
+                fullScreenIntentGranted = canUseFullScreenIntent(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -251,5 +255,29 @@ private fun NotificationSettingsSection(
                 Text("アラームを許可する")
             }
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && enabled && alarmEnabled && !fullScreenIntentGranted) {
+            Text(
+                "アラーム画面をロック画面上に表示するには許可が必要です。許可がない場合も通知から停止できます。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            OutlinedButton(onClick = {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                )
+            }) {
+                Text("全画面表示を許可する")
+            }
+        }
     }
+}
+
+/** Android 14+ で全画面アラーム画面の表示が許可されているか(13以下は宣言のみで自動許可) */
+private fun canUseFullScreenIntent(context: android.content.Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+    val manager = context.getSystemService(NotificationManager::class.java)
+    return manager.canUseFullScreenIntent()
 }

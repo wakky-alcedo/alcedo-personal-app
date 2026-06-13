@@ -491,11 +491,13 @@
 - 正確なタイミング通知（誤差1分程度）: `TaskDueCheckWorker`は、まだ通知ウィンドウに入っていないタスクについて「ウィンドウに入る時刻(=期限-reminderMinutes)」に`TaskAlarmScheduler`で`AlarmManager.setExactAndAllowWhileIdle`の正確なアラームを登録する。アラーム発火時は`TaskDueAlarmReceiver`が該当タスク1件分の`TaskDueCheckWorker`をWorkManagerに一回実行で投入し、即時に通知を表示する。15分周期チェックはフォールバック（アラーム権限なし時・キープルーニング等）として継続動作
   - 要件: Android 12+ では `SCHEDULE_EXACT_ALARM` 権限のユーザー許可が必要（`AlarmManager.canScheduleExactAlarms()`、設定画面に許可リクエストボタンを表示）。未許可の場合は15分周期チェックのみにフォールバック
   - 再起動対応: `AlarmManager`の登録アラームは再起動で消えるため、`BootCompletedReceiver`（`ACTION_BOOT_COMPLETED`）が`TaskNotificationScheduler.runOnce()`を呼び再登録する
-- 通知方法: `NotificationManagerCompat` でローカル通知を表示。チャンネルは「タスク期限通知」（無音/`IMPORTANCE_DEFAULT`）と「タスク期限アラーム」（音・バイブ/`IMPORTANCE_HIGH`）の2系統
+- 通知方法: `NotificationManagerCompat` でローカル通知を表示。チャンネルは「タスク期限通知」（無音/`IMPORTANCE_DEFAULT`）と「タスク期限アラーム」（`IMPORTANCE_HIGH`、音・バイブはチャンネルでなく`AlarmRingingService`が制御）の2系統
 - 設定（`NotificationPrefs.kt`、DataStore に保存、いずれもデフォルトOFF/30分）:
   - 通知を有効化（全体ON/OFF）
   - 何分前に通知（`reminderMinutes`、デフォルト30分、最小15分。WorkManagerの15分周期チェックの間に通知対象期間が丸ごと抜け落ちるのを防ぐため`NotificationPrefs.setReminderMinutes`で15分未満をクランプ）
-  - アラーム音を鳴らす（ON時は上記アラームチャンネルへ通知）
+  - アラーム音を鳴らす（ON時は通知の代わりに`AlarmRingingService`を起動し、全画面の鳴動画面+ループ再生で知らせる）
+- アラーム鳴動（`AlarmRingingService.kt`/`ui/alarm/AlarmActivity.kt`）: `alarmEnabled`時、`TaskDueCheckWorker`は通知の代わりにフォアグラウンドサービス`AlarmRingingService`を起動する。サービスは`MediaPlayer`(`USAGE_ALARM`、システムのアラーム音、ループ)とバイブ(`VibrationEffect`ループ)を再生し、「停止」アクション付きの`CHANNEL_ALARM`通知(`setFullScreenIntent`)を表示。全画面表示許可があれば`ui/alarm/AlarmActivity`をロック画面上にも直接起動し、タスク名・期限時刻と大きな「停止」ボタンを表示する。停止操作で再生・通知を停止
+  - Android 14+ では全画面表示(`USE_FULL_SCREEN_INTENT`)にユーザー許可が必要（`NotificationManager.canUseFullScreenIntent()`、設定画面に許可リクエストボタンを表示）。未許可でも音・バイブ・ヘッドアップ通知の「停止」アクションは動作する
 - Android 13+ では `POST_NOTIFICATIONS` 権限が必要。設定画面（`SettingsScreen.kt`）に許可状態表示と許可リクエストボタンを表示
 - 通知済みタスクは DataStore にキー（`taskId:dueAt:dueTime`）を記録し再通知を防止。期限編集で再通知される
 
