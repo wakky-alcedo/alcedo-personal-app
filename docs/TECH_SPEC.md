@@ -494,7 +494,7 @@
 - 通知方法: `NotificationManagerCompat` でローカル通知を表示。チャンネルは「タスク期限通知」（無音/`IMPORTANCE_DEFAULT`）と「タスク期限アラーム」（`IMPORTANCE_HIGH`、音・バイブはチャンネルでなく`AlarmRingingService`が制御）の2系統
 - 設定（`NotificationPrefs.kt`、DataStore に保存、いずれもデフォルトOFF/30分）:
   - 通知を有効化（全体ON/OFF）
-  - 何分前に通知（`reminderMinutes`、デフォルト30分、最小15分。WorkManagerの15分周期チェックの間に通知対象期間が丸ごと抜け落ちるのを防ぐため`NotificationPrefs.setReminderMinutes`で15分未満をクランプ）
+  - 何分前に通知（`reminderMinutes`、デフォルト30分、最小1分。`TaskAlarmScheduler`の正確なアラームにより15分周期チェックに依存しないため、15分未満も指定可能）
   - アラーム音を鳴らす（ON時は通知の代わりに`AlarmRingingService`を起動し、全画面の鳴動画面+ループ再生で知らせる）
 - アラーム鳴動（`AlarmRingingService.kt`/`ui/alarm/AlarmActivity.kt`）: `alarmEnabled`時、`TaskDueCheckWorker`は通知の代わりにフォアグラウンドサービス`AlarmRingingService`を起動する。サービスは`MediaPlayer`(`USAGE_ALARM`、システムのアラーム音、ループ)とバイブ(`VibrationEffect`ループ)を再生し、「停止」アクション付きの`CHANNEL_ALARM`通知(`setFullScreenIntent`)を表示。全画面表示許可があれば`ui/alarm/AlarmActivity`をロック画面上にも直接起動し、タスク名・期限時刻と大きな「停止」ボタンを表示する。停止操作で再生・通知を停止
   - Android 14+ では全画面表示(`USE_FULL_SCREEN_INTENT`)にユーザー許可が必要（`NotificationManager.canUseFullScreenIntent()`、設定画面に許可リクエストボタンを表示）。未許可でも音・バイブ・ヘッドアップ通知の「停止」アクションは動作する

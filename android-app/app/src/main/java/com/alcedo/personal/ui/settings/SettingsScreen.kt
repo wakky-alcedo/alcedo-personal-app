@@ -221,7 +221,6 @@ private fun NotificationSettingsSection(
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("何分前に通知") },
-            supportingText = { Text("${NotificationPrefs.MIN_REMINDER_MINUTES}分以上を指定してください(期限チェックは15分間隔のため)") },
             enabled = enabled,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)

@@ -16,13 +16,6 @@ private val Context.notificationDataStore by preferencesDataStore(name = "notifi
 object NotificationPrefs {
     const val DEFAULT_REMINDER_MINUTES = 30
 
-    /**
-     * 通知タイミングの最小値。
-     * 期限チェックはWorkManagerの15分周期で行われるため、これより小さい値だと
-     * 「通知すべき時間帯」が2回のチェックの間に丸ごと抜け落ち、通知が来ないことがある。
-     */
-    val MIN_REMINDER_MINUTES = TaskNotificationScheduler.INTERVAL_MINUTES.toInt()
-
     private val notificationsEnabledKey = booleanPreferencesKey("notifications_enabled")
     private val alarmEnabledKey = booleanPreferencesKey("alarm_enabled")
     private val reminderMinutesKey = intPreferencesKey("reminder_minutes")
@@ -58,8 +51,7 @@ object NotificationPrefs {
     }
 
     suspend fun setReminderMinutes(context: Context, value: Int) {
-        val clamped = value.coerceAtLeast(MIN_REMINDER_MINUTES)
-        context.notificationDataStore.edit { it[reminderMinutesKey] = clamped }
+        context.notificationDataStore.edit { it[reminderMinutesKey] = value.coerceAtLeast(1) }
     }
 
     suspend fun setNotifiedKeys(context: Context, keys: Set<String>) {
