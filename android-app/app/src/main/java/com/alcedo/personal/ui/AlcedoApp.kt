@@ -1,5 +1,6 @@
 package com.alcedo.personal.ui
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -63,8 +65,12 @@ fun AlcedoApp() {
                 }
             }
         }
-    ) { _ ->
-        NavHost(navController, startDestination = "dashboard") {
+    ) { innerPadding ->
+        NavHost(
+            navController,
+            startDestination = "dashboard",
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
             composable("dashboard") {
                 DashboardScreen(onNavigateToTask = { taskId -> navController.navigate("tasks/$taskId") })
             }
