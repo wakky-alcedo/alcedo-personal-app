@@ -24,6 +24,6 @@ interface MemoDao {
     @Update
     suspend fun updateAll(memos: List<MemoEntity>)
 
-    @Query("SELECT * FROM memos WHERE deletedAt IS NULL ORDER BY createdAt DESC")
+    @Query("SELECT * FROM memos WHERE deletedAt IS NULL ORDER BY createdAt ASC")
     fun observeActiveMemos(): Flow<List<MemoEntity>>
 }

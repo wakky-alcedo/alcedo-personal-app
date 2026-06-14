@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { getMemos, createMemo, updateMemo, deleteMemo, type Memo } from '../api.ts'
 import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 import { useToast } from '../contexts/ToastContext.tsx'
@@ -6,11 +6,7 @@ import { useToast } from '../contexts/ToastContext.tsx'
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso)
-    const now = new Date()
-    const diffH = (now.getTime() - d.getTime()) / 3600000
-    if (diffH < 1) return `${Math.floor(diffH * 60)}分前`
-    if (diffH < 24) return `${Math.floor(diffH)}時間前`
-    return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   } catch {
     return iso.slice(0, 16)
   }
@@ -136,43 +132,35 @@ function MemoCard({
   )
 }
 
-function MemoForm({
-  sourceUrl,
-  sourceTitle,
-  onSave,
-  onCancel,
-}: {
-  sourceUrl?: string | null
-  sourceTitle?: string | null
-  onSave: (body: string) => void
-  onCancel: () => void
-}) {
+function MemoInputBar({ onSend }: { onSend: (body: string) => void }) {
   const [body, setBody] = useState('')
+
+  function submit() {
+    const trimmed = body.trim()
+    if (!trimmed) return
+    onSend(trimmed)
+    setBody('')
+  }
+
   return (
-    <div className="memo-form-overlay" onClick={onCancel}>
-      <div className="memo-form" onClick={e => e.stopPropagation()}>
-        <h3>新しいメモ</h3>
-        {sourceUrl && <LinkPreview url={sourceUrl} title={sourceTitle} />}
-        <textarea
-          className="memo-textarea"
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          placeholder="コメントを入力..."
-          autoFocus
-          rows={5}
-        />
-        <div className="memo-form-actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>キャンセル</button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => { if (body.trim()) { onSave(body.trim()); } }}
-            disabled={!body.trim()}
-          >
-            メモを保存
-          </button>
-        </div>
-      </div>
+    <div className="memo-input-bar">
+      <textarea
+        className="memo-input-textarea"
+        value={body}
+        onChange={e => setBody(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            submit()
+          }
+        }}
+        placeholder="メモを入力... (Shift+Enterで改行)"
+        rows={1}
+        autoFocus
+      />
+      <button type="button" className="btn btn-primary" onClick={submit} disabled={!body.trim()}>
+        送信
+      </button>
     </div>
   )
 }
@@ -182,9 +170,13 @@ export default function MemosPage() {
   const { toast } = useToast()
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(false)
-  const [showNew, setShowNew] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { refresh() }, [serverUrl, apiKey])
+
+  useEffect(() => {
+    if (!loading) bottomRef.current?.scrollIntoView({ block: 'end' })
+  }, [memos.length, loading])
 
   async function refresh() {
     setLoading(true)
@@ -201,7 +193,6 @@ export default function MemosPage() {
     try {
       await createMemo(serverUrl, apiKey, body)
       await refresh()
-      setShowNew(false)
     } catch {
       toast.error('メモの保存に失敗しました')
     }
@@ -226,7 +217,6 @@ export default function MemosPage() {
     <main className="memos-page">
       <div className="memos-header">
         <h2>メモ</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setShowNew(true)}>＋ 新規メモ</button>
       </div>
 
       {loading && <p className="loading-text">読み込み中...</p>}
@@ -235,15 +225,12 @@ export default function MemosPage() {
         <div className="memos-empty">
           <p className="memos-empty-icon">📝</p>
           <p>メモがまだありません</p>
-          <p className="memos-empty-sub">記事を共有するか、＋から追加</p>
-          <button type="button" className="btn btn-primary" onClick={() => setShowNew(true)}>
-            最初のメモを追加
-          </button>
+          <p className="memos-empty-sub">下の入力欄から最初のメモを追加</p>
         </div>
       )}
 
       <div className="memo-list">
-        {memos.map(memo => (
+        {[...memos].reverse().map(memo => (
           <MemoCard
             key={memo.id}
             memo={memo}
@@ -251,14 +238,10 @@ export default function MemosPage() {
             onDelete={() => handleDelete(memo)}
           />
         ))}
+        <div ref={bottomRef} />
       </div>
 
-      {showNew && (
-        <MemoForm
-          onSave={handleCreate}
-          onCancel={() => setShowNew(false)}
-        />
-      )}
+      <MemoInputBar onSend={handleCreate} />
     </main>
   )
 }
