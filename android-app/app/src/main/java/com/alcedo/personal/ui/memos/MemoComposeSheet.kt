@@ -32,15 +32,13 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoComposeSheet(
-    initialBody: String = "",
     sourceUrl: String? = null,
     sourceTitle: String? = null,
-    isEdit: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (body: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
-    var body by remember { mutableStateOf(initialBody) }
+    var body by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
     ModalBottomSheet(
@@ -56,7 +54,7 @@ fun MemoComposeSheet(
         ) {
             LaunchedEffect(Unit) { focusRequester.requestFocus() }
             Text(
-                text = if (isEdit) "メモを編集" else "記事にメモを追加",
+                text = "記事にメモを追加",
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -95,7 +93,7 @@ fun MemoComposeSheet(
                     },
                     enabled = body.isNotBlank()
                 ) {
-                    Text(if (isEdit) "更新する" else "メモを保存")
+                    Text("メモを保存")
                 }
             }
         }

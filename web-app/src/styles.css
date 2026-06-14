@@ -387,6 +387,7 @@ a.memo-link-preview:hover { background: #eaeef4; }
   resize: vertical; outline: none; font-family: inherit; margin-top: 10px;
 }
 .memo-textarea:focus { border-color: #4757ff; }
+.memo-textarea--auto { resize: none; overflow: hidden; }
 
 /* ─── メモ入力バー（チャット風） ───────────────────────────── */
 .memo-input-bar {

@@ -60,6 +60,15 @@ function MemoCard({
   const [body, setBody] = useState(memo.body)
   const { toast } = useToast()
   const url = memo.sourceUrl ?? extractUrl(memo.body)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (editing && el) {
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }
+  }, [editing, body])
 
   async function saveEdit() {
     const trimmed = body.trim()
@@ -98,7 +107,8 @@ function MemoCard({
       </div>
       {editing ? (
         <textarea
-          className="memo-textarea"
+          ref={textareaRef}
+          className="memo-textarea memo-textarea--auto"
           value={body}
           onChange={e => setBody(e.target.value)}
           onBlur={saveEdit}

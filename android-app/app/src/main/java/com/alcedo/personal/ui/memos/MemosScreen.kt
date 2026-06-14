@@ -151,11 +151,8 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
     }
 
     editingMemo?.let { memo ->
-        MemoComposeSheet(
-            initialBody = memo.body,
-            sourceUrl = memo.sourceUrl,
-            sourceTitle = memo.sourceTitle,
-            isEdit = true,
+        MemoEditScreen(
+            memo = memo,
             onDismiss = { editingMemo = null },
             onSave = { body -> vm.update(memo.id, body) }
         )
