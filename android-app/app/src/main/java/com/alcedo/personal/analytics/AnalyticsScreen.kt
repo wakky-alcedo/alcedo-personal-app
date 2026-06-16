@@ -53,7 +53,7 @@ data class AppUsage(val appName: String, val packageName: String, val totalSec: 
 
 class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _date    = MutableStateFlow(TimeUtils.effectiveLocalDateStr())
-    private val _tab     = MutableStateFlow(0)  // 0=タイムライン, 1=活動, 2=習慣
+    private val _tab     = MutableStateFlow(0)  // 0=タイムライン(統合), 1=習慣
     private val _loading = MutableStateFlow(false)
     private val _syncing = MutableStateFlow(false)
     private val _hasUsagePerm = MutableStateFlow(false)
@@ -285,72 +285,104 @@ fun AnalyticsScreen(vm: AnalyticsViewModel = viewModel()) {
                 Text(date, style = MaterialTheme.typography.titleMedium)
                 IconButton(onClick = { vm.nextDay() }) { Text("›", fontSize = 24.sp) }
             }
-            // タブ（0=タイムライン, 1=活動, 2=習慣）
+            // タブ（0=タイムライン(統合), 1=習慣）
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { vm.setTab(0) }, text = { Text("タイムライン") })
-                Tab(selected = tab == 1, onClick = { vm.setTab(1) }, text = { Text("活動") })
-                Tab(selected = tab == 2, onClick = { vm.setTab(2) }, text = { Text("習慣") })
+                Tab(selected = tab == 1, onClick = { vm.setTab(1) }, text = { Text("習慣") })
             }
             // コンテンツ
             when (tab) {
-                0 -> TimelineTab(timelineSegments, colorFor, dayStartMs(date))
-                1 -> ActivityTab(activityDevice, availableDevices, activitySummary, topApps,
-                    hasUsagePerm, colorFor, context, vm)
-                2 -> HabitsTab(habitStats)
+                0 -> TimelineTab(timelineSegments, colorFor, dayStartMs(date), activityDevice,
+                    availableDevices, activitySummary, topApps, hasUsagePerm, context, vm)
+                1 -> HabitsTab(habitStats)
             }
         }
     }
 }
 
-// ─── 活動タブ ──────────────────────────────────────────────────────────────────
+// ─── タイムラインタブ（タイムライン＋活動 統合） ────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ActivityTab(
+private fun TimelineTab(
+    segments: List<TimelineSegment>,
+    colorFor: (String) -> Color,
+    dayStartMs: Long,
     selectedDevice: String,
     devices: List<String>,
     summary: List<CategoryDuration>,
     topApps: List<AppUsage>,
     hasUsagePerm: Boolean,
-    colorFor: (String) -> Color,
     context: Context,
     vm: AnalyticsViewModel
 ) {
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // デバイス切り替え
         if (devices.isNotEmpty()) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    DeviceChip("すべて", selectedDevice == "all") { vm.setActivityDevice("all") }
-                    devices.forEach { d ->
-                        DeviceChip(d.take(14), selectedDevice == d) { vm.setActivityDevice(d) }
-                    }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                DeviceChip("すべて", selectedDevice == "all") { vm.setActivityDevice("all") }
+                devices.forEach { d ->
+                    DeviceChip(d.take(14), selectedDevice == d) { vm.setActivityDevice(d) }
                 }
             }
         }
         // 使用許可チェック
         if (!hasUsagePerm) {
-            item {
-                OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("スマホ使用時間の許可が必要です（タップして設定へ）", fontSize = 12.sp)
+            OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                modifier = Modifier.fillMaxWidth()) {
+                Text("スマホ使用時間の許可が必要です（タップして設定へ）", fontSize = 12.sp)
+            }
+        }
+
+        if (segments.isEmpty() && summary.isEmpty()) {
+            EmptyCard("データがありません\n同期ボタンを押してください")
+        } else {
+            // タイムライン（横方向・ピンチで拡大縮小）
+            if (segments.isNotEmpty()) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("タイムライン", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        HorizontalDayTimeline(segments, colorFor, dayStartMs)
+                        // 凡例
+                        val cats = segments.map { it.category }.distinct()
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            cats.forEach { cat ->
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Box(Modifier.size(12.dp).background(colorFor(cat), RoundedCornerShape(3.dp)))
+                                    Text(cat, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        }
-        // カテゴリ別サマリー
-        if (summary.isNotEmpty()) {
-            item { SummaryCard("カテゴリ別時間", summary, colorFor) }
-        } else {
-            item { EmptyCard("データがありません\n同期ボタンを押してください") }
-        }
-        // 上位アプリ（スマホデバイス選択時）
-        if (topApps.isNotEmpty()) {
-            item { Text("上位アプリ", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
-            items(topApps) { app ->
-                AppUsageRow(app, topApps.first().totalSec)
+            // 作業時間配分（円グラフ）
+            if (summary.isNotEmpty()) {
+                val total = summary.sumOf { it.durationSec }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                            Text("作業時間配分", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text("合計 ${formatDuration(total)}", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        ActivityPieChart(summary, colorFor, Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            // 上位アプリ（スマホデバイス選択時）
+            if (topApps.isNotEmpty()) {
+                Text("上位アプリ", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                topApps.forEach { app -> AppUsageRow(app, topApps.first().totalSec) }
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -358,41 +390,6 @@ private fun ActivityTab(
 private fun DeviceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(selected = selected, onClick = onClick,
         label = { Text(label, fontSize = 12.sp) })
-}
-
-// ─── タイムラインタブ ─────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TimelineTab(segments: List<TimelineSegment>, colorFor: (String) -> Color, dayStartMs: Long) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (segments.isEmpty()) {
-            EmptyCard("データがありません\n同期ボタンを押してください")
-        } else {
-            VerticalDayTimeline(segments, colorFor, dayStartMs)
-            Spacer(Modifier.height(8.dp))
-            // 凡例
-            val cats = segments.map { it.category }.distinct()
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("凡例", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        cats.forEach { cat ->
-                            Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Box(Modifier.size(12.dp).background(colorFor(cat), RoundedCornerShape(3.dp)))
-                                Text(cat, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-    }
 }
 
 // ─── 習慣タブ ────────────────────────────────────────────────────────────────
@@ -411,35 +408,6 @@ private fun HabitsTab(habitStats: List<Pair<String, Float>>) {
 }
 
 // ─── 共通コンポーネント ──────────────────────────────────────────────────────
-
-@Composable
-private fun SummaryCard(title: String, data: List<CategoryDuration>, colorFor: (String) -> Color) {
-    val total = data.sumOf { it.durationSec }.coerceAtLeast(1L)
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                Text(title, style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text("合計 ${formatDuration(total)}", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            data.forEach { (cat, sec) ->
-                val fraction = sec.toFloat() / total
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                        Text(cat, fontSize = 12.sp)
-                        Text(formatDuration(sec), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)) {
-                        Box(Modifier.fillMaxWidth(fraction).height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)).background(colorFor(cat)))
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun AppUsageRow(app: AppUsage, maxSec: Long) {
@@ -486,7 +454,7 @@ private fun EmptyCard(message: String) {
     }
 }
 
-private fun formatDuration(sec: Long): String {
+fun formatDuration(sec: Long): String {
     val h = sec / 3600; val m = (sec % 3600) / 60
     return when { h > 0 && m > 0 -> "${h}h${m}m"; h > 0 -> "${h}h"; else -> "${m}m" }
 }
