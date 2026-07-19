@@ -1,5 +1,6 @@
 package com.alcedo.personal.ui.memos
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,7 +42,15 @@ fun MemoEditScreen(
 ) {
     var memo by remember { mutableStateOf<MemoEntity?>(null) }
     var body by remember { mutableStateOf("") }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+
+    val hasUnsavedChanges = memo != null && body != memo?.body
+    val requestClose = {
+        if (hasUnsavedChanges) showDiscardDialog = true else onBack()
+    }
+
+    BackHandler(enabled = hasUnsavedChanges) { showDiscardDialog = true }
 
     LaunchedEffect(memoId) {
         val loaded = vm.getMemo(memoId)
@@ -52,13 +62,34 @@ fun MemoEditScreen(
         }
     }
 
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("変更を破棄しますか？") },
+            text = { Text("保存していない変更があります。破棄して戻りますか？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    onBack()
+                }) {
+                    Text("破棄")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text("キャンセル")
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = { Text("メモを編集") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = requestClose) {
                         Icon(Icons.Default.Close, "閉じる")
                     }
                 },
