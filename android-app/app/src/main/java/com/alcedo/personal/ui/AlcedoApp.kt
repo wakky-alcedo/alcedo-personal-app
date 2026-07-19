@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.alcedo.personal.analytics.AnalyticsScreen
 import com.alcedo.personal.ui.dashboard.DashboardScreen
+import com.alcedo.personal.ui.memos.MemoEditScreen
 import com.alcedo.personal.ui.memos.MemosScreen
 import com.alcedo.personal.ui.tasks.TasksScreen
 import com.alcedo.personal.ui.settings.BeliefsManagementScreen
@@ -77,7 +78,18 @@ fun AlcedoApp() {
             composable("tasks") {
                 TasksScreen(onNavigateToDetail = { taskId -> navController.navigate("tasks/$taskId") })
             }
-            composable("memos") { MemosScreen() }
+            composable("memos") {
+                MemosScreen(onNavigateToEdit = { memoId -> navController.navigate("memos/$memoId") })
+            }
+            composable(
+                "memos/{memoId}",
+                arguments = listOf(navArgument("memoId") { type = NavType.StringType })
+            ) { backStack ->
+                MemoEditScreen(
+                    memoId = backStack.arguments?.getString("memoId") ?: "",
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable("analytics") { AnalyticsScreen() }
             composable(
                 "tasks/{taskId}",

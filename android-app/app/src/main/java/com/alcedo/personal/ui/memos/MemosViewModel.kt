@@ -28,6 +28,8 @@ class MemosViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.create(body, sourceUrl, sourceTitle) }
     }
 
+    suspend fun getMemo(id: String): MemoEntity? = repo.getById(id)
+
     fun update(id: String, body: String) {
         if (body.isBlank()) return
         viewModelScope.launch { repo.update(id, body) }

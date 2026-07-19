@@ -1,5 +1,6 @@
 package com.alcedo.personal.ui.memos
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,55 +23,73 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.sync.MemoEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoEditScreen(
-    memo: MemoEntity,
-    onDismiss: () -> Unit,
-    onSave: (body: String) -> Unit
+    memoId: String,
+    onBack: () -> Unit,
+    vm: MemosViewModel = viewModel()
 ) {
-    var body by remember { mutableStateOf(memo.body) }
+    var memo by remember { mutableStateOf<MemoEntity?>(null) }
+    var body by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text("メモを編集") },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, "閉じる")
-                        }
-                    },
-                    actions = {
-                        TextButton(
-                            onClick = {
-                                val trimmed = body.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    onSave(trimmed)
-                                    onDismiss()
-                                }
-                            },
-                            enabled = body.isNotBlank()
-                        ) {
-                            Text("保存")
-                        }
+    LaunchedEffect(memoId) {
+        val loaded = vm.getMemo(memoId)
+        if (loaded == null) {
+            onBack()
+        } else {
+            memo = loaded
+            body = loaded.body
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("メモを編集") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.Close, "閉じる")
                     }
-                )
+                },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            val trimmed = body.trim()
+                            if (trimmed.isNotEmpty()) {
+                                vm.update(memoId, trimmed)
+                                onBack()
+                            }
+                        },
+                        enabled = memo != null && body.isNotBlank()
+                    ) {
+                        Text("保存")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        val loaded = memo
+        if (loaded == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
-        ) { padding ->
+        } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -79,10 +99,10 @@ fun MemoEditScreen(
             ) {
                 LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-                if (memo.sourceUrl != null) {
+                if (loaded.sourceUrl != null) {
                     LinkPreviewCard(
-                        url = memo.sourceUrl,
-                        title = memo.sourceTitle,
+                        url = loaded.sourceUrl,
+                        title = loaded.sourceTitle,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                 }

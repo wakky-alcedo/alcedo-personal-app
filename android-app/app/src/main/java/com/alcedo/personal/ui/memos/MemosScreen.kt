@@ -41,16 +41,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.alcedo.personal.sync.MemoEntity
 import com.alcedo.personal.ui.common.SwipeToRevealDelete
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MemosScreen(vm: MemosViewModel = viewModel()) {
+fun MemosScreen(
+    onNavigateToEdit: (memoId: String) -> Unit,
+    vm: MemosViewModel = viewModel()
+) {
     val memos by vm.memos.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
-    var editingMemo by remember { mutableStateOf<MemoEntity?>(null) }
     var inputText by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -141,21 +142,13 @@ fun MemosScreen(vm: MemosViewModel = viewModel()) {
                         ) {
                             MemoCard(
                                 memo = memo,
-                                onClick = { editingMemo = memo }
+                                onClick = { onNavigateToEdit(memo.id) }
                             )
                         }
                     }
                 }
             }
         }
-    }
-
-    editingMemo?.let { memo ->
-        MemoEditScreen(
-            memo = memo,
-            onDismiss = { editingMemo = null },
-            onSave = { body -> vm.update(memo.id, body) }
-        )
     }
 }
 

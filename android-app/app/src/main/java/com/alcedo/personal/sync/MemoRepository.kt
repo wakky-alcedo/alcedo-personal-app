@@ -14,6 +14,8 @@ class MemoRepository(
 ) {
     fun observeActiveMemos(): Flow<List<MemoEntity>> = dao.observeActiveMemos()
 
+    suspend fun getById(id: String): MemoEntity? = dao.findById(id)
+
     suspend fun create(body: String, sourceUrl: String?, sourceTitle: String?): MemoEntity {
         val now = Instant.now().toString()
         val memo = MemoEntity(
