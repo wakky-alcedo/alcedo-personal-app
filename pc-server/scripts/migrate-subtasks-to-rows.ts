@@ -33,7 +33,7 @@ function* flattenSubtasks(parentTask, nodes, parentId) {
       categoryName: parentTask.categoryName ?? 'default',
       priority: node.priority ?? parentTask.priority ?? 'low',
       dueAt: node.dueAt ?? null,
-      status: node.done ? 'done' : 'todo',
+      status: node.status === 'todo' || node.status === 'doing' || node.status === 'done' ? node.status : (node.done ? 'done' : 'todo'),
       subtasks: JSON.stringify(node.subtasks ?? []),
       parentId: parentId,
       updatedAt: new Date().toISOString(),

@@ -13,7 +13,7 @@ export function createTaskNode(): TaskNode {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title: '',
     description: null,
-    done: false,
+    status: 'todo',
     dueAt: null,
     priority: 'medium',
     parentId: null,
@@ -103,6 +103,16 @@ export function dueDateClass(dueAt: string | null | undefined): string {
   if (days <= 3) return 'due-soon'
   if (days <= 7) return 'due-near'
   return ''
+}
+
+const STATUS_CYCLE: TaskNode['status'][] = ['todo', 'doing', 'done']
+
+export function nextStatus(status: TaskNode['status']): TaskNode['status'] {
+  return STATUS_CYCLE[(STATUS_CYCLE.indexOf(status) + 1) % STATUS_CYCLE.length]
+}
+
+export function statusLabel(status: TaskNode['status']): string {
+  return status === 'todo' ? 'Todo' : status === 'doing' ? 'Doing' : 'Done'
 }
 
 export function stripEmptySubtasks(nodes: TaskNode[]): TaskNode[] {

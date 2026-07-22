@@ -14,7 +14,7 @@ type UpsertTaskInput = {
   dueTime?: string | null;
   status: "todo" | "doing" | "done";
   // optional legacy nested subtasks or flat parentId model
-  subtasks?: Array<{ id: string; title: string; done: boolean; dueAt?: string | null; priority?: 'low' | 'medium' | 'high'; subtasks?: unknown }>;
+  subtasks?: Array<{ id: string; title: string; status?: 'todo' | 'doing' | 'done'; done?: boolean; dueAt?: string | null; priority?: 'low' | 'medium' | 'high'; subtasks?: unknown }>;
   parentId?: string | null;
   updatedAt: string;
   version: number;
@@ -35,7 +35,7 @@ type StoredSubtask = {
   id: string;
   title: string;
   description: string | null;
-  done: boolean;
+  status: 'todo' | 'doing' | 'done';
   dueAt: string | null;
   priority: 'low' | 'medium' | 'high';
   parentId?: string | null;
@@ -58,6 +58,11 @@ type NormalizedUpsertRow = {
   version: number;
 };
 
+function normalizeSubtaskStatus(status: unknown, legacyDone: unknown): 'todo' | 'doing' | 'done' {
+  if (status === 'todo' || status === 'doing' || status === 'done') return status;
+  return legacyDone ? 'done' : 'todo';
+}
+
 function normalizeSubtasks(subtasks: unknown): StoredSubtask[] {
   if (typeof subtasks === "string") {
     try {
@@ -75,7 +80,7 @@ function normalizeSubtasks(subtasks: unknown): StoredSubtask[] {
       id: (subtask.id as string) ?? randomUUID(),
       title: String(subtask.title ?? ""),
       description: (subtask.description as string | null) ?? null,
-      done: Boolean(subtask.done),
+      status: normalizeSubtaskStatus(subtask.status, subtask.done),
       dueAt: (subtask.dueAt as string | null) ?? null,
       priority: ((subtask.priority as StoredSubtask['priority']) ?? 'medium'),
       parentId: (subtask.parentId as string | null) ?? null,

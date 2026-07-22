@@ -25,8 +25,8 @@ export interface TaskTreeOps {
   saveTask: (task: Task) => Promise<void>
   save: () => Promise<void>
   remove: () => Promise<void>
-  toggleRootDone: (done: boolean) => Promise<void>
-  toggleNodeDone: (path: number[], done: boolean) => Promise<void>
+  setRootStatus: (status: TaskNode['status']) => Promise<void>
+  setNodeStatus: (path: number[], status: TaskNode['status']) => Promise<void>
   deleteNode: (path: number[]) => Promise<void>
   commitNode: (path: number[] | null) => Promise<void>
   commitEditing: (path: number[] | null) => Promise<void>
@@ -68,7 +68,7 @@ export function useTaskTree(
           id: current.id,
           title: current.title,
           description: current.description ?? null,
-          done: current.status === 'done',
+          status: current.status,
           dueAt: current.dueAt ?? null,
           priority: (current as Task & { priority?: string }).priority ?? 'medium' as TaskNode['priority'],
           subtasks: current.subtasks.map(cloneTaskNode),
@@ -79,7 +79,7 @@ export function useTaskTree(
           title: next.title,
           description: next.description ?? null,
           dueAt: next.dueAt ?? null,
-          status: next.done ? 'done' : 'todo',
+          status: next.status,
           ...(next.priority ? { priority: next.priority } : {}),
           subtasks: next.subtasks,
         }
@@ -172,26 +172,26 @@ export function useTaskTree(
     } finally { setBusy(false) }
   }
 
-  async function toggleRootDone(done: boolean) {
+  async function setRootStatus(status: TaskNode['status']) {
     const prev = cloneTask(draft)
-    const nextTask = { ...draft, status: done ? ('done' as const) : ('todo' as const) }
+    const nextTask = { ...draft, status }
     updateRootTask(nextTask)
     setBusy(true)
     try { await saveTask(nextTask) } catch (err) {
       setDraft(prev)
-      console.error('toggle root done failed', err)
+      console.error('set root status failed', err)
       toast.error('タスクステータスの更新に失敗しました')
     } finally { setBusy(false) }
   }
 
-  async function toggleNodeDone(path: number[], done: boolean) {
+  async function setNodeStatus(path: number[], status: TaskNode['status']) {
     const prev = cloneTask(draft)
-    const nextTask = { ...draft, subtasks: updateTaskTree(draft.subtasks, path, node => ({ ...node, done })) }
+    const nextTask = { ...draft, subtasks: updateTaskTree(draft.subtasks, path, node => ({ ...node, status })) }
     updateRootTask(nextTask)
     setBusy(true)
     try { await saveTask(nextTask) } catch (err) {
       setDraft(prev)
-      console.error('toggle node done failed', err)
+      console.error('set node status failed', err)
       toast.error('サブタスクの更新に失敗しました')
     } finally { setBusy(false) }
   }
@@ -246,7 +246,7 @@ export function useTaskTree(
     titleInputRef, editorRefs,
     updateRootTask, updateNode, addSiblingAfter, addChild,
     reorderSubtasks, saveTask, save, remove,
-    toggleRootDone, toggleNodeDone, deleteNode,
+    setRootStatus, setNodeStatus, deleteNode,
     commitNode, commitEditing, cancelEditing, beginDescriptionEdit,
     pathEquals, getNodeAtPath,
     isMenuOpen, closeMenu, openMenu,

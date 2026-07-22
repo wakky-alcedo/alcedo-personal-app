@@ -42,7 +42,9 @@ function normalizeSubtasks(subtasks: unknown): TaskNode[] {
       dueAt: subtask.dueAt ?? null,
       priority: (subtask.priority as any) ?? 'medium',
       parentId: subtask.parentId ?? null,
-      done: Boolean(subtask.done),
+      status: (subtask.status === 'todo' || subtask.status === 'doing' || subtask.status === 'done')
+        ? subtask.status
+        : (subtask.done ? 'done' : 'todo'),
       subtasks: normalizeSubtasks(subtask.subtasks),
     }))
 }

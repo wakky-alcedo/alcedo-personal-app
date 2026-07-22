@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Task, TaskNode } from '../../api.ts'
 import { useTaskTree } from './useTaskTree.ts'
-import { pathKey, pathLabel, dueDateClass, updateTaskTree } from './taskTreeUtils.ts'
+import { pathKey, pathLabel, dueDateClass, updateTaskTree, nextStatus, statusLabel } from './taskTreeUtils.ts'
 
 const URL_RE = /(https?:\/\/[^\s]+)/g
 
@@ -40,7 +40,7 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
     editingDescriptionPath, titleInputRef, editorRefs,
     updateNode, addSiblingAfter, addChild,
     reorderSubtasks, saveTask,
-    save: _save, toggleRootDone, toggleNodeDone, deleteNode, commitNode,
+    save: _save, setRootStatus, setNodeStatus, deleteNode, commitNode,
     commitEditing, cancelEditing, beginDescriptionEdit,
     pathEquals, getNodeAtPath,
     isMenuOpen, closeMenu, openMenu,
@@ -79,26 +79,22 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
             }
           } catch {}
         }}
-        className={`task-node-card ${node.done ? 'done' : ''} ${dueDateClass(node.dueAt)}`}
+        className={`task-node-card ${node.status === 'done' ? 'done' : ''} ${dueDateClass(node.dueAt)}`}
         role="listitem"
         aria-label={nodeName}
         onContextMenu={event => { event.preventDefault(); openMenu(path) }}
       >
         <div className="task-node-body">
           <div className="task-node-head">
-            <label className="checkbox-row task-node-check">
-              <input
-                type="checkbox"
-                checked={node.done}
-                onChange={event => void (
-                  path.length === 0
-                    ? toggleRootDone(event.target.checked)
-                    : toggleNodeDone(path, event.target.checked)
-                )}
-                disabled={busy}
-                aria-label={`Mark ${nodeName} as done`}
-              />
-            </label>
+            <button
+              type="button"
+              className={`status-cycle-button status-${node.status}`}
+              onClick={() => void setNodeStatus(path, nextStatus(node.status))}
+              disabled={busy}
+              aria-label={`Status for ${nodeName}: ${node.status} (click to change)`}
+            >
+              {statusLabel(node.status)}
+            </button>
             <div className="task-node-main">
               {!isEditingNode ? (
                 <button
@@ -247,15 +243,15 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
     >
       <div className="task-node-body">
         <div className="task-node-head">
-          <label className="checkbox-row task-node-check">
-            <input
-              type="checkbox"
-              checked={draft.status === 'done'}
-              onChange={event => void toggleRootDone(event.target.checked)}
-              disabled={busy}
-              aria-label={`Mark ${draft.title} as done`}
-            />
-          </label>
+          <button
+            type="button"
+            className={`status-cycle-button status-${draft.status}`}
+            onClick={() => void setRootStatus(nextStatus(draft.status))}
+            disabled={busy}
+            aria-label={`Status for ${draft.title}: ${draft.status} (click to change)`}
+          >
+            {statusLabel(draft.status)}
+          </button>
           <div className="task-node-main">
             {!pathEquals(editingPath, []) ? (
               <button

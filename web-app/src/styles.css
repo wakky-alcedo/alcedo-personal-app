@@ -61,7 +61,6 @@ main { display: grid; gap: 16px; }
 .habit-quick-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .task-list, .belief-list, .habit-list { list-style:none; padding:0; margin: 0; display:grid; gap: 10px; }
 .task-list li, .belief-row, .habit-row { padding:12px; border:1px solid #eef3ff; border-radius: var(--radius); background: var(--card-bg); display:grid; gap: 10px; }
-.task-list li.done { opacity:0.7; transform: translateY(0); }
 .task-summary .title, .belief-row .title, .habit-row .title { font-weight: 700; font-size: 16px; }
 .task-tree { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
 .task-node-card { display: grid; gap: 8px; padding: 10px; border-radius: 10px; border: 1px solid #f1f5ff; background: linear-gradient(180deg,#fff,#fbfeff); box-shadow: var(--shadow-sm); }
@@ -70,12 +69,16 @@ main { display: grid; gap: 16px; }
 .task-node-main { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 0; overflow: hidden; }
 .task-node-title { font-weight: 600; }
 .task-node-check { flex-shrink: 0; }
+.status-cycle-button { flex-shrink: 0; padding: 4px 10px; border-radius: 999px; border: 1px solid #e6edf8; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; background: #f4f6fb; color: var(--text-primary); }
+.status-cycle-button.status-doing { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.status-cycle-button.status-done { background: #eef2f7; border-color: #e6edf8; color: var(--text-muted); opacity: 0.7; }
 .task-node-menu-button { margin-left: auto; width: 32px; height: 32px; border-radius: 999px; border: 1px solid #e6edf8; background: #fff; color: var(--text-muted); font-size: 20px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .task-node-menu-button:hover { background: var(--surface-weak); color: var(--text-primary); }
 .task-node-menu { display: grid; gap: 4px; margin-left: auto; padding: 8px; border: 1px solid #e6edf8; border-radius: 12px; background: #fff; box-shadow: var(--shadow-md); min-width: 160px; }
 .task-node-menu button { width: 100%; justify-content: flex-start; padding: 8px 10px; border-radius: 8px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .task-node-menu button:hover { background: var(--surface-weak); }
-.task-node-card.due-overdue { opacity: 0.5; }
+.task-node-card.done { opacity: 0.65; }
+.task-node-card.due-overdue { background: linear-gradient(180deg, #fef2f2, #fecaca); border-color: #f87171; }
 .task-node-card.due-today { background: linear-gradient(180deg, #fef2f2, #fee2e2); border-color: #fca5a5; }
 .task-node-card.due-soon { background: linear-gradient(180deg, #fffbeb, #fef3c7); border-color: #fcd34d; }
 .task-node-card.due-near { background: linear-gradient(180deg, #fefce8, #fef9c3); border-color: #fde047; }
@@ -478,10 +481,13 @@ a.memo-link-preview:hover { background: #eaeef4; }
 
   /* ─── タスクカード ───────────────────────────────────────── */
   .task-node-card { background: #1a2236; border-color: #2d3748; box-shadow: none; }
+  .status-cycle-button { background: #232c42; border-color: #2d3748; color: var(--text-primary); }
+  .status-cycle-button.status-doing { background: #3f2d08; border-color: #78350f; color: #fbbf24; }
+  .status-cycle-button.status-done { background: #1a2236; border-color: #2d3748; color: var(--text-muted); opacity: 0.7; }
   .task-node-card.due-today { background: linear-gradient(180deg, #3b1010, #2d1010); border-color: #7f1d1d; }
   .task-node-card.due-soon  { background: linear-gradient(180deg, #2e1a08, #261508); border-color: #78350f; }
   .task-node-card.due-near  { background: linear-gradient(180deg, #252209, #1e1b07); border-color: #713f12; }
-  .task-node-card.due-overdue { opacity: 0.45; }
+  .task-node-card.due-overdue { background: linear-gradient(180deg, #451a1a, #3b1414); border-color: #991b1b; }
   .task-list li, .belief-row, .habit-row { background: #1a2236; border-color: #2d3748; }
 
   /* ─── ツールバー・リスト ─────────────────────────────────── */

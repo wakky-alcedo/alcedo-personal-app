@@ -16,7 +16,7 @@ function makeNode(title: string, subtasks: TaskNode[] = []): TaskNode {
     id: title,
     title,
     description: null,
-    done: false,
+    status: 'todo',
     dueAt: null,
     priority: 'medium',
     parentId: null,
