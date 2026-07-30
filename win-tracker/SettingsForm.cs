@@ -6,6 +6,7 @@ namespace WinTracker;
 public class SettingsForm : Form
 {
     private readonly string _settingsPath;
+    private readonly AppSettings _current;
     private readonly TextBox _serverUrl;
     private readonly TextBox _apiKey;
     private readonly TextBox _deviceId;
@@ -15,6 +16,7 @@ public class SettingsForm : Form
     public SettingsForm(string settingsPath, AppSettings current)
     {
         _settingsPath = settingsPath;
+        _current = current;
 
         Text = "WinTracker 設定";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -93,6 +95,9 @@ public class SettingsForm : Form
             DeviceId              = _deviceId.Text.Trim(),
             SampleIntervalSeconds = (int)_sampleInterval.Value,
             SyncIntervalMinutes   = (int)_syncInterval.Value,
+            MaxBufferedLogs       = _current.MaxBufferedLogs,
+            HttpTimeoutSeconds    = _current.HttpTimeoutSeconds,
+            BrowserUrlTimeoutMs   = _current.BrowserUrlTimeoutMs,
         };
 
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);

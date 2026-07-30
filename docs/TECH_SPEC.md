@@ -73,9 +73,11 @@
 - 機能:
   - GetForegroundWindow でアクティブウィンドウを監視
   - UI Automation でブラウザのタブタイトル・URL取得（Chrome/Edge/Firefox/Vivaldi/Brave対応）
-  - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5)
+  - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5), MaxBufferedLogs(5000), HttpTimeoutSeconds(20), BrowserUrlTimeoutMs(1200)
   - セッション管理: アクティビティが変化した時のみセッションを完結させてバッファ追加（同一内容継続は記録しない）
   - 5分ごとにバッファをサーバーへ一括 POST
+  - サーバー同期が継続的に失敗した場合、バッファは `MaxBufferedLogs` 件を上限に古いものから破棄され、無制限に増加しない（破棄件数はトレイアイコンのステータスに表示）
+  - UI Automation（ブラウザURL取得）・メディア再生検出は、ハング時にUIスレッドをブロックし続けないよう `BrowserUrlTimeoutMs` でタイムアウトし、同時実行数は常に1件までに制限される
   - 終了時にバッファをディスク永続化、次回起動時に再ロード
   - `--diag` フラグ: UI Automation ツリーをファイルダンプする診断モード
   - ディスプレイオフ検知: `GUID_CONSOLE_DISPLAY_STATE` 電源設定通知を受信し、オフ時に現在セッションを終了・サンプリング停止。ディスプレイオフ区間は `category='睡眠'` のセッションとして記録される。記録のないギャップは `'不明'` として表示される。

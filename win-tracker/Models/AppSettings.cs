@@ -14,4 +14,7 @@ public class AppSettings
     public string RawDeviceId => _deviceId;
     public int SampleIntervalSeconds { get; set; } = 15;
     public int SyncIntervalMinutes { get; set; } = 5;
+    public int MaxBufferedLogs { get; set; } = 5000;
+    public int HttpTimeoutSeconds { get; set; } = 20;
+    public int BrowserUrlTimeoutMs { get; set; } = 1200;
 }

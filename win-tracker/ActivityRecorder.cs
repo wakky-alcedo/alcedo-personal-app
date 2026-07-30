@@ -30,7 +30,9 @@ public static class ActivityRecorder
     private const uint WM_GETTEXTLENGTH = 0x000E;
     private const uint SMTO_ABORTIFHUNG = 0x0002;
 
-    public static ActivityLog? Capture()
+    private static int _mediaInFlight;
+
+    public static ActivityLog? Capture(AppSettings settings)
     {
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return null;
@@ -56,7 +58,7 @@ public static class ActivityRecorder
         string? browserUrl = null;
         if (BrowserUrlReader.IsBrowser(processName))
         {
-            var (url, title) = BrowserUrlReader.GetInfo(hwnd, processName);
+            var (url, title) = BrowserUrlReader.GetInfo(hwnd, processName, settings.BrowserUrlTimeoutMs);
             browserUrl = url;
             // UI Automation のタイトルが取れたら上書き
             if (!string.IsNullOrWhiteSpace(title) && title.Length > 2)
@@ -68,8 +70,32 @@ public static class ActivityRecorder
             ProcessName = processName,
             WindowTitle = windowTitle,
             BrowserUrl = browserUrl,
-            IsMediaPlaying = MediaDetector.IsPlaying(),
+            IsMediaPlaying = IsMediaPlayingBounded(settings.BrowserUrlTimeoutMs),
         };
+    }
+
+    /// <summary>
+    /// MediaDetector.IsPlaying() はタイムアウトなしの同期WinRT呼び出しのため、
+    /// BrowserUrlReader と同様に同時実行数を1件に制限した上でタイムアウトを課す。
+    /// </summary>
+    private static bool IsMediaPlayingBounded(int timeoutMs)
+    {
+        if (Interlocked.CompareExchange(ref _mediaInFlight, 1, 0) != 0) return false;
+
+        try
+        {
+            var task = Task.Run(() =>
+            {
+                try { return MediaDetector.IsPlaying(); }
+                finally { Interlocked.Exchange(ref _mediaInFlight, 0); }
+            });
+            return task.Wait(TimeSpan.FromMilliseconds(timeoutMs)) && task.Result;
+        }
+        catch
+        {
+            Interlocked.Exchange(ref _mediaInFlight, 0);
+            return false;
+        }
     }
 
     /// <summary>

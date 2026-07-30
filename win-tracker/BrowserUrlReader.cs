@@ -11,33 +11,47 @@ public static class BrowserUrlReader
 
     public static bool IsBrowser(string processName) => BrowserProcesses.Contains(processName);
 
+    // UI Automation はハング(応答なしタブ等)しうる同期COM呼び出しのため、
+    // Task.Wait のタイムアウト後も内部タスクは走り続ける。孤立タスクが
+    // 際限なく積み上がらないよう、同時実行数を常に最大1件に制限する。
+    private static int _inFlight;
+
     /// <summary>
     /// UI Automation でブラウザのURL・タブタイトルを一括取得する。
     /// </summary>
-    public static (string? Url, string? Title) GetInfo(IntPtr hwnd, string processName)
+    public static (string? Url, string? Title) GetInfo(IntPtr hwnd, string processName, int timeoutMs = 1200)
     {
         if (!IsBrowser(processName)) return (null, null);
+        if (Interlocked.CompareExchange(ref _inFlight, 1, 0) != 0) return (null, null);
 
         try
         {
             var task = Task.Run(() =>
             {
-                var window = AutomationElement.FromHandle(hwnd);
+                try
+                {
+                    var window = AutomationElement.FromHandle(hwnd);
 
-                // URL取得
-                var url = processName.Equals("firefox", StringComparison.OrdinalIgnoreCase)
-                    ? ReadFirefoxUrl(window)
-                    : ReadChromiumUrl(window);
+                    // URL取得
+                    var url = processName.Equals("firefox", StringComparison.OrdinalIgnoreCase)
+                        ? ReadFirefoxUrl(window)
+                        : ReadChromiumUrl(window);
 
-                // タブタイトル取得（TreeWalker で手動走査）
-                var title = ReadPageTitle(window);
+                    // タブタイトル取得（TreeWalker で手動走査）
+                    var title = ReadPageTitle(window);
 
-                return (CleanUrl(url), title);
+                    return (CleanUrl(url), title);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _inFlight, 0);
+                }
             });
-            return task.Wait(TimeSpan.FromSeconds(4)) ? task.Result : (null, null);
+            return task.Wait(TimeSpan.FromMilliseconds(timeoutMs)) ? task.Result : (null, null);
         }
         catch
         {
+            Interlocked.Exchange(ref _inFlight, 0);
             return (null, null);
         }
     }

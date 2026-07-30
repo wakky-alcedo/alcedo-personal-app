@@ -57,7 +57,9 @@ internal static class Program
         _classifier = new RuleClassifier(rulesPath);
 
         // Init sync service
-        _syncService = new SyncService(settings.ServerUrl, settings.ApiKey, settings.DeviceId);
+        _syncService = new SyncService(
+            settings.ServerUrl, settings.ApiKey, settings.DeviceId,
+            settings.MaxBufferedLogs, settings.HttpTimeoutSeconds);
 
         // Build tray icon
         var contextMenu = new ContextMenuStrip();
@@ -122,11 +124,13 @@ internal static class Program
         _sampleTimer.Tick += (_, _) =>
         {
             if (_paused || _displayOff) return;
-            var log = ActivityRecorder.Capture();
+            var log = ActivityRecorder.Capture(settings);
             if (log != null)
             {
                 _syncService.UpdateActivity(log);
-                statusItem.Text = $"記録中 ({_syncService.PendingCount})";
+                statusItem.Text = _syncService.DroppedCount > 0
+                    ? $"記録中 ({_syncService.PendingCount}, 破棄:{_syncService.DroppedCount})"
+                    : $"記録中 ({_syncService.PendingCount})";
             }
         };
         _sampleTimer.Start();
