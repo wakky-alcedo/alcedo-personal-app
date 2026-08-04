@@ -21,11 +21,16 @@ dotnet run -c Release
 
 ## リリースビルド（配布用・.NET不要）
 
+Claude Code を使う場合は `wintracker-release` スキルでビルド＋不要ファイル削除まで一括実行できる。手動でやる場合:
+
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+dotnet publish -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-`publish/` フォルダを任意の場所（例: `C:\Apps\WinTracker\`）にコピーして `WinTracker.exe` を実行。
+`appsettings.json` / `rules.json` / `app.ico` / `WinTracker.pdb` は `<Content>` としてコピーされるが実行には不要（`appsettings.json` がなければ既定値を使い初回起動時に `%APPDATA%\WinTracker\` へ自動生成、`rules.json` がなければ空ルールで動作、`app.ico` がなければ標準アイコンにフォールバック）。配布時は `publish/WinTracker.exe` だけを任意の場所（例: `C:\Apps\WinTracker\`）にコピーすれば単独で動く。
+
+サーバーURL/APIキーを初回起動前から既定値以外にしたい場合のみ、`appsettings.json` も一緒にコピーする。
 
 ## 設定ファイル
 
