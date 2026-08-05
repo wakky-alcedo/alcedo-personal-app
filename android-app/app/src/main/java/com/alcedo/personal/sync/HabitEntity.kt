@@ -10,5 +10,6 @@ data class HabitEntity(
     val notifyTime: String?,
     val isActive: Boolean,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val allowedMissDays: Int = 0
 )

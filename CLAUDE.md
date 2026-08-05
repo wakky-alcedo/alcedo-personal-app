@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Alcedo is a personal operating system integrating task, habit, and belief management across Android and PC. The repo currently contains two subprojects:
+Alcedo is a personal operating system integrating task, habit, and belief management across Android and PC. The repo contains three subprojects:
 
 - `pc-server/` — Fastify (Node.js) REST API + SQLite backend for the PC
 - `web-app/` — React + Vite frontend (PC dashboard)
+- `android-app/` — Kotlin/Compose Android app (Room local cache + REST sync client)
 
-The Android app is a separate repository (not present here). Phase 1 is Android → PC one-way sync; future phases add bidirectional sync, Obsidian integration, and analytics.
+Phase 1 is Android → PC one-way sync for tasks, beliefs, and habits; future phases add bidirectional sync, Obsidian integration, and analytics.
 
 ## Development Commands
 
@@ -21,8 +22,8 @@ See `.claude/skills/run-dev-servers/SKILL.md` for all dev/build/preview commands
 
 ### Data flow
 ```
-Android App  →  POST /api/v1/sync/tasks  →  pc-server  →  SQLite (pc-server/data/app.sqlite)
-Web App      ↔  REST API                 ↔  pc-server
+Android App  →  POST /api/v1/sync/tasks, /api/v1/habits*, /api/v1/sync/beliefs  →  pc-server  →  SQLite (pc-server/data/app.sqlite)
+Web App      ↔  REST API                                                        ↔  pc-server
 ```
 
 ### Shared (`shared/`)

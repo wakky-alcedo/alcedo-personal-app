@@ -42,6 +42,7 @@ export type Habit = {
   notifyTime?: string | null
   widgetPriorityTimeRangeStart?: string | null
   widgetPriorityTimeRangeEnd?: string | null
+  allowedMissDays: number
   isActive: boolean
   createdAt: string
   updatedAt: string

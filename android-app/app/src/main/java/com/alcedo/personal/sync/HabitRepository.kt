@@ -19,10 +19,10 @@ class HabitRepository(private val context: Context, private val dao: HabitDao) {
         if (remote.isNotEmpty()) dao.deleteNotIn(remote.map { it.id })
     }
 
-    suspend fun create(name: String, notifyTime: String? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun create(name: String, notifyTime: String? = null, allowedMissDays: Int = 0): Boolean = withContext(Dispatchers.IO) {
         val client = buildClient() ?: return@withContext false
         val now = Instant.now().toString()
-        val entity = HabitEntity(UUID.randomUUID().toString(), name.trim(), notifyTime, true, now, now)
+        val entity = HabitEntity(UUID.randomUUID().toString(), name.trim(), notifyTime, true, now, now, allowedMissDays)
         val result = client.upsert(entity)
         if (result != null) { dao.upsert(result); true } else false
     }

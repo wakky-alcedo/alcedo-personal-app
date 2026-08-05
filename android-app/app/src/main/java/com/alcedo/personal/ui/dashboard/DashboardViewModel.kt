@@ -71,7 +71,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val fromHeatmap = daysAgo(HEATMAP_DAYS)
         return habits.map { habit ->
             val logs = db.habitDao().getRecentLogs(habit.id, fromHeatmap)
-            HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today), logs.toSet())
+            HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today, habit.allowedMissDays), logs.toSet())
         }
     }
 
@@ -120,20 +120,39 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private fun today() = TimeUtils.effectiveLocalDateStr()
     private fun daysAgo(n: Int) = TimeUtils.effectiveDaysAgo(n)
 
-    private fun computeStreak(logs: List<String>, today: String): Int {
+    // Mirrors pc-server's computeStreakDays (routes/habits.ts): walks backward from
+    // today (or yesterday, if today isn't logged yet), counting completed days.
+    // A run of missed days is skipped over as long as its length is within
+    // allowedMissDays; a longer run breaks the streak.
+    private fun computeStreak(logs: List<String>, today: String, allowedMissDays: Int): Int {
+        if (logs.isEmpty()) return 0
         val set = logs.toHashSet()
-        val start = when {
-            set.contains(today) -> LocalDate.parse(today)
-            else -> {
-                val yesterday = LocalDate.parse(today).minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
-                if (set.contains(yesterday)) LocalDate.parse(yesterday) else return 0
-            }
-        }
+        val earliestDate = logs.minOrNull()?.let { LocalDate.parse(it) }
         var streak = 0
-        var cursor = start
-        while (set.contains(cursor.format(DateTimeFormatter.ISO_LOCAL_DATE))) {
-            streak++
-            cursor = cursor.minusDays(1)
+        var cursor: LocalDate? = if (set.contains(today)) LocalDate.parse(today) else LocalDate.parse(today).minusDays(1)
+
+        fun key(d: LocalDate) = d.format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        while (cursor != null && (earliestDate == null || !cursor.isBefore(earliestDate))) {
+            if (set.contains(key(cursor))) {
+                streak++
+                cursor = cursor.minusDays(1)
+                continue
+            }
+
+            var gapLen = 0
+            var probe: LocalDate? = cursor
+            while (probe != null && !set.contains(key(probe)) && (earliestDate == null || !probe.isBefore(earliestDate))) {
+                gapLen++
+                probe = probe.minusDays(1)
+            }
+
+            if (gapLen <= allowedMissDays) {
+                cursor = probe
+                continue
+            }
+
+            break
         }
         return streak
     }

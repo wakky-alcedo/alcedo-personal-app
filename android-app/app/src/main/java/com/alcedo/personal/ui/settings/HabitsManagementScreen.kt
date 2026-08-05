@@ -37,6 +37,9 @@ class HabitsManagementViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleActive(habit: HabitEntity) {
         viewModelScope.launch { repo.update(habit.copy(isActive = !habit.isActive)) }
     }
+    fun setAllowedMissDays(habit: HabitEntity, allowedMissDays: Int) {
+        viewModelScope.launch { repo.update(habit.copy(allowedMissDays = allowedMissDays.coerceAtLeast(0))) }
+    }
     fun delete(habit: HabitEntity) { viewModelScope.launch { repo.delete(habit) } }
 }
 
@@ -76,7 +79,12 @@ fun HabitsManagementScreen(onBack: () -> Unit, vm: HabitsManagementViewModel = v
             }
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(habits, key = { it.id }) { habit ->
-                    HabitManagementRow(habit, onToggle = { vm.toggleActive(habit) }, onDelete = { vm.delete(habit) })
+                    HabitManagementRow(
+                        habit,
+                        onToggle = { vm.toggleActive(habit) },
+                        onDelete = { vm.delete(habit) },
+                        onAllowedMissDaysChange = { vm.setAllowedMissDays(habit, it) }
+                    )
                 }
                 if (habits.isEmpty()) item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
@@ -89,17 +97,38 @@ fun HabitsManagementScreen(onBack: () -> Unit, vm: HabitsManagementViewModel = v
 }
 
 @Composable
-private fun HabitManagementRow(habit: HabitEntity, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun HabitManagementRow(
+    habit: HabitEntity,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit,
+    onAllowedMissDaysChange: (Int) -> Unit
+) {
     Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(habit.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                if (!habit.isActive) Text("非アクティブ", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(habit.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    if (!habit.isActive) Text("非アクティブ", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = habit.isActive, onCheckedChange = { onToggle() })
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                }
             }
-            Switch(checked = habit.isActive, onCheckedChange = { onToggle() })
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "何日連続まで休んでOK",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = { onAllowedMissDaysChange(habit.allowedMissDays - 1) },
+                    enabled = habit.allowedMissDays > 0
+                ) { Text("−") }
+                Text("${habit.allowedMissDays}", style = MaterialTheme.typography.bodyMedium)
+                IconButton(onClick = { onAllowedMissDaysChange(habit.allowedMissDays + 1) }) { Text("＋") }
             }
         }
     }

@@ -23,6 +23,7 @@ class HabitSyncApiClient(private val baseUrl: String, private val apiKey: String
             .put("id", habit.id)
             .put("name", habit.name)
             .put("notifyTime", habit.notifyTime)
+            .put("allowedMissDays", habit.allowedMissDays)
             .put("isActive", habit.isActive)
             .put("createdAt", habit.createdAt)
             .put("updatedAt", habit.updatedAt)
@@ -74,6 +75,7 @@ class HabitSyncApiClient(private val baseUrl: String, private val apiKey: String
                      else obj.optString("notifyTime", "").takeIf { it.isNotEmpty() && it != "null" },
         isActive = obj.optBoolean("isActive", true),
         createdAt = obj.optString("createdAt", ""),
-        updatedAt = obj.optString("updatedAt", "")
+        updatedAt = obj.optString("updatedAt", ""),
+        allowedMissDays = obj.optInt("allowedMissDays", 0)
     )
 }

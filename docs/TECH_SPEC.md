@@ -191,6 +191,7 @@
 - notify_time: time?
 - widget_priority_time_range_start: time?
 - widget_priority_time_range_end: time?
+- allowed_miss_days: integer (default 0、連続何日まで休んでもストリークが途切れないか)
 - is_active: boolean
 
 4. habit_logs
@@ -250,6 +251,7 @@
 - notifyTime: TEXT?
 - widgetPriorityTimeRangeStart: TEXT?
 - widgetPriorityTimeRangeEnd: TEXT?
+- allowedMissDays: INTEGER NOT NULL DEFAULT 0（連続何日まで休んでもストリークが途切れないかの許容日数）
 - isActive: INTEGER NOT NULL (0/1)
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
@@ -341,6 +343,7 @@
 
 #### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
 8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
+- streak計算: `allowedMissDays`（習慣ごとの設定値、デフォルト0）で連続欠席の許容日数を判定。1回の欠席区間の長さが `allowedMissDays` 以下ならストリークを途切れさせずに遡って合算する（区間ごとに独立判定、バジェット制ではない）。休んだ日自体はstreak日数にカウントしない
 9. POST /api/v1/habits — 作成・更新（id 指定で upsert）
 10. DELETE /api/v1/habits/:id — 削除（habit_logs も削除）
 11. POST /api/v1/habits/:id/logs — 日次チェックイン

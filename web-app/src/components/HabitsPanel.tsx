@@ -19,6 +19,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
   const [notifyTime, setNotifyTime] = useState(habit.notifyTime ?? '')
   const [priorityStart, setPriorityStart] = useState(habit.widgetPriorityTimeRangeStart ?? '')
   const [priorityEnd, setPriorityEnd] = useState(habit.widgetPriorityTimeRangeEnd ?? '')
+  const [allowedMissDays, setAllowedMissDays] = useState(habit.allowedMissDays ?? 0)
   const [isActive, setIsActive] = useState(habit.isActive)
   const editorRef = useRef<HTMLDivElement>(null)
   const cancelledRef = useRef(false)
@@ -29,6 +30,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
     setNotifyTime(habit.notifyTime ?? '')
     setPriorityStart(habit.widgetPriorityTimeRangeStart ?? '')
     setPriorityEnd(habit.widgetPriorityTimeRangeEnd ?? '')
+    setAllowedMissDays(habit.allowedMissDays ?? 0)
     setIsActive(habit.isActive)
     setEditing(false)
     setTimeout(() => { cancelledRef.current = false }, 0)
@@ -44,6 +46,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
         notifyTime: notifyTime || null,
         widgetPriorityTimeRangeStart: priorityStart || null,
         widgetPriorityTimeRangeEnd: priorityEnd || null,
+        allowedMissDays,
         isActive,
       })
       setEditing(false)
@@ -143,6 +146,17 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
               <span className="field-label">ウィジェット優先 終了</span>
               <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} onBlur={handleBlur} />
             </label>
+            <label className="habit-field">
+              <span className="field-label">何日連続まで休んでOK</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={allowedMissDays}
+                onChange={e => setAllowedMissDays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                onBlur={handleBlur}
+              />
+            </label>
             <label className="checkbox-row habit-field">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
               <span className="field-label">active</span>
@@ -167,6 +181,7 @@ export default function HabitsPanel({ compact = false }: Props) {
   const [notifyTime, setNotifyTime] = useState('')
   const [priorityStart, setPriorityStart] = useState('')
   const [priorityEnd, setPriorityEnd] = useState('')
+  const [allowedMissDays, setAllowedMissDays] = useState(0)
   const [isActive, setIsActive] = useState(true)
 
   async function refresh() {
@@ -204,6 +219,7 @@ export default function HabitsPanel({ compact = false }: Props) {
       notifyTime: notifyTime || null,
       widgetPriorityTimeRangeStart: priorityStart || null,
       widgetPriorityTimeRangeEnd: priorityEnd || null,
+      allowedMissDays,
       isActive,
     }
     await createHabit(serverUrl, apiKey, payload)
@@ -211,6 +227,7 @@ export default function HabitsPanel({ compact = false }: Props) {
     setNotifyTime('')
     setPriorityStart('')
     setPriorityEnd('')
+    setAllowedMissDays(0)
     setIsActive(true)
     await refresh()
   }
@@ -329,6 +346,16 @@ export default function HabitsPanel({ compact = false }: Props) {
             <label className="habit-field">
               <span className="field-label">ウィジェット優先 終了</span>
               <input type="time" value={priorityEnd} onChange={e => setPriorityEnd(e.target.value)} />
+            </label>
+            <label className="habit-field">
+              <span className="field-label">何日連続まで休んでOK</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={allowedMissDays}
+                onChange={e => setAllowedMissDays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              />
             </label>
             <label className="checkbox-row">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
