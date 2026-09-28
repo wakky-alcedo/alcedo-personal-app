@@ -44,6 +44,28 @@ Remove-Item win-tracker/publish/appsettings.json, win-tracker/publish/rules.json
 Result: `win-tracker/publish/WinTracker.exe` is the only file — copy it
 anywhere and run it standalone.
 
+## Replacing a running install
+
+1. Ask the user to quit WinTracker from the tray menu "終了" — never
+   `Stop-Process` it: the tray exit flushes unsent logs to `buffer.json` next
+   to the exe, and the next launch reloads them.
+2. Copy the new `WinTracker.exe` over the old one and start it.
+3. Remove stale self-extraction folders. `WinTracker.csproj` sets
+   `IncludeAllContentForSelfExtract=true`, so each distinct exe build extracts
+   ~170MB into `%TEMP%\.net\WinTracker\<hash>\` on first launch, and old
+   builds' folders are never cleaned up. After the new exe is running, delete
+   every folder except the one it has loaded:
+
+```powershell
+$root = "$env:TEMP\.net\WinTracker"
+$inUse = (Get-Process WinTracker).Modules |
+  Where-Object FileName -like "$root\*" |
+  ForEach-Object { $_.FileName.Substring($root.Length + 1).Split('\')[0] } |
+  Select-Object -Unique
+Get-ChildItem $root -Directory | Where-Object Name -notin $inUse |
+  Remove-Item -Recurse -Force
+```
+
 ## When to include appsettings.json anyway
 
 If the target PC needs a non-default `ServerUrl`/`ApiKey` and you don't want
