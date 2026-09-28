@@ -17,9 +17,11 @@ public static class BrowserUrlReader
     private static int _inFlight;
 
     /// <summary>
-    /// UI Automation でブラウザのURL・タブタイトルを一括取得する。
+    /// UI Automation でブラウザのURL・ページタイトル(Document 名)を一括取得する。
+    /// windowTitle は GetWindowText の結果で、Document が複数ある場合(ウェブパネル等)に
+    /// 表示中のページを選ぶ手がかりにする。
     /// </summary>
-    public static (string? Url, string? Title) GetInfo(IntPtr hwnd, string processName, int timeoutMs = 1200)
+    public static (string? Url, string? Title) GetInfo(IntPtr hwnd, string processName, string windowTitle, int timeoutMs = 1200)
     {
         if (!IsBrowser(processName)) return (null, null);
         if (Interlocked.CompareExchange(ref _inFlight, 1, 0) != 0) return (null, null);
@@ -37,8 +39,8 @@ public static class BrowserUrlReader
                         ? ReadFirefoxUrl(window)
                         : ReadChromiumUrl(window);
 
-                    // タブタイトル取得（TreeWalker で手動走査）
-                    var title = ReadPageTitle(window);
+                    // ページタイトル取得（TreeWalker で手動走査）
+                    var title = ReadPageTitle(window, windowTitle);
 
                     return (CleanUrl(url), title);
                 }
@@ -57,60 +59,20 @@ public static class BrowserUrlReader
     }
 
     /// <summary>
-    /// TreeWalker でブラウザの UI ツリーを浅く走査し、
-    /// 選択中の TabItem または Document 要素からページタイトルを取得する。
+    /// TreeWalker でブラウザの UI ツリーを浅く走査し、Document 要素の Name からページタイトルを取得する。
+    /// ウィンドウタイトルの先頭と一致する Document を優先し、なければ最初に見つかった Document を返す
+    /// (一致しない場合は呼び出し側がタブ切替中と判定して読み直す)。
+    /// TabItem の選択状態は Vivaldi では取得できず(タブバーが HTML 描画のため TabItem が現れない)、
+    /// 他ブラウザでも選択中以外のタブを誤判定しうるため使わない。
     /// </summary>
-    private static string? ReadPageTitle(AutomationElement window)
+    private static string? ReadPageTitle(AutomationElement window, string windowTitle)
     {
-        var walker = TreeWalker.ControlViewWalker;
-        // 選択中タブを探す
-        var tabTitle = FindSelectedTabTitle(walker, window, 0);
-        if (tabTitle != null) return tabTitle;
-
-        // フォールバック: Document 要素の Name
-        return FindDocumentTitle(walker, window, 0);
+        string? first = null;
+        return FindDocumentTitle(TreeWalker.ControlViewWalker, window, 0, windowTitle, ref first) ?? first;
     }
 
-    private static string? FindSelectedTabTitle(TreeWalker walker, AutomationElement element, int depth)
-    {
-        if (depth > 6) return null;
-
-        try
-        {
-            var child = walker.GetFirstChild(element);
-            while (child != null)
-            {
-                try
-                {
-                    var type = child.Current.ControlType;
-
-                    if (type == ControlType.TabItem)
-                    {
-                        if (IsSelectedTab(child))
-                        {
-                            var name = child.Current.Name;
-                            if (!string.IsNullOrWhiteSpace(name) && name.Length > 2)
-                                return name;
-                        }
-                    }
-                    else if (IsContainer(type))
-                    {
-                        var result = FindSelectedTabTitle(walker, child, depth + 1);
-                        if (result != null) return result;
-                    }
-                }
-                catch { /* stale element */ }
-
-                try { child = walker.GetNextSibling(child); }
-                catch { break; }
-            }
-        }
-        catch { }
-
-        return null;
-    }
-
-    private static string? FindDocumentTitle(TreeWalker walker, AutomationElement element, int depth)
+    private static string? FindDocumentTitle(
+        TreeWalker walker, AutomationElement element, int depth, string windowTitle, ref string? first)
     {
         if (depth > 6) return null;
 
@@ -127,11 +89,15 @@ public static class BrowserUrlReader
                     {
                         var name = child.Current.Name;
                         if (!string.IsNullOrWhiteSpace(name) && name.Length > 2)
-                            return name;
+                        {
+                            if (windowTitle.StartsWith(name, StringComparison.Ordinal))
+                                return name;
+                            first ??= name;
+                        }
                     }
                     else if (IsContainer(type))
                     {
-                        var result = FindDocumentTitle(walker, child, depth + 1);
+                        var result = FindDocumentTitle(walker, child, depth + 1, windowTitle, ref first);
                         if (result != null) return result;
                     }
                 }
@@ -144,44 +110,6 @@ public static class BrowserUrlReader
         catch { }
 
         return null;
-    }
-
-    private static bool IsSelectedTab(AutomationElement tab)
-    {
-        try
-        {
-            // SelectionItemPattern
-            if (tab.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var selPat))
-            {
-                if (((SelectionItemPattern)selPat).Current.IsSelected)
-                    return true;
-            }
-        }
-        catch { }
-
-        try
-        {
-            // ExpandCollapsePattern (一部のブラウザで使用)
-            if (tab.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out var expPat))
-            {
-                if (((ExpandCollapsePattern)expPat).Current.ExpandCollapseState == ExpandCollapseState.Expanded)
-                    return true;
-            }
-        }
-        catch { }
-
-        try
-        {
-            // TogglePattern (一部のブラウザでトグル状態で表現)
-            if (tab.TryGetCurrentPattern(TogglePattern.Pattern, out var togPat))
-            {
-                if (((TogglePattern)togPat).Current.ToggleState == ToggleState.On)
-                    return true;
-            }
-        }
-        catch { }
-
-        return false;
     }
 
     private static bool IsContainer(ControlType type) =>

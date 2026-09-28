@@ -38,8 +38,16 @@ public static class ActivityRecorder
     private static readonly TimeSpan BrowserInfoCacheTtl = TimeSpan.FromSeconds(60);
     private static IntPtr _lastBrowserHwnd;
     private static string? _lastBrowserRawTitle;
-    private static (string? Url, string? Title) _lastBrowserInfo;
+    private static (string Title, string? Url) _lastBrowserInfo;
     private static DateTime _lastBrowserInfoAt;
+
+    // タブ切替直後の 0.1〜0.5 秒はウィンドウタイトル・アドレスバー・Document 名が
+    // ばらばらの順で切り替わる(アドレスバーだけ遅れることもある)。URL とタイトルは
+    // 直接突き合わせられないため、この間隔を空けた 2 回の読み取りが一致したときだけ採用する。
+    private static readonly TimeSpan TabSwitchSettleDelay = TimeSpan.FromMilliseconds(300);
+    private const int MaxBrowserReads = 3;
+
+    private readonly record struct BrowserSnapshot(string RawTitle, string? Url, string? DocTitle, bool Consistent);
 
     public static ActivityLog? Capture(AppSettings settings)
     {
@@ -67,11 +75,7 @@ public static class ActivityRecorder
         string? browserUrl = null;
         if (BrowserUrlReader.IsBrowser(processName))
         {
-            var (url, title) = GetBrowserInfoCached(hwnd, windowTitle, processName, settings.BrowserUrlTimeoutMs);
-            browserUrl = url;
-            // UI Automation のタイトルが取れたら上書き
-            if (!string.IsNullOrWhiteSpace(title) && title.Length > 2)
-                windowTitle = title;
+            (windowTitle, browserUrl) = GetBrowserInfoCached(hwnd, windowTitle, processName, settings.BrowserUrlTimeoutMs);
         }
 
         return new ActivityLog
@@ -83,7 +87,13 @@ public static class ActivityRecorder
         };
     }
 
-    private static (string? Url, string? Title) GetBrowserInfoCached(
+    /// <summary>
+    /// ブラウザの記録用タイトル(ページタイトル)と URL を返す。
+    /// タブ切替の途中で別タブの URL とタイトルを組み合わせて記録しないよう、
+    /// TabSwitchSettleDelay を空けた連続 2 回の読み取りが一致し、かつ Document 名が
+    /// ウィンドウタイトルと整合したときだけ採用する。揃わなければ URL を記録しない。
+    /// </summary>
+    private static (string Title, string? Url) GetBrowserInfoCached(
         IntPtr hwnd, string rawTitle, string processName, int timeoutMs)
     {
         var now = DateTime.UtcNow;
@@ -91,16 +101,41 @@ public static class ActivityRecorder
             now - _lastBrowserInfoAt < BrowserInfoCacheTtl)
             return _lastBrowserInfo;
 
-        var info = BrowserUrlReader.GetInfo(hwnd, processName, timeoutMs);
-        // タイムアウト・前回の走査が実行中などで何も取れなかった場合はキャッシュせず次回再試行する
-        if (info.Url != null || info.Title != null)
+        var prev = ReadBrowserSnapshot(hwnd, processName, timeoutMs);
+        // タイムアウト・前回の走査が実行中などで何も取れなかった場合は、キャッシュせず次回再試行する
+        if (prev == null) return (rawTitle, null);
+
+        for (var read = 1; read < MaxBrowserReads; read++)
         {
-            _lastBrowserHwnd = hwnd;
-            _lastBrowserRawTitle = rawTitle;
-            _lastBrowserInfo = info;
-            _lastBrowserInfoAt = now;
+            Thread.Sleep(TabSwitchSettleDelay);
+            var cur = ReadBrowserSnapshot(hwnd, processName, timeoutMs);
+            if (cur == null) break;
+
+            if (cur.Value.Consistent && cur == prev)
+            {
+                var info = (cur.Value.DocTitle ?? cur.Value.RawTitle, cur.Value.Url);
+                _lastBrowserHwnd = hwnd;
+                _lastBrowserRawTitle = cur.Value.RawTitle;
+                _lastBrowserInfo = info;
+                _lastBrowserInfoAt = now;
+                return info;
+            }
+            prev = cur;
         }
-        return info;
+
+        // 切替が収まらなかった: どのタブの URL か保証できないので記録しない
+        return (GetTitle(hwnd), null);
+    }
+
+    private static BrowserSnapshot? ReadBrowserSnapshot(IntPtr hwnd, string processName, int timeoutMs)
+    {
+        var rawTitle = GetTitle(hwnd);
+        var (url, docTitle) = BrowserUrlReader.GetInfo(hwnd, processName, rawTitle, timeoutMs);
+        if (url == null && docTitle == null) return null;
+
+        var consistent = GetTitle(hwnd) == rawTitle &&
+                         (docTitle == null || rawTitle.StartsWith(docTitle, StringComparison.Ordinal));
+        return new BrowserSnapshot(rawTitle, url, docTitle, consistent);
     }
 
     /// <summary>

@@ -73,6 +73,8 @@
 - 機能:
   - GetForegroundWindow でアクティブウィンドウを監視
   - UI Automation でブラウザのタブタイトル・URL取得（Chrome/Edge/Firefox/Vivaldi/Brave対応）
+    - タイトルはページの Document 要素名（ウィンドウタイトルと一致するものを優先）。TabItem の選択状態は Vivaldi で取得できず誤判定もあるため使わない
+    - タブ切替直後はウィンドウタイトル・アドレスバー・Document 名が別々のタイミングで切り替わるため、300ms 空けた2回の読み取りが一致し Document 名がウィンドウタイトルと整合したときだけ採用する。揃わなければ URL は記録しない（別タブの URL とタイトルを組み合わせて記録しないため）
   - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5), MaxBufferedLogs(5000), HttpTimeoutSeconds(20), BrowserUrlTimeoutMs(1200)
   - セッション管理: アクティビティが変化した時のみセッションを完結させてバッファ追加（同一内容継続は記録しない）
   - 5分ごとにバッファをサーバーへ一括 POST
