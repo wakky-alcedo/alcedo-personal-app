@@ -32,6 +32,15 @@ public static class ActivityRecorder
 
     private static int _mediaInFlight;
 
+    // UI Automation によるブラウザ走査は重く、Chromium 側のアクセシビリティツリー構築も
+    // 誘発するため、同じウィンドウ・同じタイトルの間は前回の結果を使い回す。
+    // タイトルが変わらない SPA 内遷移を拾うため、一定時間で再取得する。
+    private static readonly TimeSpan BrowserInfoCacheTtl = TimeSpan.FromSeconds(60);
+    private static IntPtr _lastBrowserHwnd;
+    private static string? _lastBrowserRawTitle;
+    private static (string? Url, string? Title) _lastBrowserInfo;
+    private static DateTime _lastBrowserInfoAt;
+
     public static ActivityLog? Capture(AppSettings settings)
     {
         var hwnd = GetForegroundWindow();
@@ -58,7 +67,7 @@ public static class ActivityRecorder
         string? browserUrl = null;
         if (BrowserUrlReader.IsBrowser(processName))
         {
-            var (url, title) = BrowserUrlReader.GetInfo(hwnd, processName, settings.BrowserUrlTimeoutMs);
+            var (url, title) = GetBrowserInfoCached(hwnd, windowTitle, processName, settings.BrowserUrlTimeoutMs);
             browserUrl = url;
             // UI Automation のタイトルが取れたら上書き
             if (!string.IsNullOrWhiteSpace(title) && title.Length > 2)
@@ -72,6 +81,26 @@ public static class ActivityRecorder
             BrowserUrl = browserUrl,
             IsMediaPlaying = IsMediaPlayingBounded(settings.BrowserUrlTimeoutMs),
         };
+    }
+
+    private static (string? Url, string? Title) GetBrowserInfoCached(
+        IntPtr hwnd, string rawTitle, string processName, int timeoutMs)
+    {
+        var now = DateTime.UtcNow;
+        if (hwnd == _lastBrowserHwnd && rawTitle == _lastBrowserRawTitle &&
+            now - _lastBrowserInfoAt < BrowserInfoCacheTtl)
+            return _lastBrowserInfo;
+
+        var info = BrowserUrlReader.GetInfo(hwnd, processName, timeoutMs);
+        // タイムアウト・前回の走査が実行中などで何も取れなかった場合はキャッシュせず次回再試行する
+        if (info.Url != null || info.Title != null)
+        {
+            _lastBrowserHwnd = hwnd;
+            _lastBrowserRawTitle = rawTitle;
+            _lastBrowserInfo = info;
+            _lastBrowserInfoAt = now;
+        }
+        return info;
     }
 
     /// <summary>

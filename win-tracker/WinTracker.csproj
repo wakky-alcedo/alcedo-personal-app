@@ -11,6 +11,9 @@
     <RootNamespace>WinTracker</RootNamespace>
     <AssemblyName>WinTracker</AssemblyName>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- 単一ファイル発行時、WPF の C++/CLI アセンブリ(DirectWriteForwarder 等)はバンドル内から
+         読めず終了時に DllNotFoundException で落ちるため、全ファイルを自己展開させる -->
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>

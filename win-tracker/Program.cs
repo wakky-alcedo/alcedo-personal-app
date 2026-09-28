@@ -12,6 +12,7 @@ internal static class Program
     private static PowerMonitor? _powerMonitor;
     private static bool _paused;
     private static bool _displayOff;
+    private static bool _capturing;
 
     [STAThread]
     static void Main(string[] args)
@@ -29,7 +30,7 @@ internal static class Program
         var appDataDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WinTracker");
         var appDataSettings = Path.Combine(appDataDir, "appsettings.json");
-        var exeSettings = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var exeSettings = Path.Combine(AppPaths.ExeDirectory, "appsettings.json");
 
         AppSettings settings;
         var settingsPath = File.Exists(appDataSettings) ? appDataSettings : exeSettings;
@@ -53,7 +54,7 @@ internal static class Program
         }
 
         // Load classification rules
-        var rulesPath = Path.Combine(AppContext.BaseDirectory, "rules.json");
+        var rulesPath = Path.Combine(AppPaths.ExeDirectory, "rules.json");
         _classifier = new RuleClassifier(rulesPath);
 
         // Init sync service
@@ -105,7 +106,7 @@ internal static class Program
         };
         contextMenu.Items.Add(exitItem);
 
-        var icoPath = Path.Combine(AppContext.BaseDirectory, "app.ico");
+        var icoPath = Path.Combine(AppPaths.ExeDirectory, "app.ico");
         var icon = File.Exists(icoPath) ? new Icon(icoPath) : SystemIcons.Application;
 
         _trayIcon = new NotifyIcon
@@ -121,16 +122,27 @@ internal static class Program
         {
             Interval = settings.SampleIntervalSeconds * 1000,
         };
-        _sampleTimer.Tick += (_, _) =>
+        _sampleTimer.Tick += async (_, _) =>
         {
-            if (_paused || _displayOff) return;
-            var log = ActivityRecorder.Capture(settings);
-            if (log != null)
+            if (_paused || _displayOff || _capturing) return;
+            _capturing = true;
+            try
             {
-                _syncService.UpdateActivity(log);
-                statusItem.Text = _syncService.DroppedCount > 0
-                    ? $"記録中 ({_syncService.PendingCount}, 破棄:{_syncService.DroppedCount})"
-                    : $"記録中 ({_syncService.PendingCount})";
+                // Capture は UI Automation / WinRT のタイムアウト待ちで最大数秒かかるため UI スレッド外で実行する
+                var log = await Task.Run(() => ActivityRecorder.Capture(settings));
+                // 取得中に一時停止・画面オフになった場合は、睡眠区間を上書きしないよう破棄する
+                if (log != null && !_paused && !_displayOff)
+                {
+                    _syncService.UpdateActivity(log);
+                    statusItem.Text = _syncService.DroppedCount > 0
+                        ? $"記録中 ({_syncService.PendingCount}, 破棄:{_syncService.DroppedCount})"
+                        : $"記録中 ({_syncService.PendingCount})";
+                }
+            }
+            catch { /* 1サンプルの失敗で記録を止めない */ }
+            finally
+            {
+                _capturing = false;
             }
         };
         _sampleTimer.Start();

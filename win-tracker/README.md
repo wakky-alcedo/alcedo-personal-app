@@ -28,6 +28,8 @@ dotnet publish -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
+`WinTracker.csproj` で `IncludeAllContentForSelfExtract=true` を指定しているため、初回起動時に exe の中身が `%TEMP%\.net\WinTracker\` へ展開される（WPF の C++/CLI アセンブリはバンドル内から直接読めず、指定しないと終了時に `DllNotFoundException` でクラッシュする）。
+
 `appsettings.json` / `rules.json` / `app.ico` / `WinTracker.pdb` は `<Content>` としてコピーされるが実行には不要（`appsettings.json` がなければ既定値を使い初回起動時に `%APPDATA%\WinTracker\` へ自動生成、`rules.json` がなければ空ルールで動作、`app.ico` がなければ標準アイコンにフォールバック）。配布時は `publish/WinTracker.exe` だけを任意の場所（例: `C:\Apps\WinTracker\`）にコピーすれば単独で動く。
 
 サーバーURL/APIキーを初回起動前から既定値以外にしたい場合のみ、`appsettings.json` も一緒にコピーする。

@@ -17,7 +17,7 @@ public class SyncService : IDisposable
     private long _droppedTotal;
     private int _syncing;
     private static readonly string BufferFilePath =
-        Path.Combine(AppContext.BaseDirectory, "buffer.json");
+        Path.Combine(AppPaths.ExeDirectory, "buffer.json");
 
     public SyncService(string serverUrl, string apiKey, string deviceId, int maxBufferedLogs = 5000, int httpTimeoutSeconds = 20)
     {

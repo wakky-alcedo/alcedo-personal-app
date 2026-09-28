@@ -16,7 +16,7 @@ public static class DiagDump
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-    private static readonly string OutputPath = Path.Combine(AppContext.BaseDirectory, "diag.txt");
+    private static readonly string OutputPath = Path.Combine(AppPaths.ExeDirectory, "diag.txt");
     private static StreamWriter _out = null!;
 
     private static void W(string text) => _out.WriteLine(text);
