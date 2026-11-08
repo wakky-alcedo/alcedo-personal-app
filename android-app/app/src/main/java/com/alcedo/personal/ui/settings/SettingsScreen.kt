@@ -37,7 +37,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.notifications.NotificationPrefs
 import com.alcedo.personal.notifications.TaskAlarmScheduler
 import com.alcedo.personal.notifications.TaskNotificationScheduler
-import com.alcedo.personal.sync.HabitLogSyncScheduler
+import com.alcedo.personal.sync.BeliefSyncScheduler
+import com.alcedo.personal.sync.HabitSyncScheduler
 import com.alcedo.personal.sync.MemoSyncScheduler
 import com.alcedo.personal.sync.SyncConfig
 import com.alcedo.personal.sync.TaskSyncScheduler
@@ -83,7 +84,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun syncNow() {
         TaskSyncScheduler.enqueue(getApplication())
-        HabitLogSyncScheduler.enqueue(getApplication())
+        HabitSyncScheduler.enqueue(getApplication())
+        BeliefSyncScheduler.enqueue(getApplication())
         MemoSyncScheduler.enqueuePush(getApplication())
     }
 

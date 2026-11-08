@@ -4,7 +4,8 @@ import android.app.Application
 import com.alcedo.personal.analytics.UsageStatsSyncWorker
 import com.alcedo.personal.notifications.TaskNotificationChannels
 import com.alcedo.personal.notifications.TaskNotificationScheduler
-import com.alcedo.personal.sync.HabitLogSyncScheduler
+import com.alcedo.personal.sync.BeliefSyncScheduler
+import com.alcedo.personal.sync.HabitSyncScheduler
 import com.alcedo.personal.sync.MemoSyncScheduler
 import com.alcedo.personal.sync.TaskSyncScheduler
 
@@ -13,7 +14,8 @@ class AlcedoApplication : Application() {
         super.onCreate()
         TaskNotificationChannels.ensureChannels(this)
         TaskSyncScheduler.enqueue(this)
-        HabitLogSyncScheduler.enqueue(this)
+        HabitSyncScheduler.enqueue(this)
+        BeliefSyncScheduler.enqueue(this)
         MemoSyncScheduler.schedulePull(this)
         UsageStatsSyncWorker.schedule(this)
         TaskNotificationScheduler.enqueue(this)

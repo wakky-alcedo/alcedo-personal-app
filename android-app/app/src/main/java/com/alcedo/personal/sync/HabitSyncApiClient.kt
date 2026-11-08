@@ -13,7 +13,8 @@ class HabitSyncApiClient(private val http: ApiHttpClient) {
         }.getOrNull()
     }
 
-    fun upsert(habit: HabitEntity): HabitEntity? {
+    /** The server keeps the newer of the stored and sent updatedAt and returns what it stored. */
+    fun upsert(habit: HabitEntity): PushOutcome<HabitEntity> {
         val body = JSONObject()
             .put("id", habit.id)
             .put("name", habit.name)
@@ -22,14 +23,18 @@ class HabitSyncApiClient(private val http: ApiHttpClient) {
             .put("isActive", habit.isActive)
             .put("createdAt", habit.createdAt)
             .put("updatedAt", habit.updatedAt)
-        val result = http.post("/api/v1/habits", body.toString()) as? ApiResult.Success ?: return null
-        return runCatching {
-            val resp = JSONObject(result.body)
-            parseHabitObject(resp.optJSONObject("habit") ?: resp)
-        }.getOrNull()
+        val result = http.post("/api/v1/habits", body.toString())
+        val stored = (result as? ApiResult.Success)?.let {
+            runCatching {
+                val resp = JSONObject(it.body)
+                parseHabitObject(resp.optJSONObject("habit") ?: resp)
+            }.getOrNull()
+        }
+        return PushOutcome(result.toPushResult(), stored)
     }
 
-    fun delete(id: String): Boolean = http.delete("/api/v1/habits/$id") is ApiResult.Success
+    /** Idempotent on the server: deleting an already deleted or unknown id also succeeds. */
+    fun delete(id: String): PushResult = http.delete("/api/v1/habits/$id").toPushResult()
 
     /** See [toPushResult] for which failures are dropped rather than retried. */
     fun checkIn(habitId: String, doneDate: String): PushResult {

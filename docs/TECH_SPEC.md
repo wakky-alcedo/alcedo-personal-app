@@ -170,12 +170,16 @@
 
 ## 6. データ仕様
 ### 6.1 Android (Room)
+スキーマ: `android-app/app/schemas/`（Room がエクスポートした JSON。マイグレーションは `MigrationTest`（instrumented）で検証する）
+
 1. beliefs
 - id: UUID
 - text: string
 - is_active: boolean
 - created_at: datetime
 - updated_at: datetime
+- sync_status: enum(UNSENT, SYNCED)（default SYNCED。作成・編集・削除は端末に先に保存して UNSENT にし、`BeliefSyncWorker` が送信する。§9.3）
+- deleted_at: datetime?（端末内の墓標。画面には出さず、サーバーが削除を受理したら行を消す）
 
 2. tasks
 - id: UUID
@@ -197,13 +201,14 @@
 - widget_priority_time_range_end: time?
 - allowed_miss_days: integer (default 0、連続何日まで休んでもストリークが途切れないか)
 - is_active: boolean
+- sync_status / deleted_at: beliefs と同じ（送信は `HabitSyncWorker`）
 
 4. habit_logs
 - id: UUID
 - habit_id: UUID
 - done_date: date
 - created_at: datetime
-- sync_status: enum(UNSENT, SYNCED)（Android のみ。チェックインは先にローカル保存し、送信失敗分は `HabitLogSyncWorker` が再送する）
+- sync_status: enum(UNSENT, SYNCED)（Android のみ。チェックインは先にローカル保存し、送信失敗分は `HabitSyncWorker` が再送する）
 
 5. obsidian_buffer_items
 - id: UUID
@@ -477,6 +482,11 @@
 ### 9.3 Android 送信
 - 接続設定（Server URL・API キー）のどちらかが未設定の間は同期を行わない（API キーに既定値はない）。未送信の変更は端末に残り、設定の保存時に送信を開始する。設定画面に「未設定」と表示する
 - 送信は WorkManager で実行
+- 信念・習慣は端末に先に保存する（オフラインでも作成・編集・削除できる）。ルールは `android-app/.../sync/LocalFirstSyncRules.kt`
+  - 送信: 2xx なら SYNCED（送信中に再編集された行はそのまま再送対象）。削除の 2xx、および 400/404（不正・削除済み）は端末の行を消してサーバーの状態に合わせる。それ以外は再送
+  - `HabitSyncWorker` は習慣の変更を先に、チェックインを後に送る（未作成の習慣へのチェックインが 404 で捨てられないように）
+  - 取得: 未送信（編集・墓標）の行はサーバーの値で上書きしない。サーバーに無い SYNCED の行は削除、未送信の新規行は残す
+  - 競合: サーバー側で `updatedAt` による後勝ち（§7.2 の信念・習慣）
 - Backoff: exponential
 - 最大再試行回数: 5
 

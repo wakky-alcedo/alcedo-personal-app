@@ -11,6 +11,6 @@ data class HabitLogEntity(
     val habitId: String,
     val doneDate: String,   // YYYY-MM-DD
     val createdAt: String,
-    /** UNSENT until the server accepts the check-in; HabitLogSyncWorker retries the rest. */
+    /** UNSENT until the server accepts the check-in; HabitSyncWorker retries the rest. */
     @ColumnInfo(defaultValue = "UNSENT") val syncStatus: SyncStatus = SyncStatus.UNSENT
 )

@@ -87,7 +87,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun checkInHabit(habitId: String) {
         // The local log row is written first, so habitsWithStatus updates immediately;
-        // a failed push is retried in the background by HabitLogSyncWorker.
+        // a failed push is retried in the background by HabitSyncWorker.
         viewModelScope.launch { habitRepo.checkIn(habitId) }
     }
 

@@ -13,19 +13,24 @@ class BeliefSyncApiClient(private val http: ApiHttpClient) {
         }.getOrNull()
     }
 
-    fun upsert(belief: BeliefEntity): BeliefEntity? {
+    /** The server keeps the newer of the stored and sent updatedAt and returns what it stored. */
+    fun upsert(belief: BeliefEntity): PushOutcome<BeliefEntity> {
         val body = JSONObject()
             .put("id", belief.id)
             .put("text", belief.text)
             .put("isActive", belief.isActive)
             .put("createdAt", belief.createdAt)
             .put("updatedAt", belief.updatedAt)
-        val result = http.post("/api/v1/beliefs", body.toString()) as? ApiResult.Success ?: return null
+        val result = http.post("/api/v1/beliefs", body.toString())
         // サーバーは { "belief": {...} } を返す
-        return runCatching { parseBeliefObject(JSONObject(result.body).getJSONObject("belief")) }.getOrNull()
+        val stored = (result as? ApiResult.Success)?.let {
+            runCatching { parseBeliefObject(JSONObject(it.body).getJSONObject("belief")) }.getOrNull()
+        }
+        return PushOutcome(result.toPushResult(), stored)
     }
 
-    fun delete(id: String): Boolean = http.delete("/api/v1/beliefs/$id") is ApiResult.Success
+    /** Idempotent on the server: deleting an already deleted or unknown id also succeeds. */
+    fun delete(id: String): PushResult = http.delete("/api/v1/beliefs/$id").toPushResult()
 
     private fun parseBeliefObject(obj: JSONObject) = BeliefEntity(
         id        = obj.getString("id"),

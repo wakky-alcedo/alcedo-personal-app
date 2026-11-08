@@ -17,7 +17,7 @@ class SyncStatusConverters {
 
 @Database(
     entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class, MemoEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(SyncStatusConverters::class)
@@ -28,6 +28,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memoDao(): MemoDao
 
     companion object {
+        // Beliefs/habits become local-first. Existing rows came from the server, so they are SYNCED.
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                for (table in listOf("beliefs", "habits")) {
+                    db.execSQL("ALTER TABLE `$table` ADD COLUMN `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'")
+                    db.execSQL("ALTER TABLE `$table` ADD COLUMN `deletedAt` TEXT")
+                }
+            }
+        }
+
         // Existing logs start as UNSENT so check-ins that never reached the server are re-pushed
         // once (the server ignores duplicates for the same habit/day).
         val MIGRATION_6_7 = object : Migration(6, 7) {
