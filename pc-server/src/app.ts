@@ -10,7 +10,10 @@ import { registerTaskRoutes } from "./routes/tasks.js";
 
 export async function createApp() {
   const app = Fastify({ logger: true });
-  const apiKey = process.env.API_KEY ?? "dev-local-key";
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY environment variable must be set");
+  }
 
   await app.register(cors, {
     origin: "*",

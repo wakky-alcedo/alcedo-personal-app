@@ -18,7 +18,7 @@ services:
     volumes:
       - sqlite_data:/data
     environment:
-      - API_KEY=${API_KEY:-dev-local-key}
+      - API_KEY=${API_KEY:?API_KEY must be set in .env}
       - DATA_DIR=/data
     restart: always
 
