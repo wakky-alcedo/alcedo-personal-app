@@ -8,6 +8,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 private const val TAG = "TaskSyncApiClient"
+private const val EPOCH = "1970-01-01T00:00:00.000Z"
 
 class TaskSyncApiClient(
     private val baseUrl: String,
@@ -55,6 +56,36 @@ class TaskSyncApiClient(
         tasks
     }.onFailure { e ->
         Log.e(TAG, "pullTasks error: $baseUrl", e)
+    }.getOrNull()
+
+    data class TaskTombstone(val id: String, val updatedAt: String, val version: Int)
+
+    /**
+     * Tasks deleted on the server (GET /sync/changes). GET /tasks omits deleted rows, so
+     * without this, deletions made on the web never reached the Android cache.
+     */
+    fun pullDeletions(): List<TaskTombstone>? = runCatching {
+        val conn = (URL("$baseUrl/api/v1/sync/changes?since=$EPOCH").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            setRequestProperty("X-Api-Key", apiKey)
+            connectTimeout = 5000; readTimeout = 10000
+        }
+        try {
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                Log.w(TAG, "pullDeletions failed: HTTP $code")
+                return null
+            }
+            val arr = JSONObject(conn.inputStream.bufferedReader().readText()).optJSONArray("deletions") ?: JSONArray()
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                TaskTombstone(obj.getString("id"), obj.optString("updatedAt", ""), obj.optInt("version", 1))
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }.onFailure { e ->
+        Log.e(TAG, "pullDeletions error: $baseUrl", e)
     }.getOrNull()
 
     fun pushTasks(tasks: List<TaskEntity>): Boolean {

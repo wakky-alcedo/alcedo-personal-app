@@ -81,6 +81,19 @@ class TaskRepository(
                 dao.upsert(serverTask)
             }
         }
+        // Same conflict rule as the server: a newer unsent local edit wins over the tombstone.
+        client.pullDeletions()?.forEach { tombstone ->
+            val local = dao.findById(tombstone.id) ?: return@forEach
+            if (local.deletedAt != null) return@forEach
+            if (local.syncStatus == SyncStatus.SYNCED || local.version <= tombstone.version) {
+                dao.upsert(local.copy(
+                    deletedAt = tombstone.updatedAt,
+                    updatedAt = tombstone.updatedAt,
+                    version = tombstone.version,
+                    syncStatus = SyncStatus.SYNCED
+                ))
+            }
+        }
         true
     }
 }
