@@ -45,3 +45,11 @@ export function addDays(dateKey: string, days: number): string {
     String(date.getUTCDate()).padStart(2, '0'),
   ].join('-');
 }
+
+/** 実効日（6時境界）が日付キーの日になる区間 [start, end) を UTC ISO 文字列で返す。 */
+export function dayBoundsUtc(dateKey: string, offsetHours = TZ_OFFSET_HOURS): { start: string; end: string } {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d, 6 - offsetHours));
+  const end = new Date(start.getTime() + 24 * 3600_000);
+  return { start: start.toISOString(), end: end.toISOString() };
+}

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
 import type { RouteOptions } from "../db.js";
-import { effectiveLocalDate } from "../utils/date.js";
+import { dayBoundsUtc, effectiveLocalDate, isDateKey } from "../utils/date.js";
 
 type ActivityLogRow = {
   id: string;
@@ -145,17 +145,14 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
   });
 
   // GET /activity/logs?date=YYYY-MM-DD&deviceId=xxx
-  app.get("/activity/logs", async (request) => {
-    const { date, deviceId } = request.query as { date?: string; deviceId?: string };
-    const d = date ?? effectiveLocalDate();
+  app.get<{ Querystring: { date?: string; deviceId?: string } }>("/activity/logs", async (request, reply) => {
+    const { date, deviceId } = request.query;
+    if (date !== undefined && !isDateKey(date)) return reply.code(400).send({ message: "date must be YYYY-MM-DD" });
     // 「その日」= ローカル06:00 〜 翌日ローカル06:00
-    const startBoundary = new Date(`${d}T06:00:00+09:00`).toISOString();
-    const endBoundary   = new Date(`${d}T06:00:00+09:00`);
-    endBoundary.setUTCDate(endBoundary.getUTCDate() + 1);
-    const endBoundaryStr = endBoundary.toISOString();
+    const { start, end } = dayBoundsUtc(date ?? effectiveLocalDate());
 
     let query = `SELECT * FROM activity_logs WHERE startedAt >= ? AND startedAt < ?`;
-    const params: string[] = [startBoundary, endBoundaryStr];
+    const params: string[] = [start, end];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
@@ -169,11 +166,10 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
   });
 
   // GET /activity/summary?date=YYYY-MM-DD&deviceId=xxx
-  app.get("/activity/summary", async (request) => {
-    const { date, deviceId } = request.query as { date?: string; deviceId?: string };
-    const d = date ?? effectiveLocalDate();
-    const startBoundary = new Date(`${d}T06:00:00+09:00`).toISOString();
-    const endBoundary   = (() => { const e = new Date(`${d}T06:00:00+09:00`); e.setUTCDate(e.getUTCDate() + 1); return e.toISOString(); })();
+  app.get<{ Querystring: { date?: string; deviceId?: string } }>("/activity/summary", async (request, reply) => {
+    const { date, deviceId } = request.query;
+    if (date !== undefined && !isDateKey(date)) return reply.code(400).send({ message: "date must be YYYY-MM-DD" });
+    const { start, end } = dayBoundsUtc(date ?? effectiveLocalDate());
 
     let query = `
       SELECT category,
@@ -183,7 +179,7 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
       FROM activity_logs
       WHERE startedAt >= ? AND startedAt < ?
     `;
-    const params: string[] = [startBoundary, endBoundary];
+    const params: string[] = [start, end];
 
     if (deviceId) {
       query += ` AND deviceId = ?`;
@@ -195,14 +191,14 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
   });
 
   // GET /activity/devices?date=YYYY-MM-DD — その日に活動があったデバイス一覧
-  app.get("/activity/devices", async (request) => {
-    const { date } = request.query as { date?: string };
+  app.get<{ Querystring: { date?: string } }>("/activity/devices", async (request, reply) => {
+    const { date } = request.query;
+    if (date !== undefined && date !== "" && !isDateKey(date)) return reply.code(400).send({ message: "date must be YYYY-MM-DD" });
     if (date) {
-      const startBoundary = new Date(`${date}T06:00:00+09:00`).toISOString();
-      const endBoundary   = (() => { const e = new Date(`${date}T06:00:00+09:00`); e.setUTCDate(e.getUTCDate() + 1); return e.toISOString(); })();
+      const { start, end } = dayBoundsUtc(date);
       return db
         .prepare("SELECT DISTINCT deviceId FROM activity_logs WHERE startedAt >= ? AND startedAt < ? ORDER BY deviceId")
-        .all(startBoundary, endBoundary) as Array<{ deviceId: string }>;
+        .all(start, end) as Array<{ deviceId: string }>;
     }
     return db
       .prepare("SELECT DISTINCT deviceId FROM activity_logs ORDER BY deviceId")

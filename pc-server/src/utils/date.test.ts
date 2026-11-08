@@ -59,3 +59,11 @@ describe('isDateKey', () => {
     expect(isDateKey(20260805)).toBe(false)
   })
 })
+
+describe('dayBoundsUtc', () => {
+  it('spans 06:00 JST to 06:00 JST next day', async () => {
+    const { dayBoundsUtc } = await import('./date.js')
+    expect(dayBoundsUtc('2026-08-05', 9)).toEqual({ start: '2026-08-04T21:00:00.000Z', end: '2026-08-05T21:00:00.000Z' })
+    expect(dayBoundsUtc('2027-01-01', 9)).toEqual({ start: '2026-12-31T21:00:00.000Z', end: '2027-01-01T21:00:00.000Z' })
+  })
+})
