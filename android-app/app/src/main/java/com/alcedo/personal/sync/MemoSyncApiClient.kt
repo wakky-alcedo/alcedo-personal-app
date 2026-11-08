@@ -3,20 +3,30 @@ package com.alcedo.personal.sync
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 
 private const val TAG = "MemoSyncApiClient"
 
 class MemoSyncApiClient(private val http: ApiHttpClient) {
-    fun pullMemos(since: String): List<MemoEntity>? {
-        val body = when (val result = http.get("/api/v1/memos?since=$since&limit=200", HttpTimeouts.LONG_READ)) {
+    /** One page of GET /memos?since=; [nextCursor] is null on the last page. */
+    data class MemoPage(val memos: List<MemoEntity>, val nextCursor: String?)
+
+    fun pullPage(since: String, cursor: String?, limit: Int): MemoPage? {
+        val query = buildString {
+            append("since=").append(URLEncoder.encode(since, "UTF-8"))
+            append("&limit=").append(limit)
+            if (cursor != null) append("&cursor=").append(URLEncoder.encode(cursor, "UTF-8"))
+        }
+        val body = when (val result = http.get("/api/v1/memos?$query", HttpTimeouts.LONG_READ)) {
             is ApiResult.Success -> result.body
             is ApiResult.HttpError -> { Log.w(TAG, "pullMemos failed: HTTP ${result.status}"); return null }
             is ApiResult.NetworkError -> { Log.e(TAG, "pullMemos error", result.cause); return null }
         }
         return runCatching {
-            val arr = JSONObject(body).optJSONArray("memos") ?: JSONArray()
+            val obj = JSONObject(body)
+            val arr = obj.optJSONArray("memos") ?: JSONArray()
             Log.d(TAG, "pullMemos ok: ${arr.length()} memo(s)")
-            (0 until arr.length()).map { i -> parseMemo(arr.getJSONObject(i)) }
+            MemoPage((0 until arr.length()).map { i -> parseMemo(arr.getJSONObject(i)) }, obj.nullableString("nextCursor"))
         }.onFailure { Log.e(TAG, "pullMemos parse error", it) }.getOrNull()
     }
 

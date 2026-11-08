@@ -416,6 +416,7 @@
 - 用途: 一覧取得（since省略時は全件を新しい順にoffsetでページング，指定時はPull差分取得）
 - `limit` は既定50・上限200
 - Pull（since指定）: `(updated_at, id)` の昇順で返す。カーソルは `"<updatedAt>|<id>"` で，その位置より後ろの行を返す（同じ updated_at の行がページ境界で抜けない）。`nextCursor` はページが満杯のときだけ最後の行のカーソルを返し，最後のページでは null。クライアントは最後に受け取った行から同じ形式のカーソルを作って次回の起点にできる
+- Android の Pull: `since=1970-01-01T00:00:00.000Z` と保存済みカーソルで `nextCursor` が null になるまでページをたどり，ページごとに最後の行のカーソルを DataStore（`MemoSyncState`，接続先 URL とセット）に保存する。初回・接続先変更時は全件取得。未送信のローカル変更はサーバーの version が新しい場合を除き上書きしない
 - 後方互換: カーソル省略時は `since`，`|` を含まない旧形式カーソル（時刻のみ）は従来どおり `updated_at > 時刻` で絞り込む。削除済みメモは `deleted_at > since` のものだけ返す
 - 競合解決: version-based（Taskと同方式）
 - Response: { memos: Memo[], nextCursor: string | null }

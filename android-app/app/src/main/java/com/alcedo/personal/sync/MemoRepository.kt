@@ -5,7 +5,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class MemoRepository(
@@ -59,17 +58,28 @@ class MemoRepository(
         MemoSyncScheduler.enqueuePush(context)
     }
 
-    /** PC サーバーから直近24時間に更新されたメモを取得し、新しい方を採用してマージする。取得に失敗した場合は false を返す */
+    /**
+     * Pulls every memo changed since the last pull (all memos the first time), following
+     * nextCursor page by page. The position is saved after each page, so an interrupted pull
+     * resumes where it stopped. Unsent local changes are kept (MemoSyncRules).
+     * Returns false when a page could not be fetched.
+     */
     suspend fun syncFromServer(): Boolean = withContext(Dispatchers.IO) {
-        val since = Instant.now().minus(24, ChronoUnit.HOURS).toString()
         val client = MemoSyncApiClient(SyncConfig.httpClient(context) ?: return@withContext false)
-        val pulled = client.pullMemos(since) ?: return@withContext false
-        for (remote in pulled) {
-            val local = dao.findById(remote.id)
-            if (local == null || remote.version > local.version ||
-                (remote.version == local.version && remote.updatedAt > local.updatedAt)) {
-                dao.upsert(remote.copy(syncStatus = SyncStatus.SYNCED))
+        val serverUrl = SyncConfig.getServerUrl(context)
+        var cursor = MemoSyncState.getCursor(context, serverUrl)
+        while (true) {
+            val page = client.pullPage(MemoSyncRules.PULL_SINCE_EPOCH, cursor, MemoSyncRules.PULL_PAGE_LIMIT)
+                ?: return@withContext false
+            for (remote in page.memos) {
+                if (MemoSyncRules.shouldApplyRemote(dao.findById(remote.id), remote)) dao.upsert(remote)
             }
+            val last = page.memos.lastOrNull() ?: break
+            val next = MemoSyncRules.cursorAfter(last)
+            MemoSyncState.saveCursor(context, serverUrl, next)
+            // Stop on the last page, or if the server stops advancing (defensive against a loop).
+            if (page.nextCursor == null || next == cursor) break
+            cursor = next
         }
         true
     }
