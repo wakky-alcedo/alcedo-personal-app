@@ -71,25 +71,13 @@ class TaskRepository(
         val client = TaskSyncApiClient(SyncConfig.httpClient(context) ?: return@withContext false)
         val pulled = client.pullTasks() ?: return@withContext false
         for (serverTask in pulled) {
-            val local = dao.findById(serverTask.id)
-            if (local == null || local.syncStatus == SyncStatus.SYNCED) {
-                dao.upsert(serverTask)
-            } else if (local.version < serverTask.version) {
+            if (TaskSyncRules.shouldApplyServerTask(dao.findById(serverTask.id), serverTask)) {
                 dao.upsert(serverTask)
             }
         }
-        // Same conflict rule as the server: a newer unsent local edit wins over the tombstone.
         client.pullDeletions()?.forEach { tombstone ->
             val local = dao.findById(tombstone.id) ?: return@forEach
-            if (local.deletedAt != null) return@forEach
-            if (local.syncStatus == SyncStatus.SYNCED || local.version <= tombstone.version) {
-                dao.upsert(local.copy(
-                    deletedAt = tombstone.updatedAt,
-                    updatedAt = tombstone.updatedAt,
-                    version = tombstone.version,
-                    syncStatus = SyncStatus.SYNCED
-                ))
-            }
+            TaskSyncRules.applyTombstone(local, tombstone)?.let { dao.upsert(it) }
         }
         true
     }
