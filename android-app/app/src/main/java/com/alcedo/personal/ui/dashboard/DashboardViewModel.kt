@@ -9,8 +9,6 @@ import com.alcedo.personal.ui.util.TimeUtils.toLocalDateStr
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 data class HabitUiState(
     val habit: HabitEntity,
@@ -52,27 +50,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _habitsWithStatus = MutableStateFlow<List<HabitUiState>>(emptyList())
-    val habitsWithStatus: StateFlow<List<HabitUiState>> = _habitsWithStatus
+    /**
+     * Recomputed whenever habits or check-in logs change (local check-in, server pull,
+     * retry worker), so the dashboard never shows a stale status after a sync.
+     */
+    val habitsWithStatus: StateFlow<List<HabitUiState>> =
+        combine(habitRepo.observeActive(), habitRepo.observeLogs()) { habits, logs ->
+            val today = TimeUtils.effectiveLocalDateStr()
+            val datesByHabit = logs.groupBy({ it.habitId }, { it.doneDate }).mapValues { it.value.toSet() }
+            habits.map { habit ->
+                val dates = datesByHabit[habit.id].orEmpty()
+                HabitUiState(habit, today in dates, HabitStreak.compute(dates, today, habit.allowedMissDays), dates)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch { syncAll() }
-        viewModelScope.launch {
-            habitRepo.observeActive().collect { habits ->
-                _habitsWithStatus.value = computeHabitStatus(habits)
-            }
-        }
-    }
-
-    private suspend fun computeHabitStatus(habits: List<HabitEntity>): List<HabitUiState> {
-        val today = today()
-        val completedIds = db.habitDao().getCompletedHabitIds(today).toSet()
-        // ヒートマップ表示日数（HabitHeatmapContent の60日分）に合わせて取得
-        val fromHeatmap = daysAgo(HEATMAP_DAYS)
-        return habits.map { habit ->
-            val logs = db.habitDao().getRecentLogs(habit.id, fromHeatmap)
-            HabitUiState(habit, habit.id in completedIds, computeStreak(logs, today, habit.allowedMissDays), logs.toSet())
-        }
     }
 
     fun nextBelief() {
@@ -93,12 +86,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun checkInHabit(habitId: String) {
-        viewModelScope.launch {
-            habitRepo.checkIn(habitId)
-            // 既存のリストから habit を取得して再計算（新規 StateFlow を作らない）
-            val currentHabits = _habitsWithStatus.value.map { it.habit }
-            _habitsWithStatus.value = computeHabitStatus(currentHabits)
-        }
+        // The local log row is written first, so habitsWithStatus updates immediately;
+        // a failed push is retried in the background by HabitLogSyncWorker.
+        viewModelScope.launch { habitRepo.checkIn(habitId) }
     }
 
     fun syncNow() { viewModelScope.launch { syncAll() } }
@@ -113,47 +103,5 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         } finally {
             _syncing.value = false
         }
-    }
-
-    // ─── helpers ─────────────────────────────────────────────────────────────
-
-    private fun today() = TimeUtils.effectiveLocalDateStr()
-    private fun daysAgo(n: Int) = TimeUtils.effectiveDaysAgo(n)
-
-    // Mirrors pc-server's computeStreakDays (routes/habits.ts): walks backward from
-    // today (or yesterday, if today isn't logged yet), counting completed days.
-    // A run of missed days is skipped over as long as its length is within
-    // allowedMissDays; a longer run breaks the streak.
-    private fun computeStreak(logs: List<String>, today: String, allowedMissDays: Int): Int {
-        if (logs.isEmpty()) return 0
-        val set = logs.toHashSet()
-        val earliestDate = logs.minOrNull()?.let { LocalDate.parse(it) }
-        var streak = 0
-        var cursor: LocalDate? = if (set.contains(today)) LocalDate.parse(today) else LocalDate.parse(today).minusDays(1)
-
-        fun key(d: LocalDate) = d.format(DateTimeFormatter.ISO_LOCAL_DATE)
-
-        while (cursor != null && (earliestDate == null || !cursor.isBefore(earliestDate))) {
-            if (set.contains(key(cursor))) {
-                streak++
-                cursor = cursor.minusDays(1)
-                continue
-            }
-
-            var gapLen = 0
-            var probe: LocalDate? = cursor
-            while (probe != null && !set.contains(key(probe)) && (earliestDate == null || !probe.isBefore(earliestDate))) {
-                gapLen++
-                probe = probe.minusDays(1)
-            }
-
-            if (gapLen <= allowedMissDays) {
-                cursor = probe
-                continue
-            }
-
-            break
-        }
-        return streak
     }
 }

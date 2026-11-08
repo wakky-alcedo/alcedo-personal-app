@@ -203,6 +203,7 @@
 - habit_id: UUID
 - done_date: date
 - created_at: datetime
+- sync_status: enum(UNSENT, SYNCED)（Android のみ。チェックインは先にローカル保存し、送信失敗分は `HabitLogSyncWorker` が再送する）
 
 5. obsidian_buffer_items
 - id: UUID

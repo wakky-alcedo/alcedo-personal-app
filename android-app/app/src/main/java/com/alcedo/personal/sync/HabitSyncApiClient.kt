@@ -45,14 +45,42 @@ class HabitSyncApiClient(private val baseUrl: String, private val apiKey: String
         ok
     }.getOrElse { false }
 
-    fun checkIn(habitId: String, doneDate: String): Boolean = runCatching {
+    enum class PushResult { OK, RETRYABLE, REJECTED }
+
+    /**
+     * REJECTED means the server will never accept this check-in (habit deleted, invalid date),
+     * so the caller should drop it instead of retrying forever. Auth/server errors stay RETRYABLE.
+     */
+    fun checkIn(habitId: String, doneDate: String): PushResult = runCatching {
         val conn = openPost("$baseUrl/api/v1/habits/$habitId/logs")
-        val body = JSONObject().put("doneDate", doneDate)
-        conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
-        val ok = conn.responseCode in 200..299
-        conn.disconnect()
-        ok
-    }.getOrElse { false }
+        try {
+            val body = JSONObject().put("doneDate", doneDate)
+            conn.outputStream.bufferedWriter().use { it.write(body.toString()) }
+            when (conn.responseCode) {
+                in 200..299 -> PushResult.OK
+                400, 404 -> PushResult.REJECTED
+                else -> PushResult.RETRYABLE
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }.getOrElse { PushResult.RETRYABLE }
+
+    /** GET /habits/logs?from&to → done dates as SYNCED log rows, or null on failure. */
+    fun fetchLogs(from: String, to: String): List<HabitLogEntity>? = runCatching {
+        val conn = openGet("$baseUrl/api/v1/habits/logs?from=$from&to=$to")
+        try {
+            if (conn.responseCode !in 200..299) return null
+            val arr = JSONArray(conn.inputStream.bufferedReader().readText())
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                val doneDate = obj.getString("doneDate")
+                HabitLogEntity(obj.getString("habitId"), doneDate, doneDate, SyncStatus.SYNCED)
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }.getOrNull()
 
     private fun openGet(url: String) = (URL(url).openConnection() as HttpURLConnection).apply {
         requestMethod = "GET"

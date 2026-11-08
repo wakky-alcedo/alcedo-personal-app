@@ -1,5 +1,6 @@
 package com.alcedo.personal.sync
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 @Entity(
@@ -9,5 +10,7 @@ import androidx.room.Entity
 data class HabitLogEntity(
     val habitId: String,
     val doneDate: String,   // YYYY-MM-DD
-    val createdAt: String
+    val createdAt: String,
+    /** UNSENT until the server accepts the check-in; HabitLogSyncWorker retries the rest. */
+    @ColumnInfo(defaultValue = "UNSENT") val syncStatus: SyncStatus = SyncStatus.UNSENT
 )
