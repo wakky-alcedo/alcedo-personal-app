@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
 import type { RouteOptions } from "../db.js";
-import { addDays, effectiveLocalDate, isDateKey } from "../utils/date.js";
+import { addDays, effectiveLocalDate, isDateKey, normalizeIsoTimestamp } from "../utils/date.js";
 
 /** Default window for GET /habits/logs when `from` is omitted (matches the web heatmap). */
 const DEFAULT_LOG_WINDOW_DAYS = 60;
@@ -103,6 +103,7 @@ const habitRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
       allowedMissDays = excluded.allowedMissDays,
       isActive = excluded.isActive,
       updatedAt = excluded.updatedAt
+    WHERE julianday(excluded.updatedAt) >= COALESCE(julianday(habits.updatedAt), 0)
   `);
   const stmtSoftDeleteHabit = db.prepare("UPDATE habits SET deletedAt = @now, updatedAt = @now WHERE id = @id AND deletedAt IS NULL");
   const stmtInsertHabitLog = db.prepare(`
@@ -154,6 +155,8 @@ const habitRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
     // A stale client must not resurrect a habit that was deleted elsewhere.
     if (existing?.deletedAt) return reply.code(404).send({ message: "habit was deleted" });
 
+    // Last writer wins by updatedAt: an edit older than the stored one (e.g. an offline
+    // Android change re-sent after a newer web edit) is ignored and the current row returned.
     const now = new Date().toISOString();
     stmtUpsertHabit.run({
       id,
@@ -164,7 +167,7 @@ const habitRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
       allowedMissDays: Math.max(0, Math.trunc(Number(body.allowedMissDays ?? 0)) || 0),
       isActive: body.isActive === false ? 0 : 1,
       createdAt: typeof body.createdAt === "string" ? body.createdAt : now,
-      updatedAt: typeof body.updatedAt === "string" ? body.updatedAt : now,
+      updatedAt: normalizeIsoTimestamp(body.updatedAt, now),
     });
 
     return { habit: viewOf(stmtSelectHabit.get(id)!) };

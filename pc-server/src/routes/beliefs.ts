@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
 import type { RouteOptions } from "../db.js";
+import { normalizeIsoTimestamp } from "../utils/date.js";
 
 type BeliefRow = {
   id: string;
@@ -24,7 +25,7 @@ function parseBelief(input: unknown, now: string): BeliefRecord | null {
     text,
     isActive: item.isActive !== false,
     createdAt: typeof item.createdAt === "string" ? item.createdAt : now,
-    updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : now,
+    updatedAt: normalizeIsoTimestamp(item.updatedAt, now),
   };
 }
 
@@ -35,7 +36,8 @@ function toWire({ deletedAt: _deletedAt, ...row }: BeliefRow) {
 const beliefRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
   const stmtList = db.prepare<[], BeliefRow>("SELECT * FROM beliefs WHERE deletedAt IS NULL ORDER BY updatedAt DESC");
   const stmtFind = db.prepare<[string], BeliefRow>("SELECT * FROM beliefs WHERE id = ?");
-  // Deleted beliefs are never resurrected by an upsert (WHERE clause on the conflict update).
+  // Deleted beliefs are never resurrected by an upsert, and an edit older than the stored
+  // one (last writer wins by updatedAt) is ignored.
   const stmtUpsert = db.prepare(`
     INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
     VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
@@ -44,6 +46,7 @@ const beliefRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
       isActive = excluded.isActive,
       updatedAt = excluded.updatedAt
     WHERE beliefs.deletedAt IS NULL
+      AND julianday(excluded.updatedAt) >= COALESCE(julianday(beliefs.updatedAt), 0)
   `);
   const stmtSoftDelete = db.prepare("UPDATE beliefs SET deletedAt = @now, updatedAt = @now WHERE id = @id AND deletedAt IS NULL");
 

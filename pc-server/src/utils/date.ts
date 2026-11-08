@@ -20,6 +20,16 @@ export function effectiveLocalDate(offsetHours = TZ_OFFSET_HOURS): string {
   return localDateKey(new Date(), offsetHours);
 }
 
+/**
+ * Normalizes a client-supplied timestamp to `toISOString()` form so stored values compare
+ * correctly as strings. Missing or unparsable input falls back to `fallback`.
+ */
+export function normalizeIsoTimestamp(value: unknown, fallback: string): string {
+  if (typeof value !== 'string' || value === '') return fallback;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? fallback : new Date(ms).toISOString();
+}
+
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** YYYY-MM-DD 形式かつ実在する日付かを判定する。 */

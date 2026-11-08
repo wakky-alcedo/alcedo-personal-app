@@ -349,11 +349,13 @@
 5. POST /api/v1/beliefs — 作成
 6. PUT /api/v1/beliefs/:id — 更新
 7. DELETE /api/v1/beliefs/:id — ソフトデリート。`POST /beliefs`・`/sync/beliefs` は `text` 必須で、削除済み id は復活させない（`POST /beliefs` は 404）
+- 競合解決（`POST /beliefs`・`/sync/beliefs` 共通）: `updatedAt` による後勝ち。受け取った `updatedAt` が保存済みより古い更新は無視し、200 で現在の値を返す。`updatedAt` 省略時はサーバーの現在時刻（古いクライアント互換）。`updatedAt` は `toISOString()` 形式に正規化して保存する
 
 #### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
 8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
 - streak計算: `allowedMissDays`（習慣ごとの設定値、デフォルト0）で連続欠席の許容日数を判定。1回の欠席区間の長さが `allowedMissDays` 以下ならストリークを途切れさせずに遡って合算する（区間ごとに独立判定、バジェット制ではない）。休んだ日自体はstreak日数にカウントしない
 9. POST /api/v1/habits — 作成・更新（id 指定で upsert）。`name` 必須（400）。削除済み id への upsert は 404（古いクライアントによる復活を防ぐ）
+- 競合解決: 信念と同じ `updatedAt` による後勝ち（古い更新は無視して 200 で現在の値を返す。省略時は現在時刻）
 10. DELETE /api/v1/habits/:id — ソフトデリート（`deletedAt` を設定。一覧・ログ取得から除外され、habit_logs は残す）
 11. POST /api/v1/habits/:id/logs — 日次チェックイン
 - Body: `{ doneDate?: string }`。省略時はサーバーが当日（JST・6時境界）を決める。Web は常に省略する

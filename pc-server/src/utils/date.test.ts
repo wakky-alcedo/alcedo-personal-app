@@ -67,3 +67,15 @@ describe('dayBoundsUtc', () => {
     expect(dayBoundsUtc('2027-01-01', 9)).toEqual({ start: '2026-12-31T21:00:00.000Z', end: '2027-01-01T21:00:00.000Z' })
   })
 })
+
+describe('normalizeIsoTimestamp', () => {
+  it('re-formats parsable timestamps and falls back otherwise', async () => {
+    const { normalizeIsoTimestamp } = await import('./date.js')
+    const fallback = '2026-01-01T00:00:00.000Z'
+    // Kotlin Instant.toString() drops zero millis and may carry micros
+    expect(normalizeIsoTimestamp('2026-11-08T04:04:37Z', fallback)).toBe('2026-11-08T04:04:37.000Z')
+    expect(normalizeIsoTimestamp('2026-11-08T04:04:37.343123Z', fallback)).toBe('2026-11-08T04:04:37.343Z')
+    expect(normalizeIsoTimestamp('not a date', fallback)).toBe(fallback)
+    expect(normalizeIsoTimestamp(undefined, fallback)).toBe(fallback)
+  })
+})
