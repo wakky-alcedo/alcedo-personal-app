@@ -6,6 +6,7 @@ import { useCategoryColors } from '../CategoryColorsContext.tsx'
 import ActivityRulesPanel from './ActivityRulesPanel.tsx'
 import CategoryColorsPanel from './CategoryColorsPanel.tsx'
 import { useAppConfig } from '../contexts/AppConfigContext.tsx'
+import { parseRuleExport } from '../utils/ruleExport.ts'
 
 export default function ClassificationSection() {
   const { serverUrl, apiKey } = useAppConfig()
@@ -42,10 +43,7 @@ export default function ClassificationSection() {
     if (!file) return
     e.target.value = ''
     try {
-      const parsed = JSON.parse(await file.text())
-      const importedRules: any[] = parsed.rules ?? []
-      const importedColors: Record<string, string> | null = parsed.categories ?? null
-      if (!Array.isArray(importedRules)) throw new Error('rules が配列ではありません')
+      const { rules: importedRules, categories: importedColors } = parseRuleExport(await file.text())
 
       const colorNote = importedColors
         ? `\nカテゴリ色（${Object.keys(importedColors).length}件）も復元されます。` : ''
@@ -63,8 +61,8 @@ export default function ClassificationSection() {
       const label = mode === 'replace' ? '置き換え' : '追加'
       const colorMsg = importedColors ? `・色 ${Object.keys(importedColors).length}件` : ''
       showMsg(`ルール ${imported}件を${label}${colorMsg}`)
-    } catch (err: any) {
-      showMsg(`インポート失敗: ${err.message}`)
+    } catch (err) {
+      showMsg(`インポート失敗: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
