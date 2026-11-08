@@ -44,7 +44,7 @@ Web App      ↔  REST API                                                      
 - `routes/events.ts` — SSE broadcast (`broadcast()` called by tasks route on mutation)
 
 ### Web App (`web-app/src/`)
-- `api.ts` — all typed API calls; re-exports wire types from `@shared/types`
+- `api.ts` — public entry point for all API calls (re-exports `api/*` and wire types from `@shared/types`); implementation lives in `api/` per domain, with `api/http.ts` (`request`/`requestJson`, auth header, `ApiError`) and `api/normalize.ts` (payload narrowing)
 - `App.tsx` — root state (tasks); wraps app in `AppConfigContext.Provider` and `ToastContext.Provider`
 - `contexts/AppConfigContext.tsx` — provides `serverUrl`/`apiKey` via `useAppConfig()`
 - `contexts/ToastContext.tsx` — provides `useToast()` for in-app notifications
@@ -77,7 +77,7 @@ Web App      ↔  REST API                                                      
 
 ### PC Server
 - Route files export a named `register*Routes` function following the Fastify plugin pattern.
-- `normalizeSubtasks()` exists in both `routes/tasks.ts` (server) and `api.ts` (client) — keep them in sync when changing the subtask shape.
+- `normalizeSubtasks()` exists in both `routes/tasks.ts` (server) and `web-app/src/api/normalize.ts` (client) — keep them in sync when changing the subtask shape.
 - Never use `getTimezoneOffset()` for date arithmetic. Use `localDateKey()` / `effectiveLocalDate()` from `src/utils/date.ts` (JST fixed at UTC+9).
 - Migrations go in `migrations/00N_*.ts` numbered files, registered in `migrations/index.ts`. Never add schema changes inline in `db.ts`.
 - Route plugins receive the DB via options (`FastifyPluginAsync<RouteOptions>`, `async (app, { db })`); never import a DB singleton. Prepare per-request statements once at the top of the plugin body. In-handler `prepare()` is acceptable for one-off or conditional queries.
