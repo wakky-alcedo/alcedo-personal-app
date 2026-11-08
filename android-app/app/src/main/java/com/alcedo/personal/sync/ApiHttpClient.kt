@@ -48,8 +48,18 @@ class ApiHttpClient(private val baseUrl: String, private val apiKey: String) {
     fun post(path: String, json: String, timeout: HttpTimeout = HttpTimeouts.DEFAULT): ApiResult =
         execute("POST", path, json, timeout)
 
+    /**
+     * Android's HttpURLConnection adds `Content-Type: application/x-www-form-urlencoded` to a
+     * bodiless DELETE, which Fastify rejects with 415 (no parser for that type; DELETE payloads
+     * are parsed whenever a content type is given — fastify.dev/docs/latest/Reference/ContentTypeParser).
+     * Sending an explicit empty JSON object keeps the request parseable.
+     */
     fun delete(path: String, timeout: HttpTimeout = HttpTimeouts.DEFAULT): ApiResult =
-        execute("DELETE", path, null, timeout)
+        execute("DELETE", path, EMPTY_JSON_BODY, timeout)
+
+    private companion object {
+        const val EMPTY_JSON_BODY = "{}"
+    }
 
     private fun execute(method: String, path: String, json: String?, timeout: HttpTimeout): ApiResult {
         val conn = try {
