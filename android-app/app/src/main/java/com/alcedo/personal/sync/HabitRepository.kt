@@ -82,14 +82,14 @@ class HabitRepository(private val context: Context, private val dao: HabitDao) {
     private suspend fun pushPendingLogs(client: HabitSyncApiClient): Boolean {
         for (log in dao.getUnsentLogs()) {
             when (client.checkIn(log.habitId, log.doneDate)) {
-                HabitSyncApiClient.PushResult.OK ->
+                PushResult.OK ->
                     dao.updateLogSyncStatus(log.habitId, log.doneDate, SyncStatus.SYNCED)
-                HabitSyncApiClient.PushResult.REJECTED -> {
+                PushResult.REJECTED -> {
                     Log.w(TAG, "server rejected check-in ${log.habitId}@${log.doneDate}; dropping it")
                     dao.deleteLog(log.habitId, log.doneDate)
                 }
                 // Likely offline or server down: stop and let the worker retry the rest.
-                HabitSyncApiClient.PushResult.RETRYABLE -> return false
+                PushResult.RETRYABLE -> return false
             }
         }
         return true
@@ -97,7 +97,6 @@ class HabitRepository(private val context: Context, private val dao: HabitDao) {
 
     private fun buildClient(): HabitSyncApiClient? {
         val url = SyncConfig.getServerUrl(context).takeIf { it.isNotBlank() } ?: return null
-        val key = SyncConfig.getApiKey(context)
-        return HabitSyncApiClient(url, key)
+        return HabitSyncApiClient(ApiHttpClient(url, SyncConfig.getApiKey(context)))
     }
 }

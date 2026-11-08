@@ -26,10 +26,7 @@ class MemoSyncWorker(
         val ids = pending.map { it.id }
         dao.updateSyncStatus(ids, SyncStatus.SYNCING)
 
-        val client = MemoSyncApiClient(
-            baseUrl = SyncConfig.getServerUrl(applicationContext),
-            apiKey = SyncConfig.getApiKey(applicationContext)
-        )
+        val client = MemoSyncApiClient(SyncConfig.httpClient(applicationContext))
 
         return if (client.pushMemos(pending)) {
             dao.updateSyncStatus(ids, SyncStatus.SYNCED)

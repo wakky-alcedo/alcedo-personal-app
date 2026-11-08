@@ -40,7 +40,6 @@ class BeliefRepository(private val context: Context, private val dao: BeliefDao)
 
     private fun buildClient(): BeliefSyncApiClient? {
         val url = SyncConfig.getServerUrl(context).takeIf { it.isNotBlank() } ?: return null
-        val key = SyncConfig.getApiKey(context)
-        return BeliefSyncApiClient(url, key)
+        return BeliefSyncApiClient(ApiHttpClient(url, SyncConfig.getApiKey(context)))
     }
 }

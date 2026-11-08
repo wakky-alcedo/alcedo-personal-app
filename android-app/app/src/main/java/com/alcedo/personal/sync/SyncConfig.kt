@@ -24,6 +24,9 @@ object SyncConfig {
         context.syncDataStore.data.first()[apiKeyKey] ?: "dev-local-key"
     }
 
+    fun httpClient(context: Context): ApiHttpClient =
+        ApiHttpClient(getServerUrl(context), getApiKey(context))
+
     suspend fun save(context: Context, serverUrl: String, apiKey: String) {
         context.syncDataStore.edit { prefs: MutablePreferences ->
             prefs[serverUrlKey] = serverUrl

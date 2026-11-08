@@ -29,7 +29,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alcedo.personal.sync.ApiResult
 import com.alcedo.personal.sync.DbProvider
+import com.alcedo.personal.sync.HttpTimeouts
 import com.alcedo.personal.sync.SyncConfig
 import com.alcedo.personal.ui.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +41,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.time.ZoneId
 
@@ -123,37 +123,25 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     // ─── 活動タブ ──────────────────────────────────────────────────────────────
 
     private suspend fun loadAvailableDevices() = withContext(Dispatchers.IO) {
-        val url  = SyncConfig.getServerUrl(getApplication())
-        val key  = SyncConfig.getApiKey(getApplication())
         val date = _date.value
-        val conn = runCatching {
-            (URL("$url/api/v1/activity/devices?date=${URLEncoder.encode(date, "UTF-8")}").openConnection() as HttpURLConnection).apply {
-                setRequestProperty("X-Api-Key", key); connectTimeout = 5000; readTimeout = 5000
-            }
-        }.getOrNull() ?: return@withContext
-        if (conn.responseCode !in 200..299) { conn.disconnect(); return@withContext }
-        val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-        val arr = JSONArray(json)
+        val result = SyncConfig.httpClient(getApplication())
+            .get("/api/v1/activity/devices?date=${URLEncoder.encode(date, "UTF-8")}") as? ApiResult.Success
+            ?: return@withContext
+        val arr = JSONArray(result.body)
         _availableDevices.value = (0 until arr.length()).map { arr.getJSONObject(it).getString("deviceId") }
     }
 
     private suspend fun loadActivitySummary() = withContext(Dispatchers.IO) {
-        val url    = SyncConfig.getServerUrl(getApplication())
-        val key    = SyncConfig.getApiKey(getApplication())
         val date   = _date.value
         val device = _activityDevice.value
         val params = buildString {
             append("date=${URLEncoder.encode(date, "UTF-8")}")
             if (device != "all") append("&deviceId=${URLEncoder.encode(device, "UTF-8")}")
         }
-        val conn = runCatching {
-            (URL("$url/api/v1/activity/summary?$params").openConnection() as HttpURLConnection).apply {
-                setRequestProperty("X-Api-Key", key); connectTimeout = 5000; readTimeout = 5000
-            }
-        }.getOrNull() ?: return@withContext
-        if (conn.responseCode !in 200..299) { conn.disconnect(); return@withContext }
-        val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-        val arr = JSONArray(json)
+        val result = SyncConfig.httpClient(getApplication())
+            .get("/api/v1/activity/summary?$params") as? ApiResult.Success
+            ?: return@withContext
+        val arr = JSONArray(result.body)
         _activitySummary.value = (0 until arr.length()).map { i ->
             val obj = arr.getJSONObject(i)
             CategoryDuration(obj.getString("category"), obj.getLong("durationSec"))
@@ -193,17 +181,11 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     // ─── タイムラインタブ ────────────────────────────────────────────────────────
 
     private suspend fun loadTimeline() = withContext(Dispatchers.IO) {
-        val url  = SyncConfig.getServerUrl(getApplication())
-        val key  = SyncConfig.getApiKey(getApplication())
         val date = _date.value
-        val conn = runCatching {
-            (URL("$url/api/v1/activity/logs?date=${URLEncoder.encode(date, "UTF-8")}").openConnection() as HttpURLConnection).apply {
-                setRequestProperty("X-Api-Key", key); connectTimeout = 5000; readTimeout = 10000
-            }
-        }.getOrNull() ?: return@withContext
-        if (conn.responseCode !in 200..299) { conn.disconnect(); return@withContext }
-        val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-        val arr  = JSONArray(json)
+        val result = SyncConfig.httpClient(getApplication())
+            .get("/api/v1/activity/logs?date=${URLEncoder.encode(date, "UTF-8")}", HttpTimeouts.LONG_READ) as? ApiResult.Success
+            ?: return@withContext
+        val arr  = JSONArray(result.body)
         val sessions = (0 until arr.length()).map { i ->
             val obj = arr.getJSONObject(i)
             ActivitySession(

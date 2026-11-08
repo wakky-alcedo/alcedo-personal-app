@@ -4,14 +4,15 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.os.Build
 import androidx.work.*
+import com.alcedo.personal.sync.ApiHttpClient
+import com.alcedo.personal.sync.ApiResult
+import com.alcedo.personal.sync.HttpTimeouts
 import com.alcedo.personal.sync.SyncConfig
 import com.alcedo.personal.ui.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -35,20 +36,17 @@ class UsageStatsSyncWorker(
         val sessions = UsageSessionBuilder.build(applicationContext, fromMs, toMs)
         if (sessions.isEmpty()) return@withContext Result.success()
 
-        val serverUrl = SyncConfig.getServerUrl(applicationContext)
-        val apiKey    = SyncConfig.getApiKey(applicationContext)
         val deviceId  = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-        val ok = pushSessions(serverUrl, apiKey, deviceId, sessions)
+        val ok = pushSessions(SyncConfig.httpClient(applicationContext), deviceId, sessions)
         if (ok) Result.success() else Result.retry()
     }
 
     private fun pushSessions(
-        serverUrl: String,
-        apiKey: String,
+        http: ApiHttpClient,
         deviceId: String,
         sessions: List<UsageSession>
-    ): Boolean = runCatching {
+    ): Boolean {
         val logsArr = JSONArray()
         sessions.forEach { s ->
             logsArr.put(JSONObject()
@@ -65,18 +63,8 @@ class UsageStatsSyncWorker(
             .put("deviceId", deviceId)
             .put("logs", logsArr)
 
-        val conn = (URL("$serverUrl/api/v1/activity/bulk").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("X-Api-Key", apiKey)
-            doOutput = true
-            connectTimeout = 10000; readTimeout = 15000
-        }
-        conn.outputStream.bufferedWriter().use { it.write(payload.toString()) }
-        val ok = conn.responseCode in 200..299
-        conn.disconnect()
-        ok
-    }.getOrElse { false }
+        return http.post("/api/v1/activity/bulk", payload.toString(), HttpTimeouts.BULK_UPLOAD) is ApiResult.Success
+    }
 
     companion object {
         private const val WORK_NAME = "usage-stats-sync"

@@ -68,10 +68,7 @@ class TaskRepository(
 
     /** PC サーバーから最新のタスクを取得し、未送信のローカル変更を上書きしないようマージする。取得に失敗した場合は false を返す */
     suspend fun syncFromServer(): Boolean = withContext(Dispatchers.IO) {
-        val client = TaskSyncApiClient(
-            baseUrl = SyncConfig.getServerUrl(context),
-            apiKey = SyncConfig.getApiKey(context)
-        )
+        val client = TaskSyncApiClient(SyncConfig.httpClient(context))
         val pulled = client.pullTasks() ?: return@withContext false
         for (serverTask in pulled) {
             val local = dao.findById(serverTask.id)
