@@ -15,6 +15,10 @@ class TaskSyncWorker(
     override suspend fun doWork(): Result {
         val db = DbProvider.get(applicationContext)
         val dao = db.taskDao()
+        val http = SyncConfig.httpClient(applicationContext) ?: run {
+            Log.d(TAG, "sync not configured; keeping tasks queued")
+            return Result.success()
+        }
         val pending = dao.findPendingSync(limit = 100)
 
         if (pending.isEmpty()) {
@@ -26,7 +30,7 @@ class TaskSyncWorker(
         val ids = pending.map { it.id }
         dao.updateSyncStatus(ids, SyncStatus.SYNCING)
 
-        val client = TaskSyncApiClient(SyncConfig.httpClient(applicationContext))
+        val client = TaskSyncApiClient(http)
 
         return if (client.pushTasks(pending)) {
             dao.updateSyncStatus(ids, SyncStatus.SYNCED)

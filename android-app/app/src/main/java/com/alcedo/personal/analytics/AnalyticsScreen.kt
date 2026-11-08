@@ -124,7 +124,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun loadAvailableDevices() = withContext(Dispatchers.IO) {
         val date = _date.value
-        val result = SyncConfig.httpClient(getApplication())
+        val result = (SyncConfig.httpClient(getApplication()) ?: return@withContext)
             .get("/api/v1/activity/devices?date=${URLEncoder.encode(date, "UTF-8")}") as? ApiResult.Success
             ?: return@withContext
         val arr = JSONArray(result.body)
@@ -138,7 +138,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             append("date=${URLEncoder.encode(date, "UTF-8")}")
             if (device != "all") append("&deviceId=${URLEncoder.encode(device, "UTF-8")}")
         }
-        val result = SyncConfig.httpClient(getApplication())
+        val result = (SyncConfig.httpClient(getApplication()) ?: return@withContext)
             .get("/api/v1/activity/summary?$params") as? ApiResult.Success
             ?: return@withContext
         val arr = JSONArray(result.body)
@@ -182,7 +182,7 @@ class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun loadTimeline() = withContext(Dispatchers.IO) {
         val date = _date.value
-        val result = SyncConfig.httpClient(getApplication())
+        val result = (SyncConfig.httpClient(getApplication()) ?: return@withContext)
             .get("/api/v1/activity/logs?date=${URLEncoder.encode(date, "UTF-8")}", HttpTimeouts.LONG_READ) as? ApiResult.Success
             ?: return@withContext
         val arr  = JSONArray(result.body)

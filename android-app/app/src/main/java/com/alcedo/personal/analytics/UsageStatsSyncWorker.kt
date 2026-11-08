@@ -38,7 +38,8 @@ class UsageStatsSyncWorker(
 
         val deviceId  = "${Build.MANUFACTURER} ${Build.MODEL}"
 
-        val ok = pushSessions(SyncConfig.httpClient(applicationContext), deviceId, sessions)
+        val http = SyncConfig.httpClient(applicationContext) ?: return@withContext Result.success()
+        val ok = pushSessions(http, deviceId, sessions)
         if (ok) Result.success() else Result.retry()
     }
 

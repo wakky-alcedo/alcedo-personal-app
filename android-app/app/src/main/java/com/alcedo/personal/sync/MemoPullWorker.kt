@@ -13,6 +13,7 @@ class MemoPullWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        if (!SyncConfig.isConfigured(applicationContext)) return Result.success()
         val db = DbProvider.get(applicationContext)
         val repo = MemoRepository(applicationContext, db.memoDao())
 

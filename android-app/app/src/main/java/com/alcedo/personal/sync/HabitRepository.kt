@@ -96,7 +96,6 @@ class HabitRepository(private val context: Context, private val dao: HabitDao) {
     }
 
     private fun buildClient(): HabitSyncApiClient? {
-        val url = SyncConfig.getServerUrl(context).takeIf { it.isNotBlank() } ?: return null
-        return HabitSyncApiClient(ApiHttpClient(url, SyncConfig.getApiKey(context)))
+        return SyncConfig.httpClient(context)?.let(::HabitSyncApiClient)
     }
 }

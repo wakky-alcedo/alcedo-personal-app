@@ -15,6 +15,10 @@ class MemoSyncWorker(
     override suspend fun doWork(): Result {
         val db = DbProvider.get(applicationContext)
         val dao = db.memoDao()
+        val http = SyncConfig.httpClient(applicationContext) ?: run {
+            Log.d(TAG, "sync not configured; keeping memos queued")
+            return Result.success()
+        }
         val pending = dao.findPendingSync(limit = 100)
 
         if (pending.isEmpty()) {
@@ -26,7 +30,7 @@ class MemoSyncWorker(
         val ids = pending.map { it.id }
         dao.updateSyncStatus(ids, SyncStatus.SYNCING)
 
-        val client = MemoSyncApiClient(SyncConfig.httpClient(applicationContext))
+        val client = MemoSyncApiClient(http)
 
         return if (client.pushMemos(pending)) {
             dao.updateSyncStatus(ids, SyncStatus.SYNCED)

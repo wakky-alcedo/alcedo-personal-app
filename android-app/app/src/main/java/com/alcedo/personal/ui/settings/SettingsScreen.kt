@@ -37,6 +37,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alcedo.personal.notifications.NotificationPrefs
 import com.alcedo.personal.notifications.TaskAlarmScheduler
 import com.alcedo.personal.notifications.TaskNotificationScheduler
+import com.alcedo.personal.sync.HabitLogSyncScheduler
+import com.alcedo.personal.sync.MemoSyncScheduler
 import com.alcedo.personal.sync.SyncConfig
 import com.alcedo.personal.sync.TaskSyncScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved
 
+    /** Whether the saved settings allow syncing (both URL and API key set). */
+    private val _configured = MutableStateFlow(SyncConfig.isConfigured(app))
+    val configured: StateFlow<Boolean> = _configured
+
     val notificationsEnabled: StateFlow<Boolean> = NotificationPrefs.notificationsEnabled(app)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val alarmEnabled: StateFlow<Boolean> = NotificationPrefs.alarmEnabled(app)
@@ -69,10 +75,17 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             SyncConfig.save(getApplication(), _serverUrl.value.trim(), _apiKey.value.trim())
             _saved.value = true
+            _configured.value = SyncConfig.isConfigured(getApplication())
+            // Changes queued while unconfigured are sent as soon as the connection is set.
+            if (_configured.value) syncNow()
         }
     }
 
-    fun syncNow() { TaskSyncScheduler.enqueue(getApplication()) }
+    fun syncNow() {
+        TaskSyncScheduler.enqueue(getApplication())
+        HabitLogSyncScheduler.enqueue(getApplication())
+        MemoSyncScheduler.enqueuePush(getApplication())
+    }
 
     fun setNotificationsEnabled(value: Boolean) {
         viewModelScope.launch {
@@ -103,6 +116,7 @@ fun SettingsScreen(
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val apiKey    by vm.apiKey.collectAsStateWithLifecycle()
     val saved     by vm.saved.collectAsStateWithLifecycle()
+    val configured by vm.configured.collectAsStateWithLifecycle()
     var showKey   by remember { mutableStateOf(false) }
 
     val notificationsEnabled by vm.notificationsEnabled.collectAsStateWithLifecycle()
@@ -119,11 +133,16 @@ fun SettingsScreen(
             // ─── サーバー接続 ─────────────────────────────────────────────────
             Text("サーバー接続", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
+            if (!configured) {
+                Text("未設定: Server URL と API Key を保存するまで同期は行われません",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
             OutlinedTextField(serverUrl, { vm.setServerUrl(it) }, Modifier.fillMaxWidth(),
                 label = { Text("Server URL") }, placeholder = { Text("http://192.168.1.x:8787") }, singleLine = true)
 
             OutlinedTextField(apiKey, { vm.setApiKey(it) }, Modifier.fillMaxWidth(),
-                label = { Text("API Key") }, singleLine = true,
+                label = { Text("API Key") }, placeholder = { Text("未設定") }, singleLine = true,
                 visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = { TextButton({ showKey = !showKey }) { Text(if (showKey) "隠す" else "表示") } })
 

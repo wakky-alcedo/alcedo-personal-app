@@ -62,7 +62,7 @@ class MemoRepository(
     /** PC サーバーから直近24時間に更新されたメモを取得し、新しい方を採用してマージする。取得に失敗した場合は false を返す */
     suspend fun syncFromServer(): Boolean = withContext(Dispatchers.IO) {
         val since = Instant.now().minus(24, ChronoUnit.HOURS).toString()
-        val client = MemoSyncApiClient(SyncConfig.httpClient(context))
+        val client = MemoSyncApiClient(SyncConfig.httpClient(context) ?: return@withContext false)
         val pulled = client.pullMemos(since) ?: return@withContext false
         for (remote in pulled) {
             val local = dao.findById(remote.id)
