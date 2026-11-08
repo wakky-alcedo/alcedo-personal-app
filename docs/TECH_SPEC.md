@@ -249,6 +249,7 @@
 - isActive: INTEGER NOT NULL (0/1)
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
+- deletedAt: TEXT?（ソフトデリートの墓標。一覧・集計から除外）
 
 3. habits
 - id: TEXT PRIMARY KEY (UUID)
@@ -279,6 +280,7 @@
 - endedAt: TEXT（UTC ISO 8601, NULL=旧形式互換）
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
+- deletedAt: TEXT?（ソフトデリートの墓標。一覧・集計から除外）
 
 制約: startedAt ≤ endedAt。起動時マイグレーションで startedAt > endedAt のレコードは startedAt を 24h 戻して自動修正する（旧 toISO バグ由来データ対策）。
 
@@ -303,6 +305,7 @@
 - category: TEXT NOT NULL（分類先カテゴリ名）
 - priority: INTEGER NOT NULL DEFAULT 0（高い値が優先）
 - createdAt, updatedAt: TEXT NOT NULL
+- deletedAt: TEXT?（ソフトデリートの墓標。一覧・自動分類から除外）
 
 8. memos（migration 004）
 - id: TEXT PRIMARY KEY (UUID)
@@ -345,7 +348,7 @@
 4. GET /api/v1/beliefs — 一覧取得
 5. POST /api/v1/beliefs — 作成
 6. PUT /api/v1/beliefs/:id — 更新
-7. DELETE /api/v1/beliefs/:id — 削除
+7. DELETE /api/v1/beliefs/:id — ソフトデリート。`POST /beliefs`・`/sync/beliefs` は `text` 必須で、削除済み id は復活させない（`POST /beliefs` は 404）
 
 #### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
 8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
@@ -390,11 +393,11 @@
 
 20. GET /api/v1/activity/rules — 分類ルール一覧
 21. POST /api/v1/activity/rules — 分類ルール作成・更新（id 指定で upsert）
-22. DELETE /api/v1/activity/rules/:id — ルール削除
+22. DELETE /api/v1/activity/rules/:id — ルールのソフトデリート
 
 23. POST /api/v1/activity/rules/import — 分類ルールと色設定を一括インポート
 - Body: `{ rules: RuleInput[], categories?: Record<string, string>, mode?: "replace" | "merge" }`
-- `mode=replace`（デフォルト）: 既存ルールを全削除してから挿入。`merge`: 追加のみ
+- `mode=replace`（デフォルト）: 既存ルールを全てソフトデリートしてから挿入。`merge`: 追加のみ
 - カテゴリ色（`categories`）はクライアント localStorage に保存されるためサーバーには保存しない
 - エクスポート形式: `{ rules:[...], categories:{...} }`（設定画面 → エクスポートボタン）
 
@@ -431,7 +434,7 @@
 #### 分析 (実装済み: `pc-server/src/routes/analytics.ts`)
 26. GET /api/v1/analytics/daily?date=YYYY-MM-DD — 日次分析取得（手動記録）
 27. POST /api/v1/analytics/daily — 手動記録追加
-28. DELETE /api/v1/analytics/daily/:id — 手動記録削除
+28. DELETE /api/v1/analytics/daily/:id — 手動記録のソフトデリート
 29. GET /api/v1/analytics/summary?range=weekly|monthly&anchor=YYYY-MM-DD — 集計グラフ表示
 
 ## 8. Obsidian/Git 連携仕様

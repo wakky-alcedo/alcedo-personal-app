@@ -6,6 +6,7 @@ import { run as migration004 } from "./004_add_memos.js";
 import { run as migration005 } from "./005_add_task_due_time.js";
 import { run as migration006 } from "./006_add_habit_allowed_miss_days.js";
 import { run as migration007 } from "./007_add_habit_deleted_at.js";
+import { run as migration008 } from "./008_soft_delete_remaining.js";
 
 export function runMigrations(db: InstanceType<typeof Database>): void {
   migration001(db);
@@ -15,4 +16,5 @@ export function runMigrations(db: InstanceType<typeof Database>): void {
   migration005(db);
   migration006(db);
   migration007(db);
+  migration008(db);
 }

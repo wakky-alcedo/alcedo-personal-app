@@ -84,7 +84,7 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
     }
 
     const rules = db
-      .prepare("SELECT * FROM activity_rules ORDER BY priority DESC")
+      .prepare("SELECT * FROM activity_rules WHERE deletedAt IS NULL ORDER BY priority DESC")
       .all() as ActivityRuleRow[];
 
     const now = new Date().toISOString();
@@ -223,7 +223,7 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
 
   // GET /activity/rules
   app.get("/activity/rules", async () => {
-    return db.prepare("SELECT * FROM activity_rules ORDER BY priority DESC").all();
+    return db.prepare("SELECT * FROM activity_rules WHERE deletedAt IS NULL ORDER BY priority DESC").all();
   });
 
   // POST /activity/rules — create or update
@@ -252,7 +252,8 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
 
   // DELETE /activity/rules/:id
   app.delete<{ Params: { id: string } }>("/activity/rules/:id", async (request) => {
-    db.prepare("DELETE FROM activity_rules WHERE id = ?").run(request.params.id);
+    const now = new Date().toISOString();
+    db.prepare("UPDATE activity_rules SET deletedAt = ?, updatedAt = ? WHERE id = ? AND deletedAt IS NULL").run(now, now, request.params.id);
     return { deleted: true };
   });
 
@@ -278,7 +279,7 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
     `);
     const tx = db.transaction(() => {
       if (mode === "replace") {
-        db.prepare("DELETE FROM activity_rules").run();
+        db.prepare("UPDATE activity_rules SET deletedAt = ?, updatedAt = ? WHERE deletedAt IS NULL").run(now, now);
       }
       for (const rule of rules) {
         if (!rule.pattern || !rule.category) continue;
@@ -301,7 +302,7 @@ const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => 
   // POST /activity/reclassify — re-apply current rules to all logs
   app.post("/activity/reclassify", async () => {
     const rules = db
-      .prepare("SELECT * FROM activity_rules ORDER BY priority DESC")
+      .prepare("SELECT * FROM activity_rules WHERE deletedAt IS NULL ORDER BY priority DESC")
       .all() as ActivityRuleRow[];
     const logs = db
       .prepare("SELECT id, processName, windowTitle, browserUrl FROM activity_logs")

@@ -52,7 +52,7 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
   app.get("/analytics/daily", async (request) => {
     const date = (request.query as { date?: string }).date ?? new Date().toISOString().slice(0, 10);
     const entries = db
-      .prepare("SELECT * FROM analytics_daily WHERE targetDate = ? ORDER BY category, createdAt")
+      .prepare("SELECT * FROM analytics_daily WHERE targetDate = ? AND deletedAt IS NULL ORDER BY category, createdAt")
       .all(date) as AnalyticsRow[];
     const totalSec = entries.reduce((s, e) => s + e.durationSec, 0);
     const snsSec = entries.filter((e) => e.category === "SNS").reduce((s, e) => s + e.durationSec, 0);
@@ -61,7 +61,8 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
 
   // DELETE /analytics/daily/:id
   app.delete<{ Params: { id: string } }>("/analytics/daily/:id", async (request) => {
-    db.prepare("DELETE FROM analytics_daily WHERE id = ?").run(request.params.id);
+    const now = new Date().toISOString();
+    db.prepare("UPDATE analytics_daily SET deletedAt = ?, updatedAt = ? WHERE id = ? AND deletedAt IS NULL").run(now, now, request.params.id);
     return { deleted: true };
   });
 
@@ -83,7 +84,7 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
       .prepare(
         `SELECT targetDate, category, SUM(durationSec) as durationSec
          FROM analytics_daily
-         WHERE targetDate >= ? AND targetDate <= ?
+         WHERE targetDate >= ? AND targetDate <= ? AND deletedAt IS NULL
          GROUP BY targetDate, category
          ORDER BY targetDate`
       )
