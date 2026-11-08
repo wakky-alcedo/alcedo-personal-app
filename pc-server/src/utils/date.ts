@@ -19,3 +19,29 @@ export function localDateKey(date = new Date(), offsetHours = TZ_OFFSET_HOURS): 
 export function effectiveLocalDate(offsetHours = TZ_OFFSET_HOURS): string {
   return localDateKey(new Date(), offsetHours);
 }
+
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** YYYY-MM-DD 形式かつ実在する日付かを判定する。 */
+export function isDateKey(value: unknown): value is string {
+  if (typeof value !== 'string' || !DATE_KEY_RE.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+/**
+ * 日付キー（YYYY-MM-DD）に days 日を加算した日付キーを返す。
+ * 既に解決済みの「実効ローカル日付」に対する純粋な暦計算なので、
+ * localDateKey() を再適用してはならない（JSTオフセットの二重適用で日付がずれる）。
+ */
+export function addDays(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    String(date.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}

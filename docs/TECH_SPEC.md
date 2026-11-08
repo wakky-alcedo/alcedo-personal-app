@@ -259,6 +259,7 @@
 - isActive: INTEGER NOT NULL (0/1)
 - createdAt: TEXT NOT NULL
 - updatedAt: TEXT NOT NULL
+- deletedAt: TEXT?（ソフトデリートの墓標。削除後も行と habit_logs は履歴として残す）
 
 4. habit_logs
 - id: TEXT PRIMARY KEY (UUID)
@@ -348,13 +349,15 @@
 #### 習慣 (実装済み: `pc-server/src/routes/habits.ts`)
 8. GET /api/v1/habits — 一覧取得（streak・completedToday はクエリ時計算）
 - streak計算: `allowedMissDays`（習慣ごとの設定値、デフォルト0）で連続欠席の許容日数を判定。1回の欠席区間の長さが `allowedMissDays` 以下ならストリークを途切れさせずに遡って合算する（区間ごとに独立判定、バジェット制ではない）。休んだ日自体はstreak日数にカウントしない
-9. POST /api/v1/habits — 作成・更新（id 指定で upsert）
-10. DELETE /api/v1/habits/:id — 削除（habit_logs も削除）
+9. POST /api/v1/habits — 作成・更新（id 指定で upsert）。`name` 必須（400）。削除済み id への upsert は 404（古いクライアントによる復活を防ぐ）
+10. DELETE /api/v1/habits/:id — ソフトデリート（`deletedAt` を設定。一覧・ログ取得から除外され、habit_logs は残す）
 11. POST /api/v1/habits/:id/logs — 日次チェックイン
-- Body: `{ doneDate?: string }` (省略時は当日)
-- UNIQUE(habitId, doneDate) で二重チェックイン防止
+- Body: `{ doneDate?: string }`。省略時はサーバーが当日（JST・6時境界）を決める。Web は常に省略する
+- `doneDate` 指定はオフラインで溜めたチェックインの再送用（Android）。形式不正・未来日（当日+1日を超える）は 400、未存在・削除済みの習慣は 404。クライアントは 400/404 を「再送不要」として破棄する
+- UNIQUE(habitId, doneDate) で二重チェックイン防止（再送は冪等）
 12. GET /api/v1/habits/logs?from=YYYY-MM-DD&to=YYYY-MM-DD — ログ一覧取得
-- 用途: 習慣カレンダーヒートマップ表示用
+- 用途: Web ヒートマップ表示、Android のローカルキャッシュ同期（直近400日を取得し、範囲内の送信済みログをサーバーの内容で置き換える。未送信ログは保持）
+- `from` 省略時は `to` の59日前、`to` 省略時は当日。削除済み習慣のログは含まない
 - Response: `[{ habitId, doneDate }]`
 
 #### リアルタイム通知 (実装済み: `pc-server/src/routes/events.ts`)

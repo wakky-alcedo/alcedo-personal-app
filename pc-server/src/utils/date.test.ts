@@ -39,3 +39,23 @@ describe('localDateKey', () => {
     expect(localDateKey(new Date('2024-01-15T00:30:00Z'), 5)).toBe('2024-01-14')
   })
 })
+
+describe('addDays', () => {
+  it('crosses month and year boundaries', async () => {
+    const { addDays } = await import('./date.js')
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
+    expect(addDays('2024-03-01', -1)).toBe('2024-02-29')
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDays('2026-08-05', -59)).toBe('2026-06-07')
+  })
+})
+
+describe('isDateKey', () => {
+  it('accepts only real YYYY-MM-DD dates', async () => {
+    const { isDateKey } = await import('./date.js')
+    expect(isDateKey('2026-08-05')).toBe(true)
+    expect(isDateKey('2026-02-30')).toBe(false)
+    expect(isDateKey('2026-8-5')).toBe(false)
+    expect(isDateKey(20260805)).toBe(false)
+  })
+})
