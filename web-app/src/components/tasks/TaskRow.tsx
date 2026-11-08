@@ -2,30 +2,7 @@ import React from 'react'
 import type { Task, TaskNode } from '../../api.ts'
 import { useTaskTree } from './useTaskTree.ts'
 import { pathKey, pathLabel, dueDateClass, updateTaskTree, nextStatus, statusLabel } from './taskTreeUtils.ts'
-
-const URL_RE = /(https?:\/\/[^\s]+)/g
-
-function DescriptionContent({ text, onEdit }: { text: string; onEdit: () => void }) {
-  const parts = text.split(URL_RE)
-  return (
-    <button type="button" className="task-node-description task-node-description-row" onClick={onEdit}>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <span
-            key={i}
-            className="description-url"
-            onClick={e => { if (e.ctrlKey || e.metaKey) { e.stopPropagation(); window.open(part, '_blank', 'noopener noreferrer') } }}
-            title="Ctrl+クリックで開く"
-          >
-            {part}<span className="description-url-icon" aria-label="新しいタブを開きます">↗</span>
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </button>
-  )
-}
+import { DescriptionField, NodeActionsMenu, PrioritySelect, dateInputToDueAt, readDragPayload, samePath, showPicker, writeDragPayload } from './TaskNodeParts.tsx'
 
 type Props = {
   task: Task
@@ -36,13 +13,13 @@ type Props = {
 export default function TaskRow({ task, onSave, onDelete }: Props) {
   const ops = useTaskTree(task, onSave, onDelete)
   const {
-    draft, editingPath, openMenuPath, busy,
+    draft, editingPath, busy,
     editingDescriptionPath, titleInputRef, editorRefs,
     updateNode, addSiblingAfter, addChild,
     reorderSubtasks, saveTask,
-    save: _save, setRootStatus, setNodeStatus, deleteNode, commitNode,
+    setRootStatus, setNodeStatus, deleteNode, commitNode,
     commitEditing, cancelEditing, beginDescriptionEdit,
-    pathEquals, getNodeAtPath,
+    pathEquals,
     isMenuOpen, closeMenu, openMenu,
     setEditingPath, setEditingDescriptionPath,
   } = ops
@@ -58,26 +35,14 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
         draggable={path.length > 0}
         onDragStart={e => {
           if (path.length === 0) return
-          const parent = path.slice(0, -1)
-          const index = path[path.length - 1]
-          try {
-            e.dataTransfer.setData('text/plain', JSON.stringify({ parent, index }))
-            e.dataTransfer.effectAllowed = 'move'
-          } catch {}
+          writeDragPayload(e, { parent: path.slice(0, -1), index: path[path.length - 1] })
         }}
         onDragOver={e => { e.preventDefault() }}
         onDrop={e => {
           e.preventDefault()
-          try {
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-            const fromParent: number[] = data.parent || []
-            const fromIndex: number = data.index
-            const toParent = path.slice(0, -1)
-            const toIndex = path[path.length - 1]
-            if (JSON.stringify(fromParent) === JSON.stringify(toParent)) {
-              void reorderSubtasks(toParent, fromIndex, toIndex)
-            }
-          } catch {}
+          const from = readDragPayload(e)
+          const toParent = path.slice(0, -1)
+          if (from && samePath(from.parent, toParent)) void reorderSubtasks(toParent, from.index, path[path.length - 1])
         }}
         className={`task-node-card ${node.status === 'done' ? 'done' : ''} ${dueDateClass(node.dueAt)}`}
         role="listitem"
@@ -129,42 +94,20 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
                   />
                 </div>
               )}
-              <label className="priority-select">
-                <select
-                  value={node.priority ?? 'medium'}
-                  onChange={e => {
-                    const nextTask = {
-                      ...draft,
-                      subtasks: updateTaskTree(draft.subtasks, path, n => ({
-                        ...n, priority: e.target.value as TaskNode['priority'],
-                      })),
-                    }
-                    void saveTask(nextTask)
-                  }}
-                  aria-label={`Priority for ${nodeName}`}
-                >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                </select>
-              </label>
+              <PrioritySelect
+                value={node.priority ?? 'medium'}
+                onChange={priority => void saveTask({ ...draft, subtasks: updateTaskTree(draft.subtasks, path, n => ({ ...n, priority })) })}
+                ariaLabel={`Priority for ${nodeName}`}
+              />
             </div>
             <div className="task-due">
               <input
                 type="date"
                 value={node.dueAt ? node.dueAt.slice(0, 10) : ''}
-                onClick={e => {
-                  const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
-                  el.showPicker?.()
-                }}
+                onClick={showPicker}
                 onChange={e => {
-                  const nextTask = {
-                    ...draft,
-                    subtasks: updateTaskTree(draft.subtasks, path, n => ({
-                      ...n, dueAt: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
-                    })),
-                  }
-                  void saveTask(nextTask)
+                  const dueAt = dateInputToDueAt(e.target.value)
+                  void saveTask({ ...draft, subtasks: updateTaskTree(draft.subtasks, path, n => ({ ...n, dueAt })) })
                 }}
                 aria-label={`Due date: ${node.dueAt ? new Date(node.dueAt).toLocaleDateString() : 'No due'}`}
               />
@@ -179,35 +122,24 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
               disabled={busy}
             >⋯</button>
           </div>
-          {node.description != null ? (
-            editingDescriptionPath === pathKey(path) ? (
-              <textarea
-                className="task-node-description task-node-description-row"
-                autoFocus
-                value={node.description}
-                onChange={e => updateNode(path, n => ({ ...n, description: e.target.value }))}
-                onBlur={() => void commitNode(path)}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') { e.preventDefault(); setEditingDescriptionPath(null) }
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void commitNode(path) }
-                }}
-                aria-label={`Description for ${nodeName}`}
-              />
-            ) : (
-              <DescriptionContent
-                text={node.description ?? ''}
-                onEdit={() => setEditingDescriptionPath(pathKey(path))}
-              />
-            )
-          ) : null}
+          <DescriptionField
+            description={node.description}
+            editing={editingDescriptionPath === pathKey(path)}
+            onChange={text => updateNode(path, n => ({ ...n, description: text }))}
+            onCommit={() => void commitNode(path)}
+            onCancel={() => setEditingDescriptionPath(null)}
+            onBeginEdit={() => setEditingDescriptionPath(pathKey(path))}
+            ariaLabel={`Description for ${nodeName}`}
+          />
           {isMenuOpen(path) ? (
-            <div className="task-node-menu" role="menu" aria-label={`Actions for ${nodeName}`}>
-              <button type="button" role="menuitem" onClick={() => { closeMenu(); addChild(path) }} disabled={busy}>Add Child</button>
-              <button type="button" role="menuitem" onClick={() => { closeMenu(); beginDescriptionEdit(path, node.description) }} disabled={busy}>
-                {node.description != null ? 'Edit Description' : 'Add Description'}
-              </button>
-              <button type="button" role="menuitem" onClick={() => { closeMenu(); void deleteNode(path) }} disabled={busy}>Delete</button>
-            </div>
+            <NodeActionsMenu
+              label={nodeName}
+              hasDescription={node.description != null}
+              busy={busy}
+              onAddChild={() => { closeMenu(); addChild(path) }}
+              onEditDescription={() => { closeMenu(); beginDescriptionEdit(path, node.description) }}
+              onDelete={() => { closeMenu(); void deleteNode(path) }}
+            />
           ) : null}
         </div>
         {node.subtasks.length > 0 ? (
@@ -216,15 +148,8 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
             onDragOver={e => { e.preventDefault() }}
             onDrop={e => {
               e.preventDefault()
-              try {
-                const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-                const fromParent: number[] = data.parent || []
-                const fromIndex: number = data.index
-                const toParent = path
-                if (JSON.stringify(fromParent) === JSON.stringify(toParent)) {
-                  void reorderSubtasks(toParent, fromIndex, node.subtasks.length)
-                }
-              } catch {}
+              const from = readDragPayload(e)
+              if (from && samePath(from.parent, path)) void reorderSubtasks(path, from.index, node.subtasks.length)
             }}
           >
             {node.subtasks.map((child, childIndex) => renderNode(child, [...path, childIndex]))}
@@ -269,7 +194,7 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
                 <input
                   ref={titleInputRef}
                   value={draft.title}
-                  onChange={e => ops.updateNode([], n => ({ ...n, title: e.target.value }))}
+                  onChange={e => updateNode([], n => ({ ...n, title: e.target.value }))}
                   onKeyDown={e => {
                     if (e.key === 'Enter') { e.preventDefault(); void commitEditing([]) }
                     if (e.key === 'Tab') { e.preventDefault(); addChild([]) }
@@ -286,33 +211,21 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
                 />
               </div>
             )}
-            <label className="priority-select">
-              <select
-                value={draft.priority ?? 'medium'}
-                onChange={e => {
-                  const nextTask = { ...draft, priority: e.target.value as Task['priority'] }
-                  void saveTask(nextTask)
-                }}
-                aria-label="Priority"
-              >
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-              </select>
-            </label>
+            <PrioritySelect
+              value={draft.priority ?? 'medium'}
+              onChange={priority => void saveTask({ ...draft, priority })}
+              ariaLabel="Priority"
+            />
           </div>
           <div className="task-due">
             <input
               type="date"
               value={draft.dueAt ? draft.dueAt.slice(0, 10) : ''}
-              onClick={e => {
-                const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
-                el.showPicker?.()
-              }}
+              onClick={showPicker}
               onChange={e => {
-                const nextDueAt = e.target.value ? `${e.target.value}T00:00:00.000Z` : null
-                const nextTask = { ...draft, dueAt: nextDueAt, dueTime: nextDueAt ? draft.dueTime : null }
-                void saveTask(nextTask)
+                const dueAt = dateInputToDueAt(e.target.value)
+                // A time without a date is meaningless, so clearing the date clears the time.
+                void saveTask({ ...draft, dueAt, dueTime: dueAt ? draft.dueTime : null })
               }}
               aria-label={`Due date: ${dueLabel}`}
             />
@@ -320,14 +233,8 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
               type="time"
               value={draft.dueTime ?? ''}
               disabled={!draft.dueAt}
-              onClick={e => {
-                const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
-                el.showPicker?.()
-              }}
-              onChange={e => {
-                const nextTask = { ...draft, dueTime: e.target.value || null }
-                void saveTask(nextTask)
-              }}
+              onClick={showPicker}
+              onChange={e => void saveTask({ ...draft, dueTime: e.target.value || null })}
               aria-label={`Due time: ${draft.dueTime ?? 'Not set'}`}
             />
           </div>
@@ -341,35 +248,24 @@ export default function TaskRow({ task, onSave, onDelete }: Props) {
             disabled={busy}
           >⋯</button>
         </div>
-        {draft.description != null ? (
-          editingDescriptionPath === pathKey([]) ? (
-            <textarea
-              className="task-node-description task-node-description-row"
-              autoFocus
-              value={draft.description}
-              onChange={e => ops.updateNode([], n => ({ ...n, description: e.target.value }))}
-              onBlur={() => void commitNode([])}
-              onKeyDown={e => {
-                if (e.key === 'Escape') { e.preventDefault(); setEditingDescriptionPath(null) }
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void commitNode([]) }
-              }}
-              aria-label="Task description"
-            />
-          ) : (
-            <DescriptionContent
-              text={draft.description ?? ''}
-              onEdit={() => setEditingDescriptionPath(pathKey([]))}
-            />
-          )
-        ) : null}
+        <DescriptionField
+          description={draft.description}
+          editing={editingDescriptionPath === pathKey([])}
+          onChange={text => updateNode([], n => ({ ...n, description: text }))}
+          onCommit={() => void commitNode([])}
+          onCancel={() => setEditingDescriptionPath(null)}
+          onBeginEdit={() => setEditingDescriptionPath(pathKey([]))}
+          ariaLabel="Task description"
+        />
         {isMenuOpen([]) ? (
-          <div className="task-node-menu" role="menu" aria-label={`Actions for ${draft.title}`}>
-            <button type="button" role="menuitem" onClick={() => { closeMenu(); addChild([]) }} disabled={busy}>Add Child</button>
-            <button type="button" role="menuitem" onClick={() => { closeMenu(); beginDescriptionEdit([], draft.description) }} disabled={busy}>
-              {draft.description != null ? 'Edit Description' : 'Add Description'}
-            </button>
-            <button type="button" role="menuitem" onClick={() => { closeMenu(); ops.remove() }} disabled={busy}>Delete</button>
-          </div>
+          <NodeActionsMenu
+            label={draft.title}
+            hasDescription={draft.description != null}
+            busy={busy}
+            onAddChild={() => { closeMenu(); addChild([]) }}
+            onEditDescription={() => { closeMenu(); beginDescriptionEdit([], draft.description) }}
+            onDelete={() => { closeMenu(); ops.remove() }}
+          />
         ) : null}
         <ul className="task-tree">
           {draft.subtasks.map((node, index) => renderNode(node, [index]))}
