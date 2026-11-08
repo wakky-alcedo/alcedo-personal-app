@@ -18,7 +18,7 @@ class SyncStatusConverters {
 @Database(
     entities = [TaskEntity::class, BeliefEntity::class, HabitEntity::class, HabitLogEntity::class, MemoEntity::class],
     version = 7,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(SyncStatusConverters::class)
 abstract class AppDatabase : RoomDatabase() {

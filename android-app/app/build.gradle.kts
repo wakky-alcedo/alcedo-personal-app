@@ -1,3 +1,8 @@
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.process.CommandLineArgumentProvider
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -40,6 +45,24 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        // Exported Room schemas are read by MigrationTestHelper in instrumented tests.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+/** Passes the Room schema export directory to KSP (exported JSON is committed). */
+class RoomSchemaArgProvider(
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    val schemaDir: File
+) : CommandLineArgumentProvider {
+    override fun asArguments(): Iterable<String> = listOf("room.schemaLocation=${schemaDir.path}")
+}
+
+ksp {
+    arg(RoomSchemaArgProvider(File(projectDir, "schemas")))
 }
 
 dependencies {
@@ -73,4 +96,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
+
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.room:room-testing:2.7.1")
 }
