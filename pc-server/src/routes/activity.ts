@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 import { effectiveLocalDate } from "../utils/date.js";
 
 type ActivityLogRow = {
@@ -49,7 +49,7 @@ function normalizeRow(r: ActivityLogRow) {
   return { ...r, isMediaPlaying: Boolean(r.isMediaPlaying) };
 }
 
-const activityRoutes: FastifyPluginAsync = async (app) => {
+const activityRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
   const upsertLog = db.prepare(`
     INSERT INTO activity_logs
       (id, deviceId, startedAt, endedAt, processName, windowTitle, browserUrl, category, isMediaPlaying, source, createdAt)

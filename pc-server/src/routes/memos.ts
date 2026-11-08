@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 
 type MemoRow = {
   id: string;
@@ -48,49 +48,44 @@ function rowToWire(row: MemoRow): MemoWire {
   };
 }
 
-const stmtListActive = db.prepare<[number, number], MemoRow>(`
-  SELECT * FROM memos
-  WHERE deleted_at IS NULL
-  ORDER BY created_at DESC
-  LIMIT ? OFFSET ?
-`);
+const memoRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
+  const stmtListActive = db.prepare<[number, number], MemoRow>(`
+    SELECT * FROM memos
+    WHERE deleted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `);
+  const stmtListSince = db.prepare<[string, string, number], MemoRow>(`
+    SELECT * FROM memos
+    WHERE updated_at > ? AND (deleted_at IS NULL OR deleted_at > ?)
+    ORDER BY updated_at ASC
+    LIMIT ?
+  `);
+  const stmtFindById = db.prepare<[string], MemoRow>(`
+    SELECT * FROM memos WHERE id = ?
+  `);
+  const stmtUpsert = db.prepare(`
+    INSERT INTO memos (id, body, source_url, source_title, version, created_at, updated_at, deleted_at)
+    VALUES (@id, @body, @source_url, @source_title, @version, @created_at, @updated_at, @deleted_at)
+    ON CONFLICT(id) DO UPDATE SET
+      body = excluded.body,
+      source_url = excluded.source_url,
+      source_title = excluded.source_title,
+      version = excluded.version,
+      updated_at = excluded.updated_at,
+      deleted_at = excluded.deleted_at
+    WHERE excluded.version > memos.version
+      OR (excluded.version = memos.version AND excluded.updated_at > memos.updated_at)
+  `);
+  const stmtSoftDelete = db.prepare(`
+    UPDATE memos SET deleted_at = @deletedAt, updated_at = @updatedAt, version = version + 1
+    WHERE id = @id AND deleted_at IS NULL
+  `);
+  const stmtUpdateBody = db.prepare(`
+    UPDATE memos SET body = @body, updated_at = @updatedAt, version = version + 1
+    WHERE id = @id AND deleted_at IS NULL
+  `);
 
-const stmtListSince = db.prepare<[string, string, number], MemoRow>(`
-  SELECT * FROM memos
-  WHERE updated_at > ? AND (deleted_at IS NULL OR deleted_at > ?)
-  ORDER BY updated_at ASC
-  LIMIT ?
-`);
-
-const stmtFindById = db.prepare<[string], MemoRow>(`
-  SELECT * FROM memos WHERE id = ?
-`);
-
-const stmtUpsert = db.prepare(`
-  INSERT INTO memos (id, body, source_url, source_title, version, created_at, updated_at, deleted_at)
-  VALUES (@id, @body, @source_url, @source_title, @version, @created_at, @updated_at, @deleted_at)
-  ON CONFLICT(id) DO UPDATE SET
-    body = excluded.body,
-    source_url = excluded.source_url,
-    source_title = excluded.source_title,
-    version = excluded.version,
-    updated_at = excluded.updated_at,
-    deleted_at = excluded.deleted_at
-  WHERE excluded.version > memos.version
-    OR (excluded.version = memos.version AND excluded.updated_at > memos.updated_at)
-`);
-
-const stmtSoftDelete = db.prepare(`
-  UPDATE memos SET deleted_at = @deletedAt, updated_at = @updatedAt, version = version + 1
-  WHERE id = @id AND deleted_at IS NULL
-`);
-
-const stmtUpdateBody = db.prepare(`
-  UPDATE memos SET body = @body, updated_at = @updatedAt, version = version + 1
-  WHERE id = @id AND deleted_at IS NULL
-`);
-
-const memoRoutes: FastifyPluginAsync = async (app) => {
   app.get<{
     Querystring: { since?: string; limit?: string; cursor?: string };
   }>("/memos", async (request) => {

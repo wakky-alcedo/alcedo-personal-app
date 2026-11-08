@@ -33,7 +33,7 @@ Web App      ↔  REST API                                                      
 ### PC Server (`pc-server/src/`)
 - `index.ts` — reads `.env`, starts Fastify on `PORT` (default 8787)
 - `app.ts` — creates Fastify instance, registers `X-Api-Key` auth hook and `setErrorHandler`, mounts routes under `/api/v1`
-- `db.ts` — opens SQLite, runs `runMigrations()`
+- `db.ts` — `openDatabase(file)` opens SQLite and runs `runMigrations()`; `index.ts` opens the real DB and passes it to `createApp({ db, apiKey })`
 - `migrations/` — numbered migration files (`001_initial_schema.ts`, `002_add_columns.ts`, `003_activity_logs_reshape.ts`) + `index.ts` runner
 - `utils/date.ts` — JST-safe date helpers: `localDateKey()` / `effectiveLocalDate()` (UTC+9 fixed, no system-TZ dependency)
 - `routes/tasks.ts` — task upsert/delete/list/sync-changes endpoints; contains `normalizeSubtasks()`
@@ -80,7 +80,8 @@ Web App      ↔  REST API                                                      
 - `normalizeSubtasks()` exists in both `routes/tasks.ts` (server) and `api.ts` (client) — keep them in sync when changing the subtask shape.
 - Never use `getTimezoneOffset()` for date arithmetic. Use `localDateKey()` / `effectiveLocalDate()` from `src/utils/date.ts` (JST fixed at UTC+9).
 - Migrations go in `migrations/00N_*.ts` numbered files, registered in `migrations/index.ts`. Never add schema changes inline in `db.ts`.
-- Prefer module-level `db.prepare()` for statements executed on every request. In-handler `prepare()` is acceptable for one-off or conditional queries.
+- Route plugins receive the DB via options (`FastifyPluginAsync<RouteOptions>`, `async (app, { db })`); never import a DB singleton. Prepare per-request statements once at the top of the plugin body. In-handler `prepare()` is acceptable for one-off or conditional queries.
+- Route tests use `createApp({ db: openDatabase(':memory:'), apiKey, logger: false })` + `app.inject()`.
 - Physical deletes are banned. Use soft delete (`deletedAt`) for all removals.
 
 ### React / Web App

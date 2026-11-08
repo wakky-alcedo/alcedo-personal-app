@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 
 type BeliefInput = {
   id: string;
@@ -16,16 +16,16 @@ type DeleteBeliefInput = {
 
 type BeliefDbRow = Omit<BeliefInput, 'isActive'> & { isActive: number }
 
-const upsertBelief = db.prepare(`
-  INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
-  VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
-  ON CONFLICT(id) DO UPDATE SET
-    text = excluded.text,
-    isActive = excluded.isActive,
-    updatedAt = excluded.updatedAt
-`);
+const beliefRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
+  const upsertBelief = db.prepare(`
+    INSERT INTO beliefs (id, text, isActive, createdAt, updatedAt)
+    VALUES (@id, @text, @isActive, @createdAt, @updatedAt)
+    ON CONFLICT(id) DO UPDATE SET
+      text = excluded.text,
+      isActive = excluded.isActive,
+      updatedAt = excluded.updatedAt
+  `);
 
-const beliefRoutes: FastifyPluginAsync = async (app) => {
   app.get("/beliefs", async () => {
     const beliefs = (db.prepare("SELECT * FROM beliefs ORDER BY updatedAt DESC").all() as BeliefDbRow[]).map(belief => ({
       ...belief,

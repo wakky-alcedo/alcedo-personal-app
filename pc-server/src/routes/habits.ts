@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 import { localDateKey, effectiveLocalDate } from "../utils/date.js";
 
 type HabitInput = {
@@ -14,32 +14,6 @@ type HabitInput = {
   createdAt: string;
   updatedAt: string;
 };
-
-const stmtSelectHabits = db.prepare("SELECT * FROM habits ORDER BY updatedAt DESC");
-const stmtSelectHabitLogs = db.prepare("SELECT habitId, doneDate FROM habit_logs ORDER BY doneDate DESC");
-const stmtSelectHabitLogsByDate = db.prepare("SELECT habitId, doneDate FROM habit_logs WHERE doneDate >= ? AND doneDate <= ? ORDER BY doneDate ASC");
-const stmtUpsertHabit = db.prepare(`
-  INSERT INTO habits (
-    id, name, notifyTime, widgetPriorityTimeRangeStart, widgetPriorityTimeRangeEnd, allowedMissDays, isActive, createdAt, updatedAt
-  ) VALUES (
-    @id, @name, @notifyTime, @widgetPriorityTimeRangeStart, @widgetPriorityTimeRangeEnd, @allowedMissDays, @isActive, @createdAt, @updatedAt
-  )
-  ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    notifyTime = excluded.notifyTime,
-    widgetPriorityTimeRangeStart = excluded.widgetPriorityTimeRangeStart,
-    widgetPriorityTimeRangeEnd = excluded.widgetPriorityTimeRangeEnd,
-    allowedMissDays = excluded.allowedMissDays,
-    isActive = excluded.isActive,
-    updatedAt = excluded.updatedAt
-`);
-const stmtDeleteHabitLogs = db.prepare("DELETE FROM habit_logs WHERE habitId = ?");
-const stmtDeleteHabit = db.prepare("DELETE FROM habits WHERE id = ?");
-const stmtInsertHabitLog = db.prepare(`
-  INSERT INTO habit_logs (id, habitId, doneDate, createdAt)
-  VALUES (@id, @habitId, @doneDate, @createdAt)
-  ON CONFLICT(habitId, doneDate) DO NOTHING
-`);
 
 // Pure calendar-day arithmetic on an already-resolved date key. Must not
 // reuse localDateKey() here: dateKey is already an effective local date,
@@ -92,31 +66,56 @@ export function computeStreakDays(logSet: Set<string>, today: string, allowedMis
   return streakDays;
 }
 
-function buildHabitViews() {
-  const habits = stmtSelectHabits.all() as Array<Record<string, unknown>>;
-  const logs = stmtSelectHabitLogs.all() as Array<{ habitId: string; doneDate: string }>;
-  const today = effectiveLocalDate();
+const habitRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
+  const stmtSelectHabits = db.prepare("SELECT * FROM habits ORDER BY updatedAt DESC");
+  const stmtSelectHabitLogs = db.prepare("SELECT habitId, doneDate FROM habit_logs ORDER BY doneDate DESC");
+  const stmtSelectHabitLogsByDate = db.prepare("SELECT habitId, doneDate FROM habit_logs WHERE doneDate >= ? AND doneDate <= ? ORDER BY doneDate ASC");
+  const stmtUpsertHabit = db.prepare(`
+    INSERT INTO habits (
+      id, name, notifyTime, widgetPriorityTimeRangeStart, widgetPriorityTimeRangeEnd, allowedMissDays, isActive, createdAt, updatedAt
+    ) VALUES (
+      @id, @name, @notifyTime, @widgetPriorityTimeRangeStart, @widgetPriorityTimeRangeEnd, @allowedMissDays, @isActive, @createdAt, @updatedAt
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      notifyTime = excluded.notifyTime,
+      widgetPriorityTimeRangeStart = excluded.widgetPriorityTimeRangeStart,
+      widgetPriorityTimeRangeEnd = excluded.widgetPriorityTimeRangeEnd,
+      allowedMissDays = excluded.allowedMissDays,
+      isActive = excluded.isActive,
+      updatedAt = excluded.updatedAt
+  `);
+  const stmtDeleteHabitLogs = db.prepare("DELETE FROM habit_logs WHERE habitId = ?");
+  const stmtDeleteHabit = db.prepare("DELETE FROM habits WHERE id = ?");
+  const stmtInsertHabitLog = db.prepare(`
+    INSERT INTO habit_logs (id, habitId, doneDate, createdAt)
+    VALUES (@id, @habitId, @doneDate, @createdAt)
+    ON CONFLICT(habitId, doneDate) DO NOTHING
+  `);
+  function buildHabitViews() {
+    const habits = stmtSelectHabits.all() as Array<Record<string, unknown>>;
+    const logs = stmtSelectHabitLogs.all() as Array<{ habitId: string; doneDate: string }>;
+    const today = effectiveLocalDate();
 
-  return habits.map((habit) => {
-    const habitId = String(habit.id);
-    const habitLogs = logs.filter((log) => log.habitId === habitId).map((log) => log.doneDate);
-    const logSet = new Set(habitLogs);
-    const sortedDates = Array.from(logSet).sort().reverse();
-    const allowedMissDays = Number(habit.allowedMissDays ?? 0);
+    return habits.map((habit) => {
+      const habitId = String(habit.id);
+      const habitLogs = logs.filter((log) => log.habitId === habitId).map((log) => log.doneDate);
+      const logSet = new Set(habitLogs);
+      const sortedDates = Array.from(logSet).sort().reverse();
+      const allowedMissDays = Number(habit.allowedMissDays ?? 0);
 
-    return {
-      ...habit,
-      id: String(habit.id),
-      allowedMissDays,
-      isActive: Boolean(habit.isActive),
-      completedToday: logSet.has(today),
-      streakDays: computeStreakDays(logSet, today, allowedMissDays),
-      lastDoneDate: sortedDates[0] ?? null,
-    };
-  });
-}
+      return {
+        ...habit,
+        id: String(habit.id),
+        allowedMissDays,
+        isActive: Boolean(habit.isActive),
+        completedToday: logSet.has(today),
+        streakDays: computeStreakDays(logSet, today, allowedMissDays),
+        lastDoneDate: sortedDates[0] ?? null,
+      };
+    });
+  }
 
-const habitRoutes: FastifyPluginAsync = async (app) => {
   app.get("/habits", async () => {
     return { habits: buildHabitViews() };
   });

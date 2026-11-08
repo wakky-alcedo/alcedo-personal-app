@@ -7,13 +7,15 @@ import { registerEventRoutes } from "./routes/events.js";
 import { registerHabitRoutes } from "./routes/habits.js";
 import { registerMemoRoutes } from "./routes/memos.js";
 import { registerTaskRoutes } from "./routes/tasks.js";
+import type { Db } from "./db.js";
 
-export async function createApp() {
-  const app = Fastify({ logger: true });
-  const apiKey = process.env.API_KEY;
+export type AppOptions = { db: Db; apiKey: string | undefined; logger?: boolean };
+
+export async function createApp({ db, apiKey, logger = true }: AppOptions) {
   if (!apiKey) {
     throw new Error("API_KEY environment variable must be set");
   }
+  const app = Fastify({ logger });
 
   await app.register(cors, {
     origin: "*",
@@ -31,13 +33,13 @@ export async function createApp() {
     }
   });
 
-  app.register(registerTaskRoutes, { prefix: "/api/v1" });
-  app.register(registerBeliefRoutes, { prefix: "/api/v1" });
-  app.register(registerHabitRoutes, { prefix: "/api/v1" });
-  app.register(registerAnalyticsRoutes, { prefix: "/api/v1" });
-  app.register(registerActivityRoutes, { prefix: "/api/v1" });
+  app.register(registerTaskRoutes, { prefix: "/api/v1", db });
+  app.register(registerBeliefRoutes, { prefix: "/api/v1", db });
+  app.register(registerHabitRoutes, { prefix: "/api/v1", db });
+  app.register(registerAnalyticsRoutes, { prefix: "/api/v1", db });
+  app.register(registerActivityRoutes, { prefix: "/api/v1", db });
   app.register(registerEventRoutes, { prefix: "/api/v1" });
-  app.register(registerMemoRoutes, { prefix: "/api/v1" });
+  app.register(registerMemoRoutes, { prefix: "/api/v1", db });
 
   app.setErrorHandler((error, _request, reply) => {
     app.log.error(error);

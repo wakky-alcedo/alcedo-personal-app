@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 
 const SNS_WARN_SEC = 3600;
 
@@ -16,7 +16,7 @@ type AnalyticsRow = {
   updatedAt: string;
 };
 
-const analyticsRoutes: FastifyPluginAsync = async (app) => {
+const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
   // POST /analytics/daily — upsert a time entry
   app.post<{
     Body: {

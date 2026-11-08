@@ -3,12 +3,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { runMigrations } from "./migrations/index.js";
 
-const dataDir = process.env.DATA_DIR ?? path.resolve(process.cwd(), "pc-server", "data");
-fs.mkdirSync(dataDir, { recursive: true });
+export type Db = InstanceType<typeof Database>;
 
-const dbPath = path.join(dataDir, "app.sqlite");
-export const db = new Database(dbPath);
+/** Route plugin options: every route receives the DB handle instead of importing a singleton. */
+export type RouteOptions = { db: Db };
 
-db.pragma("journal_mode = WAL");
+/** Resolves the on-disk DB path from DATA_DIR (production: /data via docker volume). */
+export function resolveDbPath(): string {
+  const dataDir = process.env.DATA_DIR ?? path.resolve(process.cwd(), "pc-server", "data");
+  fs.mkdirSync(dataDir, { recursive: true });
+  return path.join(dataDir, "app.sqlite");
+}
 
-runMigrations(db);
+/** Opens a SQLite DB and applies migrations. Pass ":memory:" in tests. */
+export function openDatabase(file: string): Db {
+  const db = new Database(file);
+  db.pragma("journal_mode = WAL");
+  runMigrations(db);
+  return db;
+}

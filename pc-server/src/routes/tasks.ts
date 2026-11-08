@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { randomUUID } from "crypto";
-import { db } from "../db.js";
+import type { RouteOptions } from "../db.js";
 import { broadcast } from "./events.js";
 
 type UpsertTaskInput = {
@@ -96,51 +96,49 @@ function normalizeTaskRow(row: TaskRow) {
   };
 }
 
-const stmtUpsertTask = db.prepare(`
-  INSERT INTO tasks (
-    id, title, description, categoryType, categoryName, priority, dueAt, dueTime, status, subtasks, parentId, deletedAt, updatedAt, version
-  ) VALUES (
-    @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @dueTime, @status, @subtasks, @parentId, NULL, @updatedAt, @version
-  )
-  ON CONFLICT(id) DO UPDATE SET
-    title = excluded.title,
-    description = excluded.description,
-    categoryType = excluded.categoryType,
-    categoryName = excluded.categoryName,
-    priority = excluded.priority,
-    dueAt = excluded.dueAt,
-    dueTime = excluded.dueTime,
-    status = excluded.status,
-    subtasks = excluded.subtasks,
-    parentId = excluded.parentId,
-    deletedAt = CASE WHEN excluded.version > tasks.version THEN NULL ELSE tasks.deletedAt END,
-    updatedAt = excluded.updatedAt,
-    version = excluded.version
-  WHERE excluded.version > tasks.version
-     OR (excluded.version = tasks.version AND excluded.updatedAt > tasks.updatedAt)
-`);
+const taskRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
+  const stmtUpsertTask = db.prepare(`
+    INSERT INTO tasks (
+      id, title, description, categoryType, categoryName, priority, dueAt, dueTime, status, subtasks, parentId, deletedAt, updatedAt, version
+    ) VALUES (
+      @id, @title, @description, @categoryType, @categoryName, @priority, @dueAt, @dueTime, @status, @subtasks, @parentId, NULL, @updatedAt, @version
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description,
+      categoryType = excluded.categoryType,
+      categoryName = excluded.categoryName,
+      priority = excluded.priority,
+      dueAt = excluded.dueAt,
+      dueTime = excluded.dueTime,
+      status = excluded.status,
+      subtasks = excluded.subtasks,
+      parentId = excluded.parentId,
+      deletedAt = CASE WHEN excluded.version > tasks.version THEN NULL ELSE tasks.deletedAt END,
+      updatedAt = excluded.updatedAt,
+      version = excluded.version
+    WHERE excluded.version > tasks.version
+       OR (excluded.version = tasks.version AND excluded.updatedAt > tasks.updatedAt)
+  `);
+  const stmtMarkDeleted = db.prepare(`
+    UPDATE tasks
+    SET
+      status = 'done',
+      deletedAt = @updatedAt,
+      updatedAt = @updatedAt,
+      version = @version
+    WHERE id = @id
+      AND (@version > version OR (@version = version AND @updatedAt > updatedAt))
+  `);
+  const stmtInsertDeletedPlaceholder = db.prepare(`
+    INSERT INTO tasks (
+      id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, deletedAt, updatedAt, version
+    ) VALUES (
+      @id, '', NULL, 'short_term', 'deleted', 'low', NULL, 'done', '[]', @updatedAt, @updatedAt, @version
+    )
+    ON CONFLICT(id) DO NOTHING
+  `);
 
-const stmtMarkDeleted = db.prepare(`
-  UPDATE tasks
-  SET
-    status = 'done',
-    deletedAt = @updatedAt,
-    updatedAt = @updatedAt,
-    version = @version
-  WHERE id = @id
-    AND (@version > version OR (@version = version AND @updatedAt > updatedAt))
-`);
-
-const stmtInsertDeletedPlaceholder = db.prepare(`
-  INSERT INTO tasks (
-    id, title, description, categoryType, categoryName, priority, dueAt, status, subtasks, deletedAt, updatedAt, version
-  ) VALUES (
-    @id, '', NULL, 'short_term', 'deleted', 'low', NULL, 'done', '[]', @updatedAt, @updatedAt, @version
-  )
-  ON CONFLICT(id) DO NOTHING
-`);
-
-const taskRoutes: FastifyPluginAsync = async (app) => {
   app.post<{
     Body: { tasks?: UpsertTaskInput[]; upserts?: UpsertTaskInput[]; deletions?: DeleteTaskInput[] };
   }>("/sync/tasks", async (request) => {
