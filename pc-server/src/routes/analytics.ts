@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type { FastifyPluginAsync } from "fastify";
 import type { RouteOptions } from "../db.js";
+import { addDays, effectiveLocalDate, isDateKey } from "../utils/date.js";
 
 const SNS_WARN_SEC = 3600;
 
@@ -15,6 +16,18 @@ type AnalyticsRow = {
   createdAt: string;
   updatedAt: string;
 };
+
+/**
+ * Pure date-key arithmetic (no system-TZ dependency): weekly = the 7 days ending at the
+ * anchor; monthly = the whole calendar month containing the anchor.
+ */
+export function summaryWindow(range: string, anchorKey: string): { startDate: string; days: number } {
+  if (range === "monthly") {
+    const [y, m] = anchorKey.split("-").map(Number);
+    return { startDate: `${anchorKey.slice(0, 7)}-01`, days: new Date(Date.UTC(y, m, 0)).getUTCDate() };
+  }
+  return { startDate: addDays(anchorKey, -6), days: 7 };
+}
 
 const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
   // POST /analytics/daily — upsert a time entry
@@ -49,8 +62,10 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
   });
 
   // GET /analytics/daily?date=YYYY-MM-DD
-  app.get("/analytics/daily", async (request) => {
-    const date = (request.query as { date?: string }).date ?? new Date().toISOString().slice(0, 10);
+  app.get<{ Querystring: { date?: string } }>("/analytics/daily", async (request, reply) => {
+    const { date: dateParam } = request.query;
+    if (dateParam !== undefined && !isDateKey(dateParam)) return reply.code(400).send({ message: "date must be YYYY-MM-DD" });
+    const date = dateParam ?? effectiveLocalDate();
     const entries = db
       .prepare("SELECT * FROM analytics_daily WHERE targetDate = ? AND deletedAt IS NULL ORDER BY category, createdAt")
       .all(date) as AnalyticsRow[];
@@ -67,18 +82,11 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
   });
 
   // GET /analytics/summary?range=weekly|monthly&anchor=YYYY-MM-DD
-  app.get("/analytics/summary", async (request) => {
-    const { range = "weekly", anchor: anchorStr } = request.query as { range?: string; anchor?: string };
-    const anchor = anchorStr ? new Date(anchorStr) : new Date();
-    anchor.setHours(0, 0, 0, 0);
-
-    let startDate: Date;
-    if (range === "monthly") {
-      startDate = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-    } else {
-      startDate = new Date(anchor);
-      startDate.setDate(startDate.getDate() - 6);
-    }
+  app.get<{ Querystring: { range?: string; anchor?: string } }>("/analytics/summary", async (request, reply) => {
+    const { range = "weekly", anchor: anchorParam } = request.query;
+    if (anchorParam !== undefined && !isDateKey(anchorParam)) return reply.code(400).send({ message: "anchor must be YYYY-MM-DD" });
+    const anchorKey = anchorParam ?? effectiveLocalDate();
+    const { startDate, days } = summaryWindow(range, anchorKey);
 
     const rows = db
       .prepare(
@@ -88,21 +96,15 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
          GROUP BY targetDate, category
          ORDER BY targetDate`
       )
-      .all(startDate.toISOString().slice(0, 10), anchor.toISOString().slice(0, 10)) as Array<{
+      .all(startDate, anchorKey) as Array<{
         targetDate: string;
         category: string;
         durationSec: number;
       }>;
 
     // Expand into per-day objects for recharts
-    const days =
-      range === "monthly"
-        ? new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()
-        : 7;
     const data = Array.from({ length: days }, (_, i) => {
-      const d = new Date(startDate);
-      d.setDate(d.getDate() + i);
-      const dateKey = d.toISOString().slice(0, 10);
+      const dateKey = addDays(startDate, i);
       const entry: { date: string; [k: string]: string | number } = { date: dateKey };
       for (const r of rows.filter((r) => r.targetDate === dateKey)) {
         entry[r.category] = r.durationSec;
@@ -111,14 +113,13 @@ const analyticsRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) =>
     });
 
     // SNS warning for anchor day
-    const anchorKey = anchor.toISOString().slice(0, 10);
     const snsSec = rows
       .filter((r) => r.targetDate === anchorKey && r.category === "SNS")
       .reduce((s, r) => s + r.durationSec, 0);
 
     return {
       range,
-      startDate: startDate.toISOString().slice(0, 10),
+      startDate,
       endDate: anchorKey,
       data,
       snsWarning: snsSec >= SNS_WARN_SEC,
