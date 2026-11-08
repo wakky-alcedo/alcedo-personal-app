@@ -35,6 +35,27 @@ type SyncMemoInput = {
   deletedAt?: string | null;
 };
 
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 200;
+/** Separates updated_at and id in a pull cursor. Neither ISO timestamps nor UUIDs contain it. */
+const CURSOR_SEPARATOR = "|";
+
+type PullCursor = { updatedAt: string; id: string | null };
+
+/**
+ * Pull cursors are "updatedAt|id" so rows sharing an updated_at are never skipped at a page
+ * boundary. A bare timestamp (old clients, or `since` alone) keeps the old `updated_at > ts` rule.
+ */
+export function parsePullCursor(raw: string): PullCursor {
+  const at = raw.lastIndexOf(CURSOR_SEPARATOR);
+  if (at < 0) return { updatedAt: raw, id: null };
+  return { updatedAt: raw.slice(0, at), id: raw.slice(at + 1) };
+}
+
+export function formatPullCursor(row: Pick<MemoRow, "updated_at" | "id">): string {
+  return `${row.updated_at}${CURSOR_SEPARATOR}${row.id}`;
+}
+
 function rowToWire(row: MemoRow): MemoWire {
   return {
     id: row.id,
@@ -55,11 +76,13 @@ const memoRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
   `);
-  const stmtListSince = db.prepare<[string, string, number], MemoRow>(`
+  // `id > NULL` is never true, so a cursor without an id behaves as a plain `updated_at > ts`.
+  const stmtListSince = db.prepare<{ ts: string; id: string | null; since: string; limit: number }, MemoRow>(`
     SELECT * FROM memos
-    WHERE updated_at > ? AND (deleted_at IS NULL OR deleted_at > ?)
-    ORDER BY updated_at ASC
-    LIMIT ?
+    WHERE (updated_at > @ts OR (updated_at = @ts AND id > @id))
+      AND (deleted_at IS NULL OR deleted_at > @since)
+    ORDER BY updated_at ASC, id ASC
+    LIMIT @limit
   `);
   const stmtFindById = db.prepare<[string], MemoRow>(`
     SELECT * FROM memos WHERE id = ?
@@ -90,13 +113,13 @@ const memoRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
     Querystring: { since?: string; limit?: string; cursor?: string };
   }>("/memos", async (request) => {
     const { since, limit: limitStr, cursor } = request.query;
-    const limit = Math.min(parseInt(limitStr ?? "50", 10) || 50, 200);
+    const limit = Math.min(parseInt(limitStr ?? String(DEFAULT_PAGE_LIMIT), 10) || DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
 
     if (since) {
-      // Pull sync: return memos updated after `since`, cursor-paginated by updated_at
-      const after = cursor ?? since;
-      const rows = stmtListSince.all(after, after, limit) as MemoRow[];
-      return { memos: rows.map(rowToWire), nextCursor: rows.length === limit ? rows[rows.length - 1].updated_at : null };
+      // Pull sync: memos updated after `since`, paginated by the (updated_at, id) cursor
+      const { updatedAt: ts, id } = parsePullCursor(cursor ?? since);
+      const rows = stmtListSince.all({ ts, id, since, limit });
+      return { memos: rows.map(rowToWire), nextCursor: rows.length === limit ? formatPullCursor(rows[rows.length - 1]) : null };
     }
 
     // Browse: latest-first, offset-based

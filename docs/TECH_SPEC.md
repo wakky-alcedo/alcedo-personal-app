@@ -405,8 +405,11 @@
 - 用途: ルール変更後に過去ログへ遡及適用
 
 #### メモ (実装済み: `pc-server/src/routes/memos.ts`)
-24. GET /api/v1/memos?since=ISO8601&limit=50&cursor=updatedAt
-- 用途: 一覧取得（since省略時は全件，指定時はPull差分取得）
+24. GET /api/v1/memos?since=ISO8601&limit=50&cursor=...
+- 用途: 一覧取得（since省略時は全件を新しい順にoffsetでページング，指定時はPull差分取得）
+- `limit` は既定50・上限200
+- Pull（since指定）: `(updated_at, id)` の昇順で返す。カーソルは `"<updatedAt>|<id>"` で，その位置より後ろの行を返す（同じ updated_at の行がページ境界で抜けない）。`nextCursor` はページが満杯のときだけ最後の行のカーソルを返し，最後のページでは null。クライアントは最後に受け取った行から同じ形式のカーソルを作って次回の起点にできる
+- 後方互換: カーソル省略時は `since`，`|` を含まない旧形式カーソル（時刻のみ）は従来どおり `updated_at > 時刻` で絞り込む。削除済みメモは `deleted_at > since` のものだけ返す
 - 競合解決: version-based（Taskと同方式）
 - Response: { memos: Memo[], nextCursor: string | null }
 
