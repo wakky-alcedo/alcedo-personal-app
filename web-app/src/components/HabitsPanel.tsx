@@ -3,6 +3,7 @@ import { checkInHabit, createHabit, deleteHabit, getHabitLogs, getHabits, update
 import HabitHeatmap, { buildHeatmapDays, HEATMAP_DAYS } from './HabitHeatmap.tsx'
 import { useAppConfig } from '../contexts/AppConfigContext.tsx'
 import { useEditableRow } from '../hooks/useEditableRow.ts'
+import { useToast } from '../contexts/ToastContext.tsx'
 
 type Props = {
   compact?: boolean
@@ -173,6 +174,7 @@ function HabitRow({ habit, onSave, onDelete, onCheckIn }: {
 
 export default function HabitsPanel({ compact = false }: Props) {
   const { serverUrl, apiKey } = useAppConfig()
+  const { toast } = useToast()
   const [habits, setHabits] = useState<Habit[]>([])
   const [doneMap, setDoneMap] = useState<Record<string, Set<string>>>({})
   const [loading, setLoading] = useState(false)
@@ -201,6 +203,7 @@ export default function HabitsPanel({ compact = false }: Props) {
       setDoneMap(map)
     } catch (error) {
       console.error(error)
+      toast.error('習慣の取得に失敗しました')
       setHabits([])
     } finally {
       setLoading(false)
@@ -222,7 +225,13 @@ export default function HabitsPanel({ compact = false }: Props) {
       allowedMissDays,
       isActive,
     }
-    await createHabit(serverUrl, apiKey, payload)
+    try {
+      await createHabit(serverUrl, apiKey, payload)
+    } catch (error) {
+      console.error(error)
+      toast.error('習慣の作成に失敗しました')
+      return
+    }
     setName('')
     setNotifyTime('')
     setPriorityStart('')
@@ -232,9 +241,19 @@ export default function HabitsPanel({ compact = false }: Props) {
     await refresh()
   }
 
-  async function handleSave(habit: Habit) { await updateHabit(serverUrl, apiKey, habit); await refresh() }
-  async function handleDelete(habit: Habit) { await deleteHabit(serverUrl, apiKey, habit); await refresh() }
-  async function handleCheckIn(habit: Habit) { await checkInHabit(serverUrl, apiKey, habit); await refresh() }
+  async function mutate(action: () => Promise<unknown>, failureMessage: string) {
+    try {
+      await action()
+    } catch (error) {
+      console.error(error)
+      toast.error(failureMessage)
+    }
+    await refresh()
+  }
+
+  const handleSave = (habit: Habit) => mutate(() => updateHabit(serverUrl, apiKey, habit), '習慣の更新に失敗しました')
+  const handleDelete = (habit: Habit) => mutate(() => deleteHabit(serverUrl, apiKey, habit), '習慣の削除に失敗しました')
+  const handleCheckIn = (habit: Habit) => mutate(() => checkInHabit(serverUrl, apiKey, habit), 'チェックインに失敗しました')
 
   const quickCheckCard = (
     <div className="featured-card habit-featured">

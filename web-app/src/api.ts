@@ -246,7 +246,9 @@ export async function checkInHabit(serverUrl: string, apiKey: string, habit: Hab
       'Content-Type': 'application/json',
       'X-Api-Key': apiKey
     },
-    body: JSON.stringify({ doneDate: new Date().toISOString().slice(0, 10) })
+    // doneDate is omitted on purpose: the server resolves "today" (JST, 6am boundary).
+    // Sending a client-side UTC date recorded 06:00-09:00 JST check-ins as yesterday.
+    body: JSON.stringify({})
   })
   if (!res.ok) throw new Error('habit check-in failed')
   return res.json()
