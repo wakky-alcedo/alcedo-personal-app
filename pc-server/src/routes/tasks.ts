@@ -96,7 +96,31 @@ function normalizeTaskRow(row: TaskRow) {
   };
 }
 
+/**
+ * Nests flat `parentId` rows under their parent's `subtasks` (legacy flat model; the JSON
+ * `subtasks` column is the primary model). Rows whose parent isn't in `rows` become roots.
+ */
+function buildTaskTree(rows: TaskRow[]) {
+  type TaskNode = ReturnType<typeof normalizeTaskRow> & { subtasks: unknown[] };
+  const byId = new Map<string, TaskNode>();
+  for (const row of rows) {
+    const normalized = normalizeTaskRow(row);
+    byId.set(row.id, { ...normalized, subtasks: normalized.subtasks.slice() });
+  }
+  const roots: TaskNode[] = [];
+  for (const row of rows) {
+    const node = byId.get(row.id)!;
+    const parent = row.parentId ? byId.get(row.parentId) : undefined;
+    if (parent) parent.subtasks.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
 const taskRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
+  const stmtListLive = db.prepare<[], TaskRow>("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY updatedAt DESC");
+  const stmtListLiveSince = db.prepare<[string], TaskRow>("SELECT * FROM tasks WHERE deletedAt IS NULL AND updatedAt > ? ORDER BY updatedAt ASC");
+  const stmtListChangedSince = db.prepare<[string], TaskRow>("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC");
   const stmtUpsertTask = db.prepare(`
     INSERT INTO tasks (
       id, title, description, categoryType, categoryName, priority, dueAt, dueTime, status, subtasks, parentId, deletedAt, updatedAt, version
@@ -183,68 +207,25 @@ const taskRoutes: FastifyPluginAsync<RouteOptions> = async (app, { db }) => {
     return { acceptedUpserts: normalizedUpserts.length, acceptedDeletions: normalizedDeletions.length };
   });
 
-  app.get("/tasks", async (request) => {
-    const since = (request.query as { since?: string }).since;
-    let rows: TaskRow[] = []
-    if (!since) {
-      rows = db.prepare("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY updatedAt DESC").all() as TaskRow[];
-    } else {
-      rows = db.prepare("SELECT * FROM tasks WHERE deletedAt IS NULL AND updatedAt > ? ORDER BY updatedAt ASC").all(since) as TaskRow[];
-    }
-
-    type NormalizedNode = ReturnType<typeof normalizeTaskRow> & { subtasks: ReturnType<typeof normalizeTaskRow>[] }
-    const map = new Map<string, NormalizedNode>();
-    for (const r of rows) {
-      const normalized = normalizeTaskRow(r);
-      map.set(r.id, { ...normalized, subtasks: normalized.subtasks.slice() } as NormalizedNode);
-    }
-    const roots: NormalizedNode[] = [];
-    for (const r of rows) {
-      const node = map.get(r.id)!;
-      const pid = r.parentId ?? null;
-      if (pid && map.has(pid)) {
-        map.get(pid)!.subtasks.push(node);
-      } else {
-        roots.push(node);
-      }
-    }
-    return { tasks: roots };
+  app.get<{ Querystring: { since?: string } }>("/tasks", async (request) => {
+    const { since } = request.query;
+    const rows = since
+      ? stmtListLiveSince.all(since)
+      : stmtListLive.all();
+    return { tasks: buildTaskTree(rows) };
   });
 
-  app.get("/sync/changes", async (request, reply) => {
-    const since = (request.query as { since?: string }).since;
+  app.get<{ Querystring: { since?: string } }>("/sync/changes", async (request, reply) => {
+    const { since } = request.query;
     if (!since) {
-      reply.code(400).send({ message: "since is required" });
-      return;
+      return reply.code(400).send({ message: "since is required" });
     }
 
-    type SyncRow = {
-      id: string;
-      updatedAt: string;
-      version: number;
-      deletedAt: string | null;
-      parentId: string | null;
-    };
-
-    const rows = db.prepare("SELECT * FROM tasks WHERE updatedAt > ? ORDER BY updatedAt ASC").all(since) as SyncRow[];
-    const liveRows = rows.filter((r) => !r.deletedAt);
-    const deletedRows = rows.filter((r) => !!r.deletedAt);
-
-    type NormalizedNode = ReturnType<typeof normalizeTaskRow> & { subtasks: ReturnType<typeof normalizeTaskRow>[] }
-    const map = new Map<string, NormalizedNode>();
-    for (const r of liveRows) {
-      const normalized = normalizeTaskRow(r as TaskRow);
-      map.set(r.id, { ...normalized, subtasks: normalized.subtasks.slice() } as NormalizedNode);
-    }
-    const roots: NormalizedNode[] = [];
-    for (const r of liveRows) {
-      const node = map.get(r.id)!;
-      const pid = r.parentId ?? null;
-      if (pid && map.has(pid)) map.get(pid)!.subtasks.push(node);
-      else roots.push(node);
-    }
-    const upserts = roots;
-    const deletions = deletedRows.map((row) => ({ id: row.id, updatedAt: row.updatedAt, version: row.version }));
+    const rows = stmtListChangedSince.all(since);
+    const upserts = buildTaskTree(rows.filter((r) => !r.deletedAt));
+    const deletions = rows
+      .filter((r) => !!r.deletedAt)
+      .map((row) => ({ id: row.id, updatedAt: row.updatedAt, version: row.version }));
 
     return { upserts, deletions };
   });

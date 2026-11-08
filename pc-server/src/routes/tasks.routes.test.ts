@@ -42,3 +42,20 @@ describe('task deletions reach pull clients', () => {
     expect(changes.json().upserts).toHaveLength(1)
   })
 })
+
+describe('flat parentId rows', () => {
+  it('nest under their parent in GET /tasks and /sync/changes; orphans become roots', async () => {
+    const child = { ...task, id: 'c1', title: 'child', parentId: 't1' }
+    const orphan = { ...task, id: 'o1', title: 'orphan', parentId: 'missing' }
+    await app.inject({ method: 'POST', url: '/api/v1/sync/tasks', headers, payload: { upserts: [task, child, orphan] } })
+
+    for (const url of ['/api/v1/tasks', `/api/v1/sync/changes?since=${EPOCH}`]) {
+      const body = (await app.inject({ method: 'GET', url, headers })).json()
+      const roots = body.tasks ?? body.upserts
+      expect(roots.map((t: { id: string }) => t.id).sort()).toEqual(['o1', 't1'])
+      const parent = roots.find((t: { id: string }) => t.id === 't1')
+      expect(parent.subtasks.map((t: { id: string }) => t.id)).toEqual(['c1'])
+    }
+  })
+})
+
