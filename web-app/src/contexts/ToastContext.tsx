@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 
 type ToastType = 'success' | 'error' | 'info'
 
@@ -41,11 +41,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
-  const toast = {
+  // Stable identity so consumers can list `toast` in hook dependencies without re-running
+  // effects every time a toast is shown or dismissed.
+  const toast = useMemo(() => ({
     success: (message: string) => add(message, 'success'),
     error: (message: string) => add(message, 'error'),
     info: (message: string) => add(message, 'info'),
-  }
+  }), [add])
 
   return (
     <ToastContext.Provider value={{ toasts, toast, dismiss }}>
