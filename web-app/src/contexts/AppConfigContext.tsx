@@ -5,15 +5,24 @@ const DEFAULT_API_KEY = 'dev-local-key'
 const LS_SERVER_KEY = 'alcedo_server_url'
 const LS_API_KEY = 'alcedo_api_key'
 
+/** Drops trailing slashes so `${serverUrl}/api/v1/...` never becomes `//api/v1/...` (404). */
+export function normalizeServerUrl(value: string): string {
+  return value.trim().replace(/\/+$/, '')
+}
+
 type AppConfig = {
+  /** Normalized base URL for requests. */
   serverUrl: string
+  /** Raw text of the settings input, kept as typed. */
+  serverUrlInput: string
   apiKey: string
   setServerUrl: (value: string) => void
   setApiKey: (value: string) => void
 }
 
 const AppConfigContext = createContext<AppConfig>({
-  serverUrl: DEFAULT_SERVER,
+  serverUrl: normalizeServerUrl(DEFAULT_SERVER),
+  serverUrlInput: DEFAULT_SERVER,
   apiKey: DEFAULT_API_KEY,
   setServerUrl: () => {},
   setApiKey: () => {},
@@ -38,7 +47,7 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppConfigContext.Provider value={{ serverUrl, apiKey, setServerUrl, setApiKey }}>
+    <AppConfigContext.Provider value={{ serverUrl: normalizeServerUrl(serverUrl), serverUrlInput: serverUrl, apiKey, setServerUrl, setApiKey }}>
       {children}
     </AppConfigContext.Provider>
   )

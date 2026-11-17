@@ -11,7 +11,7 @@ type Props = {
 }
 
 export default function SettingsPage({ loading, onRefresh }: Props) {
-  const { serverUrl, apiKey, setServerUrl, setApiKey } = useAppConfig()
+  const { serverUrlInput, apiKey, setServerUrl, setApiKey } = useAppConfig()
   return (
     <section className="settings-panel">
       <div className="section-header">
@@ -24,7 +24,7 @@ export default function SettingsPage({ loading, onRefresh }: Props) {
           <span className="settings-label">Server URL</span>
           <input
             className="settings-input"
-            value={serverUrl}
+            value={serverUrlInput}
             onChange={e => setServerUrl(e.target.value)}
             placeholder="http://localhost:8787"
           />
