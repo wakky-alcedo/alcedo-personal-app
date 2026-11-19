@@ -75,7 +75,7 @@
   - UI Automation でブラウザのタブタイトル・URL取得（Chrome/Edge/Firefox/Vivaldi/Brave対応）
     - タイトルはページの Document 要素名（ウィンドウタイトルと一致するものを優先）。TabItem の選択状態は Vivaldi で取得できず誤判定もあるため使わない
     - タブ切替直後はウィンドウタイトル・アドレスバー・Document 名が別々のタイミングで切り替わるため、300ms 空けた2回の読み取りが一致し Document 名がウィンドウタイトルと整合したときだけ採用する。揃わなければ URL は記録しない（別タブの URL とタイトルを組み合わせて記録しないため）
-  - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5), MaxBufferedLogs(5000), HttpTimeoutSeconds(20), BrowserUrlTimeoutMs(1200)
+  - `appsettings.json` で設定: ServerUrl, ApiKey, DeviceId(=MachineName), SampleIntervalSeconds(15), SyncIntervalMinutes(5), MaxBufferedLogs(5000), HttpTimeoutSeconds(20), BrowserUrlTimeoutMs(1200), IdleThresholdSeconds(180), MediaSourceAliases({})
   - セッション管理: アクティビティが変化した時のみセッションを完結させてバッファ追加（同一内容継続は記録しない）
   - 5分ごとにバッファをサーバーへ一括 POST
   - サーバー同期が継続的に失敗した場合、バッファは `MaxBufferedLogs` 件を上限に古いものから破棄され、無制限に増加しない（破棄件数はトレイアイコンのステータスに表示）
@@ -85,6 +85,8 @@
   - 終了時にバッファをディスク永続化、次回起動時に再ロード
   - `--diag` フラグ: UI Automation ツリーをファイルダンプする診断モード
   - ディスプレイオフ検知: `GUID_CONSOLE_DISPLAY_STATE` 電源設定通知を受信し、オフ時に現在セッションを終了・サンプリング停止。ディスプレイオフ区間は `category='睡眠'` のセッションとして記録される。記録のないギャップは `'不明'` として表示される。
+  - 操作なし検知: `GetLastInputInfo` で最後のマウス・キーボード入力からの経過時間を見て、`IdleThresholdSeconds` 以上操作がなく前面アプリがメディア再生中でもなければ、現在セッションを作業が止まった時刻（最後の入力、または前面アプリの再生を最後に確認した時刻）で閉じ、操作が戻るまで記録しない（ギャップ = `'不明'`）。判定は `win-tracker/IdleTracker.cs`
+    - 「前面アプリが再生中」は、再生中メディアセッションの `SourceAppUserModelId` に前面プロセス名が含まれるかで判定する（裏で流している音楽では視聴中にしない）。含まれないアプリは `MediaSourceAliases`（プロセス名 → ID の部分文字列）で対応付ける。ID は `--diag` の出力で確認できる。メディアセッションに対応しないプレーヤーは判定できないため、トレイの「一時停止」を使う
 
 ### 4.3 連携
 - Android -> PC: HTTPS REST API

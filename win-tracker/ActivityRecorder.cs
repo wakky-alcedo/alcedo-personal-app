@@ -78,12 +78,16 @@ public static class ActivityRecorder
             (windowTitle, browserUrl) = GetBrowserInfoCached(hwnd, windowTitle, processName, settings.BrowserUrlTimeoutMs);
         }
 
+        var playingAppIds = GetPlayingAppIdsBounded(settings.BrowserUrlTimeoutMs);
         return new ActivityLog
         {
             ProcessName = processName,
             WindowTitle = windowTitle,
             BrowserUrl = browserUrl,
-            IsMediaPlaying = IsMediaPlayingBounded(settings.BrowserUrlTimeoutMs),
+            IsMediaPlaying = playingAppIds is { Count: > 0 },
+            IsForegroundMediaPlaying = playingAppIds == null
+                ? null
+                : MediaSourceMatcher.IsForegroundSource(processName, playingAppIds, settings.MediaSourceAliases),
         };
     }
 
@@ -139,26 +143,27 @@ public static class ActivityRecorder
     }
 
     /// <summary>
-    /// MediaDetector.IsPlaying() はタイムアウトなしの同期WinRT呼び出しのため、
+    /// MediaDetector.GetPlayingAppIds() はタイムアウトなしの同期WinRT呼び出しのため、
     /// BrowserUrlReader と同様に同時実行数を1件に制限した上でタイムアウトを課す。
+    /// タイムアウト・前回の呼び出しが実行中のときは null(判定できなかった)を返す。
     /// </summary>
-    private static bool IsMediaPlayingBounded(int timeoutMs)
+    private static IReadOnlyList<string>? GetPlayingAppIdsBounded(int timeoutMs)
     {
-        if (Interlocked.CompareExchange(ref _mediaInFlight, 1, 0) != 0) return false;
+        if (Interlocked.CompareExchange(ref _mediaInFlight, 1, 0) != 0) return null;
 
         try
         {
             var task = Task.Run(() =>
             {
-                try { return MediaDetector.IsPlaying(); }
+                try { return MediaDetector.GetPlayingAppIds(); }
                 finally { Interlocked.Exchange(ref _mediaInFlight, 0); }
             });
-            return task.Wait(TimeSpan.FromMilliseconds(timeoutMs)) && task.Result;
+            return task.Wait(TimeSpan.FromMilliseconds(timeoutMs)) ? task.Result : null;
         }
         catch
         {
             Interlocked.Exchange(ref _mediaInFlight, 0);
-            return false;
+            return null;
         }
     }
 

@@ -98,6 +98,8 @@ public class SettingsForm : Form
             MaxBufferedLogs       = _current.MaxBufferedLogs,
             HttpTimeoutSeconds    = _current.HttpTimeoutSeconds,
             BrowserUrlTimeoutMs   = _current.BrowserUrlTimeoutMs,
+            IdleThresholdSeconds  = _current.IdleThresholdSeconds,
+            MediaSourceAliases    = _current.MediaSourceAliases,
         };
 
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);

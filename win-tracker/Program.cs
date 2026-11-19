@@ -10,6 +10,7 @@ internal static class Program
     private static SyncService? _syncService;
     private static RuleClassifier? _classifier;
     private static PowerMonitor? _powerMonitor;
+    private static IdleTracker? _idleTracker;
     private static bool _paused;
     private static bool _displayOff;
     private static bool _capturing;
@@ -61,6 +62,8 @@ internal static class Program
         _syncService = new SyncService(
             settings.ServerUrl, settings.ApiKey, settings.DeviceId,
             settings.MaxBufferedLogs, settings.HttpTimeoutSeconds);
+
+        _idleTracker = new IdleTracker(TimeSpan.FromSeconds(settings.IdleThresholdSeconds));
 
         // Build tray icon
         var contextMenu = new ContextMenuStrip();
@@ -131,7 +134,16 @@ internal static class Program
                 // Capture は UI Automation / WinRT のタイムアウト待ちで最大数秒かかるため UI スレッド外で実行する
                 var log = await Task.Run(() => ActivityRecorder.Capture(settings));
                 // 取得中に一時停止・画面オフになった場合は、睡眠区間を上書きしないよう破棄する
-                if (log != null && !_paused && !_displayOff)
+                if (_paused || _displayOff) return;
+
+                var idleSince = _idleTracker!.IdleSince(
+                    DateTime.UtcNow, IdleDetector.GetIdleDuration(), log?.IsForegroundMediaPlaying);
+                if (idleSince != null)
+                {
+                    _syncService.OnIdle(idleSince.Value);
+                    statusItem.Text = "操作なし";
+                }
+                else if (log != null)
                 {
                     _syncService.UpdateActivity(log);
                     statusItem.Text = _syncService.DroppedCount > 0

@@ -54,6 +54,18 @@ public static class DiagDump
         }
 
         W("");
+        W("--- メディアセッション (AppUserModelId / 再生状態) ---");
+        try
+        {
+            foreach (var (appId, status) in MediaDetector.DescribeSessions())
+                W($"  \"{appId}\" {status}");
+        }
+        catch (Exception ex)
+        {
+            W($"  (error: {ex.Message})");
+        }
+
+        W("");
         W("--- UI Automation Tree (depth <= 4) ---");
 
         var window = AutomationElement.FromHandle(hwnd);

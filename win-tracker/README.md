@@ -66,6 +66,8 @@ dotnet publish -c Release -r win-x64 --self-contained true `
 | DeviceId | デバイス識別名（空欄 = PCのホスト名を自動使用） | `""` |
 | SampleIntervalSeconds | アクティビティチェック間隔（秒） | `15` |
 | SyncIntervalMinutes | サーバー同期間隔（分） | `5` |
+| IdleThresholdSeconds | この秒数以上マウス・キーボード操作がなく、前面アプリで動画などを再生中でもなければ「作業なし」（記録しない）にする | `180` |
+| MediaSourceAliases | 前面アプリの再生判定でプロセス名と再生元 ID が一致しないアプリの対応表。例: `{ "firefox": ["308046B0AF4A39CB"] }`（ID は `--diag` の「メディアセッション」欄で確認） | `{}` |
 
 ### rules.json
 

@@ -74,6 +74,29 @@ public class SyncService : IDisposable
     }
 
     /// <summary>
+    /// 操作なし(IdleTracker)と判定されたとき呼び出す。現在のセッションを作業が止まった時刻で閉じる。
+    /// 閉じた後のギャップは画面オフと同じく記録なし(「不明」)として扱われる。
+    /// 操作が戻ると次の UpdateActivity で新セッションが始まる。
+    /// </summary>
+    public void OnIdle(DateTime idleSinceUtc)
+    {
+        lock (_lock)
+        {
+            if (_currentSession == null) return;
+            var startedAt = DateTime.Parse(_currentSession.StartedAt, null, System.Globalization.DateTimeStyles.RoundtripKind)
+                .ToUniversalTime();
+            // 作業が止まった後に始まったセッション(入力なしでの前面切替など)は作業時間を持たないので捨てる
+            if (idleSinceUtc > startedAt)
+            {
+                _currentSession.EndedAt = idleSinceUtc.ToString("o");
+                _completed.Add(_currentSession);
+                TrimToLimit();
+            }
+            _currentSession = null;
+        }
+    }
+
+    /// <summary>
     /// ディスプレイがオンになったとき呼び出す。
     /// 次の UpdateActivity 呼び出しで自動的に新セッションが開始される。
     /// </summary>
