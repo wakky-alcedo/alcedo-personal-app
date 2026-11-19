@@ -85,13 +85,13 @@ public class SyncService : IDisposable
             if (_currentSession == null) return;
             var startedAt = DateTime.Parse(_currentSession.StartedAt, null, System.Globalization.DateTimeStyles.RoundtripKind)
                 .ToUniversalTime();
-            // 作業が止まった後に始まったセッション(入力なしでの前面切替など)は作業時間を持たないので捨てる
-            if (idleSinceUtc > startedAt)
-            {
-                _currentSession.EndedAt = idleSinceUtc.ToString("o");
-                _completed.Add(_currentSession);
-                TrimToLimit();
-            }
+            // 作業が止まった後に始まったセッション(入力なしでの前面切替など)は長さ 0 で閉じる。
+            // 捨てると、同期済みの「記録中」のままサーバーに残り続けるため、必ず終了を送る
+            _currentSession.EndedAt = idleSinceUtc > startedAt
+                ? idleSinceUtc.ToString("o")
+                : _currentSession.StartedAt;
+            _completed.Add(_currentSession);
+            TrimToLimit();
             _currentSession = null;
         }
     }
