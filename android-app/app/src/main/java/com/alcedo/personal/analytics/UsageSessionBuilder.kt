@@ -11,6 +11,7 @@ data class UsageSession(
     val appLabel: String,
     val startedAt: String,   // UTC ISO 8601
     val endedAt: String,     // UTC ISO 8601
+    val endedAtMs: Long,     // endedAt as epoch ms (sync cursor)
     val category: String     // OS標準カテゴリ（未分類はサーバー側で設定）
 )
 
@@ -52,6 +53,7 @@ object UsageSessionBuilder {
                         appLabel    = label,
                         startedAt   = Instant.ofEpochMilli(start).toString(),
                         endedAt     = Instant.ofEpochMilli(event.timeStamp).toString(),
+                        endedAtMs   = event.timeStamp,
                         category    = CategoryMapper.fromOsCategory(osCategory)
                     ))
                 }

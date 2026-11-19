@@ -13,9 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 class UsageStatsSyncWorker(
@@ -25,22 +23,25 @@ class UsageStatsSyncWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         if (!hasUsagePermission(applicationContext)) return@withContext Result.success()
-
-        val zoneId   = ZoneId.systemDefault()
-        // 昨日の06:00〜現在（2日分をカバー）
-        val yesterday = TimeUtils.effectiveLocalDate().minusDays(1).toString()
-        val fromMs   = java.time.LocalDateTime.parse("${yesterday}T06:00:00")
-            .atZone(zoneId).toInstant().toEpochMilli()
-        val toMs     = System.currentTimeMillis()
-
-        val sessions = UsageSessionBuilder.build(applicationContext, fromMs, toMs)
-        if (sessions.isEmpty()) return@withContext Result.success()
-
-        val deviceId  = "${Build.MANUFACTURER} ${Build.MODEL}"
-
         val http = SyncConfig.httpClient(applicationContext) ?: return@withContext Result.success()
-        val ok = pushSessions(http, deviceId, sessions)
-        if (ok) Result.success() else Result.retry()
+        val serverUrl = SyncConfig.getServerUrl(applicationContext)
+
+        // 昨日の DAY_START_HOUR 時〜現在を読む(長いセッションを取りこぼさないため)。送るのは未送信分だけ
+        val zoneId = ZoneId.systemDefault()
+        val fromMs = TimeUtils.effectiveLocalDate().minusDays(1)
+            .atTime(UsageSyncRules.DAY_START_HOUR, 0)
+            .atZone(zoneId).toInstant().toEpochMilli()
+        val toMs = System.currentTimeMillis()
+
+        val cursor = UsageSyncState.getCursor(applicationContext, serverUrl)
+        val unsent = UsageSyncRules.unsent(UsageSessionBuilder.build(applicationContext, fromMs, toMs), cursor)
+        if (unsent.isEmpty()) return@withContext Result.success()
+
+        val deviceId = "${Build.MANUFACTURER} ${Build.MODEL}"
+        if (!pushSessions(http, deviceId, unsent)) return@withContext Result.retry()
+
+        UsageSyncRules.nextCursor(unsent, cursor)?.let { UsageSyncState.saveCursor(applicationContext, serverUrl, it) }
+        Result.success()
     }
 
     private fun pushSessions(
@@ -69,34 +70,30 @@ class UsageStatsSyncWorker(
 
     companion object {
         private const val WORK_NAME = "usage-stats-sync"
+        private const val RUN_NOW_WORK_NAME = "usage-stats-sync-now"
 
+        private fun networkConstraints() =
+            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+        /** UsageSyncRules.SYNC_INTERVAL_MINUTES ごとに同期する。UPDATE で旧来の 1 日 1 回の登録を置き換える */
         fun schedule(context: Context) {
-            // 毎日深夜2時に実行
-            val now          = java.time.LocalTime.now()
-            val target       = java.time.LocalTime.of(2, 0)
-            val initialDelay = if (now.isBefore(target))
-                java.time.Duration.between(now, target).toMinutes()
-            else
-                java.time.Duration.between(now, target.plusHours(24)).toMinutes()
-
-            val request = PeriodicWorkRequestBuilder<UsageStatsSyncWorker>(1, TimeUnit.DAYS)
-                .setInitialDelay(initialDelay, TimeUnit.MINUTES)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
+            val request = PeriodicWorkRequestBuilder<UsageStatsSyncWorker>(
+                UsageSyncRules.SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES
+            )
+                .setConstraints(networkConstraints())
                 .build()
 
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
+        /** アプリを開いたとき・同期ボタン。実行待ちが残っていれば重ねて登録しない */
         fun runNow(context: Context) {
             val request = OneTimeWorkRequestBuilder<UsageStatsSyncWorker>()
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setConstraints(networkConstraints())
                 .build()
-            WorkManager.getInstance(context).enqueue(request)
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(RUN_NOW_WORK_NAME, ExistingWorkPolicy.KEEP, request)
         }
     }
 }

@@ -611,7 +611,7 @@
 - **分析タイムライン**: カテゴリ別時間配分, デバイスフィルタ, 分類ルール管理（正規表現），既存ログ再分類
 - **ActiveTabBanner**: ダッシュボード上部に現在のアクティブウィンドウ/タブをリアルタイム表示
 - **Android 分析画面**: 2タブ構成（タイムライン統合・習慣）。タイムラインタブは①横方向24hタイムライン（`HorizontalDayTimeline`、ピンチズーム1x〜6x・パン対応）＋②作業時間配分 円グラフ（`ActivityPieChart`）＋③上位アプリリスト（スマホ選択時）。デバイスフィルタ（`GET /api/v1/activity/devices`）・`GET /api/v1/activity/summary` からカテゴリ別時間取得。`PACKAGE_USAGE_STATS` 特別アクセス許可が必要。
-- **Android → PC 使用時間同期**: `UsageEvents.queryEvents()` でフォアグラウンド/バックグラウンドイベントから近似セッションを生成し、`POST /api/v1/activity/bulk`（`deviceId = Build.MODEL`）で activity_logs に統合保存。WorkManager で毎日深夜2時に自動実行。web-app のデバイスフィルタでスマホのデータを個別確認可能。
+- **Android → PC 使用時間同期**: `UsageEvents.queryEvents()` でフォアグラウンド/バックグラウンドイベントから近似セッションを生成し、`POST /api/v1/activity/bulk`（`deviceId = Build.MODEL`）で activity_logs に統合保存。WorkManager で 15 分ごと（`UsageSyncRules.SYNC_INTERVAL_MINUTES`）と、アプリを開いたとき（`MainActivity.onStart`）に実行。毎回「昨日の 6:00〜現在」のイベントから区間を作るが、送るのはサーバーが受け付けた最後の区間の終了時刻（`UsageSyncState`、送信先サーバーごと）より後に終わった区間だけ。web-app のデバイスフィルタでスマホのデータを個別確認可能。
 
 ### Phase 2
 - 日次ダッシュボード
